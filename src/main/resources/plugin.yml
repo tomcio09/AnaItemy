@@ -1,0 +1,12 @@
+name: AnaItemy
+version: '${project.version}'
+main: pl.anaheim.anaitemy.AnaItemy
+api-version: '1.20'
+authors: [ ]
+description: Plugin dodający customowe przedmioty eventowe.
+
+commands:
+  itemyeventowe:
+    description: Otwiera GUI z itemami eventowymi.
+    usage: /itemyeventowe
+    permission: anaitemy.admin
