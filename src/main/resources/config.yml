@@ -1,0 +1,5 @@
+# AnaItemy - Konfiguracja
+
+excalibur:
+  # Ilość zabójstw potrzebna do pełnego naładowania miecza
+  max-kills: 100
