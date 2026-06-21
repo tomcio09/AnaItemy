@@ -4,73 +4,92 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.GameMode;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityResurrectEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.TotemUlaskawienia;
 
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
+
 public class TotemListener implements Listener {
 
     private final AnaItemy plugin;
+
+    // Gracze którzy użyli totemu w tej samej sekundzie
+    private final Set<UUID> usedTotem = new HashSet<>();
 
     public TotemListener(AnaItemy plugin) {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onPlayerDeath(PlayerDeathEvent event) {
+    /**
+     * BLOKUJEMY vanilla działanie totemu (najwyższy priorytet)
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void onResurrect(EntityResurrectEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+
+        // Sprawdź czy to nasz custom totem
+        ItemStack item = event.getHand() != null
+                ? player.getInventory().getItem(event.getHand())
+                : null;
+
+        if (!TotemUlaskawienia.isTotemUlaskawienia(item)) return;
+
+        // ANULUJEMY vanilla efekt totemu (gracz nie zostaje wskrzeszony)
+        event.setCancelled(true);
+
+        // Usuwamy totem ręcznie z ręki
+        player.getInventory().setItem(event.getHand(), null);
+
+        // Zapamiętujemy że gracz użył totemu
+        usedTotem.add(player.getUniqueId());
+    }
+
+    /**
+     * Po śmierci aktywujemy keep inventory dla graczy z totemem
+     */
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
-        PlayerInventory inventory = player.getInventory();
 
-        // Sprawdź main hand i offhand
-        ItemStack mainHand = inventory.getItemInMainHand();
-        ItemStack offHand = inventory.getItemInOffHand();
+        if (!usedTotem.contains(player.getUniqueId())) return;
 
-        boolean hasTotem = TotemUlaskawienia.isTotemUlaskawienia(mainHand)
-                || TotemUlaskawienia.isTotemUlaskawienia(offHand);
+        // Usuń gracza z listy
+        usedTotem.remove(player.getUniqueId());
 
-        if (!hasTotem) return;
-
-        // Aktywuj mechanikę totemu
-        // Zachowaj ekwipunek i exp (jak keep inventory)
+        // KEEP INVENTORY + EXP
         event.setKeepInventory(true);
         event.setKeepLevel(true);
         event.getDrops().clear();
         event.setDroppedExp(0);
 
-        // Usuń totem z ręki (zniknie)
-        if (TotemUlaskawienia.isTotemUlaskawienia(mainHand)) {
-            inventory.setItemInMainHand(null);
-        } else {
-            inventory.setItemInOffHand(null);
-        }
-
-        // Wyślij wiadomość do wszystkich
-        String victimName = player.getName();
-        Component deathMessage = color(
-                "&cGracz &7" + victimName + " &czginął z &eTotemem Ułaskawienia&c!"
+        // Wiadomość dla wszystkich graczy
+        Component msg = color(
+                "&cGracz &7" + player.getName() +
+                        " &czginął z &eTotemem Ułaskawienia&c!"
         );
 
         for (Player online : Bukkit.getOnlinePlayers()) {
-            online.sendMessage(deathMessage);
+            online.sendMessage(msg);
         }
 
-        // Po śmierci ulecz gracza do max HP
-        // Używamy schedulera bo podczas eventu śmierci gracz jeszcze ginie
+        // Heal po respawnie (2 ticki opóźnienia)
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (player.isOnline()) {
-                double maxHealth = player.getAttribute(
-                        org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH
-                ).getValue();
-                player.setHealth(maxHealth);
-            }
-        }, 1L);
+            if (!player.isOnline()) return;
+
+            double maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+            player.setHealth(maxHealth);
+        }, 2L);
     }
 
     private Component color(String text) {
