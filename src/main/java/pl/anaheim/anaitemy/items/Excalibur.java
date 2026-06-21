@@ -1,6 +1,5 @@
 package pl.anaheim.anaitemy.items;
 
-import com.google.common.collect.Multimap;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -16,6 +15,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 public class Excalibur {
@@ -26,10 +26,10 @@ public class Excalibur {
     public static final double BASE_DAMAGE = 11.5;
     // Maksymalny damage
     public static final double MAX_DAMAGE = 12.0;
-    // Długość paska postępu (znaki)
-    public static final int BAR_LENGTH = 20;
-    // Znak paska
-    public static final String BAR_CHAR = "█";
+    // Długość paska postępu (znaki) - zmniejszone do 10
+    public static final int BAR_LENGTH = 10;
+    // Znak paska - cienka linia
+    public static final String BAR_CHAR = "▬";
 
     public static ItemStack create(int maxKills) {
         return buildItem(0, maxKills);
@@ -41,15 +41,15 @@ public class Excalibur {
         double percent = maxKills > 0 ? (double) kills / maxKills * 100.0 : 0;
         double attackDamage = calculateDamage(kills, maxKills);
         String progressBar = buildProgressBar(kills, maxKills);
-        String percentStr = String.format("%.0f", percent);
-        String damageStr = String.format("%.2f", attackDamage);
+        String percentStr = String.format(Locale.US, "%.0f", percent);
+        String damageStr = String.format(Locale.US, "%.2f", attackDamage);
 
         List<String> lore = new ArrayList<>();
         lore.add(" &8» &7Jest to przedmiot zdobyty z");
         lore.add(" &8» &fwydarzenia wakacyjnego 2024&7!");
         lore.add("");
         lore.add(" &8» &7Aktualnie zabójstw: &f" + kills);
-        lore.add(" &8» " + progressBar + " &e" + percentStr + "%");
+        lore.add(" &8» " + progressBar + " &a" + percentStr + "%");
         lore.add("");
         lore.add(" &8» &7Zapełnienie paska zapewnia");
         lore.add(" &8» &7Ci &f12 punktów obrażeń&7, co");
@@ -84,11 +84,7 @@ public class Excalibur {
         meta.addEnchant(Enchantment.FIRE_ASPECT, 2, true);
         meta.addEnchant(Enchantment.DURABILITY, 3, true);
 
-        // Attack speed modifier (-2.4 od bazowego)
-        // Bazowy attack speed miecza netheritowego = 1.6 (po odjeciu 4 z bazowego 4)
-        // Chcemy -2.4 od bazowego (4.0), czyli finalnie 1.6 attack speed
-        // Minecraft uzywa modyfikatora: base=4, a netherite sword ma -2.4 modifier
-        // Ustawiamy własny modyfikator attack speed
+        // Attack speed modifier (-2.4)
         meta.addAttributeModifier(Attribute.GENERIC_ATTACK_SPEED,
                 new AttributeModifier(
                         UUID.fromString("FA233E1C-4180-4865-B01B-BCCE9785ACA3"),
@@ -99,21 +95,20 @@ public class Excalibur {
                 ));
 
         // Attack damage modifier
-        // Bazowa wartość atrybutu to 1, modifier ADD_NUMBER dodaje do bazy
-        // Netherite sword ma domyślnie +7 damage (razem 8 damage)
-        // Sharpness 6 dodaje (0.5 + 0.5*6) = 3.5 -> razem 11.5
-        // Ustawiamy nasz własny atrybut żeby nadpisać domyślny
         meta.addAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE,
                 new AttributeModifier(
                         UUID.fromString("CB3F55D3-645C-4F38-A497-9C13A33DB5CF"),
                         "generic.attack_damage",
-                        attackDamage - 1.0, // -1 bo baza to 1
+                        attackDamage - 1.0,
                         AttributeModifier.Operation.ADD_NUMBER,
                         EquipmentSlot.HAND
                 ));
 
-        // Ukryj flagi atrybutów żeby nie pokazywać duplikatów
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        // Ukryj flagi
+        meta.addItemFlags(
+                ItemFlag.HIDE_ATTRIBUTES,
+                ItemFlag.HIDE_ENCHANTS
+        );
 
         item.setItemMeta(meta);
         return item;
@@ -126,18 +121,24 @@ public class Excalibur {
         return BASE_DAMAGE + progress * (MAX_DAMAGE - BASE_DAMAGE);
     }
 
+    /**
+     * Buduje pasek postępu jako ciągłą cienką linię.
+     * Wypełniona część jest zielona (&a), reszta biała (&f).
+     */
     public static String buildProgressBar(int kills, int maxKills) {
-        if (maxKills <= 0) return "&f" + BAR_CHAR.repeat(BAR_LENGTH);
+        if (maxKills <= 0) {
+            return "&f" + BAR_CHAR.repeat(BAR_LENGTH);
+        }
 
-        int filledCount = (int) Math.round((double) kills / maxKills * BAR_LENGTH);
-        if (filledCount > BAR_LENGTH) filledCount = BAR_LENGTH;
+        int filled = (int) Math.round((double) kills / maxKills * BAR_LENGTH);
+        if (filled > BAR_LENGTH) filled = BAR_LENGTH;
 
-        String filled = filledCount > 0 ? "&e" + BAR_CHAR.repeat(filledCount) : "";
-        String empty = (BAR_LENGTH - filledCount) > 0
-                ? "&f" + BAR_CHAR.repeat(BAR_LENGTH - filledCount)
+        String green = filled > 0 ? "&a" + BAR_CHAR.repeat(filled) : "";
+        String white = (BAR_LENGTH - filled) > 0
+                ? "&f" + BAR_CHAR.repeat(BAR_LENGTH - filled)
                 : "";
 
-        return filled + empty;
+        return green + white;
     }
 
     /**
