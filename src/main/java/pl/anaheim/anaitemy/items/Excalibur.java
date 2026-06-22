@@ -27,8 +27,8 @@ public class Excalibur {
     // Maksymalny damage
     public static final double MAX_DAMAGE = 12.0;
 
-    // Długość paska postępu - ile spacji dla pełnego paska
-    public static final int BAR_LENGTH = 30;
+    // Długość paska - nieco krótsza niż "Aktualnie zabójstw:"
+    public static final int BAR_LENGTH = 16;
 
     public static ItemStack create(int maxKills) {
         return buildItem(0, maxKills);
@@ -52,7 +52,7 @@ public class Excalibur {
         lore.add(" &8» &fwydarzenia wakacyjnego 2024&7!");
         lore.add("");
         lore.add(" &8» &7Aktualnie zabójstw: &f" + kills);
-        lore.add(" &8» " + progressBar + " &a" + percentStr + "%");
+        lore.add(" &8» " + progressBar + " &e" + percentStr + "%");
         lore.add("");
         lore.add(" &8» &7Zapełnienie paska zapewnia");
         lore.add(" &8» &7Ci &f12 punktów obrażeń&7, co");
@@ -143,9 +143,9 @@ public class Excalibur {
             if (plain.contains("Aktualnie zabójstw:")) {
                 lore.set(i, colorize(" &8» &7Aktualnie zabójstw: &f" + kills));
             }
-            // Linia z paskiem postępu (oparta o %)
+            // Linia z paskiem postępu (zawiera % i »)
             else if (plain.contains("%") && plain.contains("»")) {
-                lore.set(i, colorize(" &8» " + progressBar + " &a" + percentStr + "%"));
+                lore.set(i, colorize(" &8» " + progressBar + " &e" + percentStr + "%"));
             }
             // Linia z obrażeniami
             else if (plain.contains("Obrażenia od ataku:")) {
@@ -179,11 +179,10 @@ public class Excalibur {
 
     /**
      * Buduje pasek postępu używając STRIKETHROUGH (&m) dla ciągłej linii.
-     * To tworzy wizualnie ciągłą linię bez przerw.
+     * Zielona część wypełniona, biała pusta.
      */
     public static String buildProgressBar(int kills, int maxKills) {
         if (maxKills <= 0) {
-            // Pełny biały pasek ze strikethrough
             return "&f&m" + " ".repeat(BAR_LENGTH);
         }
 
