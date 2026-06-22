@@ -341,7 +341,7 @@ public class HydroKlatkaManager {
                 double distance = blockLoc.distance(center);
                 if (distance > radius) continue;
 
-                // WORLDGUARD CHECK - jeśli blok jest w zablokowanym regionie, pomiń go (dziura)
+                // WORLDGUARD CHECK - jeśli blok jest w zablokowanym regionie, pomiń go
                 if (plugin.getWorldGuardManager().isInBlockedRegion(blockLoc, blockedRegions)) {
                     continue;
                 }
@@ -351,15 +351,49 @@ public class HydroKlatkaManager {
 
                 klatka.addOriginalBlock(blockLoc, block.getBlockData());
 
-                if (distance > radius - 1.0) {
+                // Sprawdź czy to powłoka (shell) lub granica regionu
+                boolean isShell = distance > radius - 1.0;
+                
+                // Sprawdź czy sąsiaduje z zablokowanym regionem
+                boolean isRegionBorder = isNextToBlockedRegion(blockLoc, blockedRegions);
+
+                if (isShell || isRegionBorder) {
+                    // Powłoka klatki LUB granica z zablokowanym regionem
                     block.setType(SHELL);
                 } else if (originalType != Material.AIR &&
                         originalType != Material.CAVE_AIR &&
                         originalType != Material.VOID_AIR) {
+                    // Wnętrze - zamień na wodny odpowiednik
                     block.setType(mapToWaterBlock(originalType));
                 }
             }
         }
+    }
+
+    /**
+     * Sprawdza czy blok sąsiaduje z zablokowanym regionem (w 6 kierunkach: góra, dół, 4 strony)
+     */
+    private boolean isNextToBlockedRegion(Location location, List<String> blockedRegions) {
+        World world = location.getWorld();
+        
+        // Sprawdź 6 kierunków: góra, dół, północ, południe, wschód, zachód
+        Location[] neighbors = {
+            new Location(world, location.getX(), location.getY() + 1, location.getZ()), // góra
+            new Location(world, location.getX(), location.getY() - 1, location.getZ()), // dół
+            new Location(world, location.getX() + 1, location.getY(), location.getZ()), // wschód
+            new Location(world, location.getX() - 1, location.getY(), location.getZ()), // zachód
+            new Location(world, location.getX(), location.getY(), location.getZ() + 1), // południe
+            new Location(world, location.getX(), location.getY(), location.getZ() - 1)  // północ
+        };
+
+        // Jeśli którykolwiek z sąsiednich bloków jest w zablokowanym regionie, to ten blok jest granicą
+        for (Location neighbor : neighbors) {
+            if (plugin.getWorldGuardManager().isInBlockedRegion(neighbor, blockedRegions)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private Material mapToWaterBlock(Material original) {
