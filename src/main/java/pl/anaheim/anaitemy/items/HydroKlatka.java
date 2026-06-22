@@ -10,6 +10,7 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -37,8 +38,8 @@ public class HydroKlatka {
                 .decoration(TextDecoration.ITALIC, false);
         meta.displayName(nameComponent);
 
-        // Lore
-        List<Component> loreComponents = Arrays.asList();
+        // Lore - POPRAWKA: używam ArrayList i dodaję każdy element
+        List<Component> loreComponents = new ArrayList<>();
         for (String line : lore) {
             Component lineComp = LegacyComponentSerializer.legacyAmpersand()
                     .deserialize(line)
