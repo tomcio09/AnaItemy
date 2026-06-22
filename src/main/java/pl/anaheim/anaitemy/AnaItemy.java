@@ -16,7 +16,9 @@ public class AnaItemy extends JavaPlugin {
 
         saveDefaultConfig();
 
-        getCommand("itemyeventowe").setExecutor(new ItemyEventoweCommand(this));
+        ItemyEventoweCommand cmd = new ItemyEventoweCommand(this);
+        getCommand("itemyeventowe").setExecutor(cmd);
+        getCommand("itemyeventowe").setTabCompleter(cmd);
 
         getServer().getPluginManager().registerEvents(new TotemListener(this), this);
         getServer().getPluginManager().registerEvents(new ExcaliburListener(this), this);
