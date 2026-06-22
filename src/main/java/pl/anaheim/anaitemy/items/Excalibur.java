@@ -27,8 +27,8 @@ public class Excalibur {
     // Maksymalny damage
     public static final double MAX_DAMAGE = 12.0;
 
-    // Długość paska - nieco krótsza niż "Aktualnie zabójstw:"
-    public static final int BAR_LENGTH = 16;
+    // Długość paska
+    public static final int BAR_LENGTH = 20;
 
     public static ItemStack create(int maxKills) {
         return buildItem(0, maxKills);
@@ -52,7 +52,7 @@ public class Excalibur {
         lore.add(" &8» &fwydarzenia wakacyjnego 2024&7!");
         lore.add("");
         lore.add(" &8» &7Aktualnie zabójstw: &f" + kills);
-        lore.add(" &8» " + progressBar + " &e" + percentStr + "%");
+        lore.add(" &8» " + progressBar + " &r &e" + percentStr + "%");
         lore.add("");
         lore.add(" &8» &7Zapełnienie paska zapewnia");
         lore.add(" &8» &7Ci &f12 punktów obrażeń&7, co");
@@ -145,7 +145,7 @@ public class Excalibur {
             }
             // Linia z paskiem postępu (zawiera % i »)
             else if (plain.contains("%") && plain.contains("»")) {
-                lore.set(i, colorize(" &8» " + progressBar + " &e" + percentStr + "%"));
+                lore.set(i, colorize(" &8» " + progressBar + " &r &e" + percentStr + "%"));
             }
             // Linia z obrażeniami
             else if (plain.contains("Obrażenia od ataku:")) {
