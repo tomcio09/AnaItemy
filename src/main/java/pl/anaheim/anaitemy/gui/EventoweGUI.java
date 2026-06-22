@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.Excalibur;
+import pl.anaheim.anaitemy.items.HydroKlatka;
 import pl.anaheim.anaitemy.items.TotemUlaskawienia;
 
 public class EventoweGUI {
@@ -29,6 +30,9 @@ public class EventoweGUI {
 
         // Slot 1 - Excalibur
         gui.setItem(1, Excalibur.create(maxKills));
+
+        // Slot 2 - Hydro Klatka
+        gui.setItem(2, HydroKlatka.create());
 
         player.openInventory(gui);
     }
