@@ -3,3 +3,16 @@
 excalibur:
   # Ilość zabójstw potrzebna do pełnego naładowania miecza
   max-kills: 100
+
+hydroklatka:
+  # Promień klatki (bloki)
+  radius: 7
+  
+  # Czas trwania klatki (sekundy)
+  duration: 15
+  
+  # Czas animacji budowania (ticki, 20 = 1 sekunda)
+  animation-duration: 60
+  
+  # Cooldown między użyciami (sekundy)
+  cooldown: 180
