@@ -34,6 +34,8 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new GUIListener(this), this);
         getServer().getPluginManager().registerEvents(new HydroKlatkaListener(this), this);
         getServer().getPluginManager().registerEvents(new HydroKlatkaBlockListener(this), this);
+        getServer().getPluginManager().registerEvents(new HydroKlatkaMovementListener(this), this);
+        getServer().getPluginManager().registerEvents(new HydroKlatkaJoinListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
