@@ -1,12 +1,10 @@
 package pl.anaheim.anaitemy.listeners;
 
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.Excalibur;
@@ -19,10 +17,13 @@ public class ExcaliburListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onEntityDeath(EntityDeathEvent event) {
-        LivingEntity entity = event.getEntity();
-        Player killer = entity.getKiller();
+    /**
+     * Liczy zabójstwa TYLKO GRACZY (nie mobów).
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerKill(PlayerDeathEvent event) {
+        Player victim = event.getEntity();
+        Player killer = victim.getKiller();
 
         // Sprawdź czy zabójcą jest gracz
         if (killer == null) return;
@@ -39,8 +40,8 @@ public class ExcaliburListener implements Listener {
 
         int newKills = currentKills + 1;
 
-        // Zbuduj nowy item z zaktualizowanymi kills
-        ItemStack updatedItem = Excalibur.buildItem(newKills, maxKills);
+        // Zaktualizuj kills (edytuje tylko konkretne linie)
+        ItemStack updatedItem = Excalibur.updateKills(itemInHand, newKills, maxKills);
 
         // Ustaw zaktualizowany item w ręce
         killer.getInventory().setItemInMainHand(updatedItem);
