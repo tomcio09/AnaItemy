@@ -149,3 +149,75 @@ hydro-klatka:
   # Action bar podczas cooldownu
   actionbar:
     cooldown-format: '&fStrzał z &3Hydro klatki &fza: &b{time}s'
+
+# ==========================================
+#         RÓŻDŻKA ILUZJONISTY
+# ==========================================
+rozdzka-iluzjonisty:
+  # Materiał itemu
+  material: GOLDEN_HOE
+  # Nazwa itemu
+  name: '&5&lRóżdżka Iluzjonisty'
+  # Opis itemu
+  lore:
+    - ''
+    - ' &8» &7Jest to przedmiot zdobyty podczas'
+    - ' &8» &fwydarzenia cyrkowego 2025&7!'
+    - ''
+    - ' &8» &7LPM: przywołuje &dSzczęki Evokera'
+    - ' &8» &7atakujące przeciwników na wprost.'
+    - ''
+    - ' &8» &7PPM: &dznikasz &7na &e4s &7i tworzysz'
+    - ' &8» &dklona &7biegnącego do przodu.'
+    - ''
+  # Custom Model Data
+  custom-model-data: 1
+  # Slot w GUI (0-53)
+  gui-slot: 3
+  # Enchanty
+  enchants:
+    unbreaking: 10
+  
+  # === SZCZĘKI EVOKERA (LPM) ===
+  fangs:
+    # Cooldown (sekundy)
+    cooldown: 20
+    # Długość każdego paska szczęk (bloki)
+    length: 7
+    # Szerokość formacji (pasków)
+    width: 3
+    # Odstęp między paskami (bloki)
+    spacing: 0.8
+    # Damage pierwszej szczęki która trafi (połówki serc)
+    damage: 12
+    # Szybkość lotu szczęk (bloków/tick)
+    speed: 0.5
+    # Wiadomości
+    messages:
+      activated: '&aSzczęki Evokera &7zostały &aaktywowane&7!'
+      cooldown-title: '&cUmiejętność w odnowieniu'
+      cooldown-subtitle: '&7Do użycia za: &e{seconds}s'
+  
+  # === ZNIKNIĘCIE (PPM) ===
+  vanish:
+    # Cooldown (sekundy)
+    cooldown: 60
+    # Czas trwania zniknięcia (sekundy)
+    duration: 4
+    # Szybkość ruchu NPC
+    npc-speed: 1.0
+    # Dźwięki
+    sounds:
+      activate: ENTITY_ENDERMAN_AMBIENT
+      deactivate: ENTITY_ENDERMAN_TELEPORT
+    # Wiadomości
+    messages:
+      activated: '&aZniknięcie &7zostało &aaktywowane&7!'
+      cooldown-title: '&cUmiejętność w odnowieniu'
+      cooldown-subtitle: '&7Do użycia za: &e{seconds}s'
+  
+  # Zablokowane regiony WorldGuard
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
