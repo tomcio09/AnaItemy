@@ -9,6 +9,7 @@ import org.bukkit.inventory.Inventory;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.Excalibur;
 import pl.anaheim.anaitemy.items.HydroKlatka;
+import pl.anaheim.anaitemy.items.RozdzkailuzjonistyItem;
 import pl.anaheim.anaitemy.items.TotemUlaskawienia;
 
 public class EventoweGUI {
@@ -16,7 +17,7 @@ public class EventoweGUI {
     public static final String GUI_TITLE_PLAIN = "Itemy Eventowe";
 
     public static void open(Player player, AnaItemy plugin) {
-        int maxKills = plugin.getConfig().getInt("excalibur.max-kills", 100);
+        int maxKills = plugin.getItemsConfig().getExcaliburMaxKills();
 
         Component title = LegacyComponentSerializer.legacyAmpersand()
                 .deserialize("&8&lItemy Eventowe")
@@ -33,6 +34,9 @@ public class EventoweGUI {
 
         // Slot 2 - Hydro Klatka
         gui.setItem(2, HydroKlatka.create());
+
+        // Slot 3 - Różdżka Iluzjonisty
+        gui.setItem(3, RozdzkailuzjonistyItem.create());
 
         player.openInventory(gui);
     }
