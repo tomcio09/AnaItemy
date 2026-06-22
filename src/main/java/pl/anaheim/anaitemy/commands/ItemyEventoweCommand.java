@@ -122,16 +122,17 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+        HydroKlatkaManager hydroManager = plugin.getHydroKlatkaManager();
+        RozdzkailuzjonistyManager rozdzkaManager = plugin.getRozdzkailuzjonistyManager();
 
         // Reset cooldownu Hydro Klatki
-        manager.resetCooldown(target);
-
-        // Reset wizualnego cooldownu (szare tło na slocie)
+        hydroManager.resetCooldown(target);
         target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
+        hydroManager.stopCooldownDisplay(target);
 
-        // Zatrzymaj action bar display
-        manager.stopCooldownDisplay(target);
+        // Reset cooldownów Różdżki Iluzjonisty
+        rozdzkaManager.resetFangsCooldown(target);
+        rozdzkaManager.resetVanishCooldown(target);
 
         // Wiadomości
         sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
