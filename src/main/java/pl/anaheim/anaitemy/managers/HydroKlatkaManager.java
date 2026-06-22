@@ -152,6 +152,8 @@ public class HydroKlatkaManager {
         if (task != null) {
             task.cancel();
         }
+        // Wyczyść action bar
+        player.sendActionBar(net.kyori.adventure.text.Component.empty());
     }
 
     // ==================== MESSAGES ====================
