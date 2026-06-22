@@ -2,6 +2,7 @@ package pl.anaheim.anaitemy;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import pl.anaheim.anaitemy.commands.ItemyEventoweCommand;
+import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.listeners.*;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 
@@ -9,12 +10,15 @@ public class AnaItemy extends JavaPlugin {
 
     private static AnaItemy instance;
     private HydroKlatkaManager hydroKlatkaManager;
+    private ItemsConfig itemsConfig;
 
     @Override
     public void onEnable() {
         instance = this;
 
+        // Konfiguracje
         saveDefaultConfig();
+        itemsConfig = new ItemsConfig(this);
 
         // Inicjalizacja managerów
         hydroKlatkaManager = new HydroKlatkaManager(this);
@@ -36,11 +40,9 @@ public class AnaItemy extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        // Cleanup Hydro Klatki przy wyłączaniu
         if (hydroKlatkaManager != null) {
             hydroKlatkaManager.cleanup();
         }
-        
         getLogger().info("AnaItemy zostal wylaczony!");
     }
 
@@ -50,5 +52,9 @@ public class AnaItemy extends JavaPlugin {
 
     public HydroKlatkaManager getHydroKlatkaManager() {
         return hydroKlatkaManager;
+    }
+
+    public ItemsConfig getItemsConfig() {
+        return itemsConfig;
     }
 }
