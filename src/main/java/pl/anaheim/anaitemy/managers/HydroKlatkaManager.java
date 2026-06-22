@@ -330,6 +330,8 @@ public class HydroKlatkaManager {
         Location center = klatka.getCenter();
         int radius = klatka.getRadius();
         World world = center.getWorld();
+        ItemsConfig config = plugin.getItemsConfig();
+        List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
 
         for (int x = -radius; x <= radius; x++) {
             for (int z = -radius; z <= radius; z++) {
@@ -338,7 +340,11 @@ public class HydroKlatkaManager {
 
                 double distance = blockLoc.distance(center);
                 if (distance > radius) continue;
-                if (isInBlockedRegion(blockLoc)) continue;
+
+                // WORLDGUARD CHECK - jeśli blok jest w zablokowanym regionie, pomiń go (dziura)
+                if (plugin.getWorldGuardManager().isInBlockedRegion(blockLoc, blockedRegions)) {
+                    continue;
+                }
 
                 Block block = blockLoc.getBlock();
                 Material originalType = block.getType();
@@ -447,11 +453,9 @@ public class HydroKlatkaManager {
     // ==================== BLOCK PROTECTION ====================
 
     public boolean isInBlockedRegion(Location location) {
-        // TODO: WorldGuard integration
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
-        // Sprawdź czy lokalizacja jest w zablokowanym regionie
-        return false;
+        return plugin.getWorldGuardManager().isInBlockedRegion(location, blockedRegions);
     }
 
     public boolean isShellBlock(Location location) {
@@ -486,8 +490,7 @@ public class HydroKlatkaManager {
     }
 
     public boolean canBreakBlock(Player player, Location location) {
-        // TODO: WorldGuard integration
-        return true;
+        return plugin.getWorldGuardManager().canBreakBlock(location);
     }
 
     public void markBlockAsDestroyed(Location location) {
