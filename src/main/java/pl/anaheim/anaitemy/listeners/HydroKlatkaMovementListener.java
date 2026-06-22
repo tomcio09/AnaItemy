@@ -9,15 +9,17 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import pl.anaheim.anaitemy.AnaItemy;
+import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.models.ActiveHydroKlatka;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
+
+import java.util.List;
 
 public class HydroKlatkaMovementListener implements Listener {
 
     private final AnaItemy plugin;
 
-    // Margines przy granicy klatki - jak blisko granicy gracz może podejść
-    // zanim zostanie cofnięty (w blokach)
+    // Margines przy granicy klatki
     private static final double BORDER_MARGIN = 0.5;
 
     public HydroKlatkaMovementListener(AnaItemy plugin) {
@@ -43,9 +45,35 @@ public class HydroKlatkaMovementListener implements Listener {
         double distanceTo = to.distance(center);
         double distanceFrom = from.distance(center);
 
+        // Sprawdź czy gracz próbuje wejść do zablokowanego regionu
+        ItemsConfig config = plugin.getItemsConfig();
+        List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
+        
+        boolean movingToBlockedRegion = plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions);
+        boolean wasInBlockedRegion = plugin.getWorldGuardManager().isInBlockedRegion(from, blockedRegions);
+
+        // Jeśli gracz próbuje wejść do zablokowanego regionu - zablokuj
+        if (movingToBlockedRegion && !wasInBlockedRegion) {
+            // Cofnij graczą - "buguj" go
+            Location cancelLoc = from.clone();
+            cancelLoc.setYaw(to.getYaw());
+            cancelLoc.setPitch(to.getPitch());
+            event.setTo(cancelLoc);
+            return;
+        }
+
+        // Jeśli gracz jest już w zablokowanym regionie - teleportuj na środek
+        if (movingToBlockedRegion) {
+            Location teleportLoc = center.clone();
+            teleportLoc.setYaw(to.getYaw());
+            teleportLoc.setPitch(to.getPitch());
+            event.setCancelled(true);
+            player.teleport(teleportLoc);
+            return;
+        }
+
         // Gracz jest już poza klatką - teleportuj na środek
         if (distanceTo > radius) {
-            // Teleport na środek z zachowaniem yaw/pitch
             Location teleportLoc = center.clone();
             teleportLoc.setYaw(to.getYaw());
             teleportLoc.setPitch(to.getPitch());
@@ -57,10 +85,8 @@ public class HydroKlatkaMovementListener implements Listener {
         // Gracz jest przy granicy klatki - zablokuj ruch w kierunku wyjścia
         if (distanceTo >= radius - BORDER_MARGIN) {
             // Sprawdź czy gracz porusza się W KIERUNKU granicy
-            // (distanceTo > distanceFrom oznacza że oddala się od centrum)
             if (distanceTo > distanceFrom) {
                 // Anuluj ruch - cofnij do poprzedniej pozycji
-                // ale zachowaj yaw/pitch żeby gracz mógł się obracać
                 Location cancelLoc = from.clone();
                 cancelLoc.setYaw(to.getYaw());
                 cancelLoc.setPitch(to.getPitch());
@@ -83,16 +109,25 @@ public class HydroKlatkaMovementListener implements Listener {
             Location to = event.getTo();
             if (to == null) return;
             Location center = klatka.getCenter();
-            // Jeśli teleport jest do centrum klatki - pozwól
             if (to.distance(center) < 2.0) return;
         }
 
-        // Zablokuj teleport poza klatkę (ender perła, komenda itp.)
         Location to = event.getTo();
         if (to == null) return;
         Location center = klatka.getCenter();
 
+        // Zablokuj teleport poza klatkę
         if (to.distance(center) > klatka.getRadius()) {
+            event.setCancelled(true);
+            manager.sendMessage(player,
+                    plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+            return;
+        }
+
+        // Zablokuj teleport do zablokowanego regionu
+        ItemsConfig config = plugin.getItemsConfig();
+        List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
+        if (plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions)) {
             event.setCancelled(true);
             manager.sendMessage(player,
                     plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
@@ -101,14 +136,11 @@ public class HydroKlatkaMovementListener implements Listener {
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        // Jeśli gracz wyjdzie z serwera będąc w klatce
-        // po powrocie sprawdzimy czy klatka nadal istnieje
         Player player = event.getPlayer();
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
 
         if (klatka != null) {
-            // Zapamiętaj że gracz wyszedł z serwera
             klatka.addOfflinePlayer(player.getUniqueId());
         }
     }
