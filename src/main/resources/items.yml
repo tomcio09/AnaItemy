@@ -1,0 +1,150 @@
+# ==========================================
+#         AnaItemy - Konfiguracja Itemów
+# ==========================================
+
+# ==========================================
+#         TOTEM UŁASKAWIENIA
+# ==========================================
+totem-ulaskawienia:
+  # Materiał itemu
+  material: TOTEM_OF_UNDYING
+  # Nazwa itemu (obsługuje kody kolorów &)
+  name: '&5&lTotem Ułaskawienia'
+  # Opis itemu
+  lore:
+    - ''
+    - ' &8» &7Jest to przedmiot z:'
+    - ' &8» &feventu halloween (2023)'
+    - ''
+    - ' &8» &7Trzymając go po śmierci &dnie'
+    - ' &8» &dstracisz &7swoich przedmiotów'
+  # Custom Model Data
+  custom-model-data: 1
+  # Slot w GUI (0-53)
+  gui-slot: 0
+  # Wiadomość globalna po użyciu totemu
+  messages:
+    death: '&cGracz &7{victim} &czginął z &eTotemem Ułaskawienia&c!'
+  # Zablokowane regiony WorldGuard (totem nie działa w tych regionach)
+  blocked-regions: []
+
+# ==========================================
+#         EXCALIBUR
+# ==========================================
+excalibur:
+  # Materiał itemu
+  material: NETHERITE_SWORD
+  # Nazwa itemu
+  name: '&e&lExcalibur'
+  # Custom Model Data
+  custom-model-data: 5
+  # Slot w GUI (0-53)
+  gui-slot: 1
+  # Enchanty
+  enchants:
+    sharpness: 6
+    fire-aspect: 2
+    unbreaking: 3
+  # Atrybut prędkości ataku (domyślny miecz netheritowy to -2.4)
+  attack-speed: -2.0
+  # Bazowe obrażenia (przy 0 killach)
+  base-damage: 11.5
+  # Maksymalne obrażenia (przy max killach)
+  max-damage: 12.0
+  # Maksymalna liczba zabójstw do osiągnięcia max obrażeń
+  max-kills: 100
+  # Długość paska postępu (znaki)
+  bar-length: 20
+  # Wiadomości
+  messages:
+    kills-set: '&aUstawiono zabójstwa Excalibura na: &f{kills}'
+    not-holding: '&cMusisz trzymać Excalibur w ręku!'
+    invalid-number: '&cPodaj poprawną liczbę!'
+    negative-number: '&cLiczba zabójstw nie może być ujemna!'
+  # Zablokowane regiony WorldGuard (kille nie liczą się w tych regionach)
+  blocked-regions: []
+
+# ==========================================
+#         HYDRO KLATKA
+# ==========================================
+hydro-klatka:
+  # Materiał itemu
+  material: BLAZE_ROD
+  # Nazwa itemu
+  name: '&3&lWyrzutnia Hydro Klatki'
+  # Opis itemu
+  lore:
+    - ''
+    - ' &8» &7Jest to przedmiot zdobyty podczas'
+    - ' &8» &fwydarzenia wakacyjnego 2025&7!'
+    - ''
+    - ' &8» &7Po użyciu wystrzeliwuje pocisk, który'
+    - ' &8» &7tworzy &3wodną klatkę &7uwięziającą'
+    - ' &8» &7przeciwników w miejscu!'
+  # Custom Model Data
+  custom-model-data: 2
+  # Slot w GUI (0-53)
+  gui-slot: 2
+  # Cooldown między użyciami (sekundy)
+  cooldown: 180
+  # Ustawienia klatki
+  cage:
+    # Promień klatki (bloki)
+    radius: 7
+    # Czas trwania klatki (sekundy)
+    duration: 15
+    # Czas animacji budowania (ticki, 20 = 1 sekunda)
+    animation-duration: 60
+  # Dźwięki
+  sounds:
+    # Dźwięk strzału
+    shoot:
+      sound: ITEM_CROSSBOW_SHOOT
+      volume: 2.0
+      pitch: 1.0
+    # Dźwięk tworzenia klatki (custom z resource packa)
+    cage-create:
+      custom-sound: 'custom.hydroklatka'
+      volume: 3.0
+      pitch: 1.0
+    # Dźwięk wybuchu przy tworzeniu
+    cage-explode:
+      sound: ENTITY_GENERIC_EXPLODE
+      volume: 1.5
+      pitch: 1.0
+    # Dźwięk usunięcia klatki
+    cage-remove:
+      sound: ENTITY_GENERIC_SPLASH
+      volume: 1.5
+      pitch: 1.2
+    # Dźwięk gdy chunk zablokowany
+    chunk-blocked:
+      sound: BLOCK_GLASS_BREAK
+      volume: 1.0
+      pitch: 0.5
+  # BossBar dla uwięzionych graczy
+  bossbar:
+    title: '&bHydroklatka &f{time}s'
+    color: BLUE
+  # Zablokowane przedmioty w klatce
+  blocked-items:
+    - ENDER_PEARL
+    - EGG
+    - FIRE_CHARGE
+    - WATER_BUCKET
+    - LAVA_BUCKET
+  # Zablokowane regiony WorldGuard (nie można użyć wyrzutni w tych regionach)
+  blocked-regions: 
+    - spawn
+    - endspawn
+    - netherspawn
+    - netherspawnpvp
+  # Wiadomości
+  messages:
+    cooldown: '&cNie możesz używać tego tak szybko! Pozostało: &f{time}s'
+    chunk-blocked: '&cNie możesz w tym miejscu stworzyć klatki!'
+    blocked-region: '&cNie możesz użyć wyrzutni w tym regionie!'
+    cannot-use-in-cage: '&cNie możesz tego zrobić w Hydro Klatce!'
+  # Action bar podczas cooldownu
+  actionbar:
+    cooldown-format: '&bHydro Klatka: &f{time}s'
