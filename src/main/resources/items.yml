@@ -147,4 +147,4 @@ hydro-klatka:
     cannot-use-in-cage: '&cNie możesz tego zrobić w Hydro Klatce!'
   # Action bar podczas cooldownu
   actionbar:
-    cooldown-format: '&bHydro Klatka: &f{time}s'
+    cooldown-format: '&b&lHydro Klatka&f: &b{time}s'
