@@ -84,9 +84,7 @@ public class Excalibur {
         meta.addEnchant(Enchantment.FIRE_ASPECT, 2, true);
         meta.addEnchant(Enchantment.DURABILITY, 3, true);
 
-        // Attack speed modifier (-2.0 = nieco szybsze bicie niż zwykły netherite sword)
-        // Netherite sword domyślnie: -2.4 (1.6 attack speed)
-        // Excalibur: -2.0 (2.0 attack speed) = szybsze
+        // Attack speed modifier (-2.0 = nieco szybsze bicie)
         meta.addAttributeModifier(Attribute.GENERIC_ATTACK_SPEED,
                 new AttributeModifier(
                         UUID.fromString("FA233E1C-4180-4865-B01B-BCCE9785ACA3"),
@@ -116,6 +114,62 @@ public class Excalibur {
         return item;
     }
 
+    /**
+     * EDYTUJE TYLKO KONKRETNE LINIE w istniejącym itemie (nie nadpisuje całego).
+     * Używane przy komendzie /itemyeventowe kills <liczba>
+     */
+    public static ItemStack updateKills(ItemStack item, int kills, int maxKills) {
+        if (!isExcalibur(item)) return item;
+        if (kills > maxKills) kills = maxKills;
+
+        ItemMeta meta = item.getItemMeta();
+        List<Component> lore = meta.lore();
+        if (lore == null) lore = new ArrayList<>();
+
+        double percent = maxKills > 0 ? (double) kills / maxKills * 100.0 : 0;
+        double attackDamage = calculateDamage(kills, maxKills);
+        String progressBar = buildProgressBar(kills, maxKills);
+        String percentStr = String.format(Locale.US, "%.0f", percent);
+        String damageStr = String.format(Locale.US, "%.2f", attackDamage);
+
+        // Edytuj tylko konkretne linie
+        for (int i = 0; i < lore.size(); i++) {
+            String plain = PlainTextComponentSerializer.plainText().serialize(lore.get(i));
+
+            // Linia z liczbą zabójstw
+            if (plain.contains("Aktualnie zabójstw:")) {
+                lore.set(i, colorize(" &8» &7Aktualnie zabójstw: &f" + kills));
+            }
+            // Linia z paskiem postępu
+            else if (plain.contains("━") || plain.contains("%")) {
+                // Sprawdź czy to linia paska (zawiera pasek lub procent)
+                if (plain.contains("»") && !plain.contains("Aktualnie")) {
+                    lore.set(i, colorize(" &8» " + progressBar + " &a" + percentStr + "%"));
+                }
+            }
+            // Linia z obrażeniami
+            else if (plain.contains("Obrażenia od ataku:")) {
+                lore.set(i, colorize(" &8» &7Obrażenia od ataku: &f" + damageStr));
+            }
+        }
+
+        meta.lore(lore);
+
+        // Zaktualizuj attack damage atrybut
+        meta.removeAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE);
+        meta.addAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE,
+                new AttributeModifier(
+                        UUID.fromString("CB3F55D3-645C-4F38-A497-9C13A33DB5CF"),
+                        "generic.attack_damage",
+                        attackDamage - 1.0,
+                        AttributeModifier.Operation.ADD_NUMBER,
+                        EquipmentSlot.HAND
+                ));
+
+        item.setItemMeta(meta);
+        return item;
+    }
+
     public static double calculateDamage(int kills, int maxKills) {
         if (maxKills <= 0) return BASE_DAMAGE;
         if (kills >= maxKills) return MAX_DAMAGE;
@@ -125,7 +179,6 @@ public class Excalibur {
 
     /**
      * Buduje pasek postępu jako ciągłą cienką linię.
-     * Wypełniona część jest zielona (&a), reszta biała (&f).
      */
     public static String buildProgressBar(int kills, int maxKills) {
         if (maxKills <= 0) {
@@ -144,7 +197,7 @@ public class Excalibur {
     }
 
     /**
-     * Sprawdza czy ItemStack to Excalibur po nazwie i custom model data.
+     * Sprawdza czy ItemStack to Excalibur.
      */
     public static boolean isExcalibur(ItemStack item) {
         if (item == null || item.getType() != Material.NETHERITE_SWORD) return false;
@@ -169,7 +222,6 @@ public class Excalibur {
 
         for (Component line : lore) {
             String plain = PlainTextComponentSerializer.plainText().serialize(line);
-            // Szukamy linii "» Aktualnie zabójstw: X"
             if (plain.contains("Aktualnie zabójstw:")) {
                 String[] parts = plain.split(":");
                 if (parts.length >= 2) {
@@ -182,5 +234,11 @@ public class Excalibur {
             }
         }
         return 0;
+    }
+
+    private static Component colorize(String text) {
+        return LegacyComponentSerializer.legacyAmpersand()
+                .deserialize(text)
+                .decoration(TextDecoration.ITALIC, false);
     }
 }
