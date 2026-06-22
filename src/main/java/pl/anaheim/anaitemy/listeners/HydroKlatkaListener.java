@@ -17,6 +17,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
+import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.items.HydroKlatka;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 
@@ -41,6 +42,7 @@ public class HydroKlatkaListener implements Listener {
         event.setCancelled(true);
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+        ItemsConfig config = plugin.getItemsConfig();
 
         // Sprawdź cooldown gracza
         if (manager.isPlayerOnCooldown(player)) {
@@ -50,7 +52,7 @@ public class HydroKlatkaListener implements Listener {
 
         // Sprawdź region WorldGuard
         if (manager.isInBlockedRegion(player.getLocation())) {
-            manager.sendMessage(player, "&cNie możesz użyć wyrzutni w tym regionie!");
+            manager.sendMessage(player, config.getHydroKlatkaMessageBlockedRegion());
             return;
         }
 
@@ -60,9 +62,16 @@ public class HydroKlatkaListener implements Listener {
         // Ustaw cooldown
         manager.setCooldown(player);
 
-        // Dźwięk strzału
-        player.playSound(player.getLocation(), Sound.ITEM_CROSSBOW_SHOOT,
-                SoundCategory.PLAYERS, 2.0f, 1.0f);
+        // Dźwięk strzału z configu
+        try {
+            Sound shootSound = Sound.valueOf(config.getHydroKlatkaShootSound());
+            player.playSound(player.getLocation(), shootSound,
+                    SoundCategory.PLAYERS,
+                    config.getHydroKlatkaShootVolume(),
+                    config.getHydroKlatkaShootPitch());
+        } catch (IllegalArgumentException e) {
+            plugin.getLogger().warning("Nieprawidłowy dźwięk strzału: " + config.getHydroKlatkaShootSound());
+        }
     }
 
     private void shootFireball(Player player) {
@@ -75,7 +84,6 @@ public class HydroKlatkaListener implements Listener {
         fireball.setYield(0f);
         fireball.setIsIncendiary(false);
 
-        // Oznacz jako Hydro Klatka pocisk
         fireball.setMetadata("hydro_klatka", new FixedMetadataValue(plugin, true));
     }
 
@@ -87,23 +95,30 @@ public class HydroKlatkaListener implements Listener {
         if (!projectile.hasMetadata("hydro_klatka")) return;
         if (!(projectile.getShooter() instanceof Player)) return;
 
-        // Usuń fireball
         projectile.remove();
 
         Player shooter = (Player) projectile.getShooter();
         Location hitLocation = projectile.getLocation();
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+        ItemsConfig config = plugin.getItemsConfig();
 
-        // Sprawdź chunk cooldown - dźwięk szkła tylko tutaj
+        // Sprawdź chunk cooldown - dźwięk szkła z configu
         if (manager.isChunkBlocked(hitLocation)) {
-            manager.sendMessage(shooter, "&cNie możesz w tym miejscu stworzyć klatki!");
-            shooter.playSound(shooter.getLocation(), Sound.BLOCK_GLASS_BREAK,
-                    SoundCategory.PLAYERS, 1.0f, 0.5f);
+            manager.sendMessage(shooter, config.getHydroKlatkaMessageChunkBlocked());
+
+            try {
+                Sound blockSound = Sound.valueOf(config.getHydroKlatkaChunkBlockedSound());
+                shooter.playSound(shooter.getLocation(), blockSound,
+                        SoundCategory.PLAYERS,
+                        config.getHydroKlatkaChunkBlockedVolume(),
+                        config.getHydroKlatkaChunkBlockedPitch());
+            } catch (IllegalArgumentException e) {
+                plugin.getLogger().warning("Nieprawidłowy dźwięk chunk-blocked: " + config.getHydroKlatkaChunkBlockedSound());
+            }
             return;
         }
 
-        // Stwórz klatkę (wewnątrz są dźwięki wybuchu + custom)
         manager.createKlatka(hitLocation, shooter);
     }
 
