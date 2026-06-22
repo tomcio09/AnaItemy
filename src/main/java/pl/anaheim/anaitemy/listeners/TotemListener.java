@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
+import org.bukkit.GameRule;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -12,7 +13,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityResurrectEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.TotemUlaskawienia;
 
@@ -24,7 +24,7 @@ public class TotemListener implements Listener {
 
     private final AnaItemy plugin;
 
-    // Gracze którzy użyli totemu w tej samej sekundzie
+    // Gracze którzy użyli totemu
     private final Set<UUID> usedTotem = new HashSet<>();
 
     public TotemListener(AnaItemy plugin) {
@@ -32,7 +32,7 @@ public class TotemListener implements Listener {
     }
 
     /**
-     * BLOKUJEMY vanilla działanie totemu (najwyższy priorytet)
+     * BLOKUJEMY vanilla działanie totemu
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onResurrect(EntityResurrectEvent event) {
@@ -45,7 +45,7 @@ public class TotemListener implements Listener {
 
         if (!TotemUlaskawienia.isTotemUlaskawienia(item)) return;
 
-        // ANULUJEMY vanilla efekt totemu (gracz nie zostaje wskrzeszony)
+        // ANULUJEMY vanilla efekt totemu
         event.setCancelled(true);
 
         // Usuwamy totem ręcznie z ręki
@@ -56,7 +56,7 @@ public class TotemListener implements Listener {
     }
 
     /**
-     * Po śmierci aktywujemy keep inventory dla graczy z totemem
+     * Po śmierci aktywujemy keep inventory i instant respawn
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onDeath(PlayerDeathEvent event) {
@@ -83,13 +83,18 @@ public class TotemListener implements Listener {
             online.sendMessage(msg);
         }
 
-        // Heal po respawnie (2 ticki opóźnienia)
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (!player.isOnline()) return;
-
-            double maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
-            player.setHealth(maxHealth);
-        }, 2L);
+        // INSTANT RESPAWN - bez ekranu śmierci
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            player.spigot().respawn();
+            
+            // Heal do max HP po respawnie
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!player.isOnline()) return;
+                
+                double maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+                player.setHealth(maxHealth);
+            });
+        });
     }
 
     private Component color(String text) {
