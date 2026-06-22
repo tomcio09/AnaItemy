@@ -475,4 +475,7 @@ public class HydroKlatkaManager {
         playerCooldowns.clear();
         chunkCooldowns.clear();
     }
+    public void resetCooldown(Player player) {
+        playerCooldowns.remove(player.getUniqueId());
+    }
 }
