@@ -478,4 +478,12 @@ public class HydroKlatkaManager {
     public void resetCooldown(Player player) {
         playerCooldowns.remove(player.getUniqueId());
     }
+    public ActiveHydroKlatka getKlatkaForPlayer(Player player) {
+        for (ActiveHydroKlatka klatka : activeKlatki.values()) {
+            if (klatka.isPlayerTrapped(player.getUniqueId())) {
+                return klatka;
+            }
+        }
+        return null;
+    }
 }
