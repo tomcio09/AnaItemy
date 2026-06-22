@@ -6,13 +6,13 @@ excalibur:
 
 hydroklatka:
   # Promień klatki (bloki)
-  radius: 7
+  radius: 8
   
   # Czas trwania klatki (sekundy)
-  duration: 15
+  duration: 10
   
   # Czas animacji budowania (ticki, 20 = 1 sekunda)
-  animation-duration: 60
+  animation-duration: 30
   
   # Cooldown między użyciami (sekundy)
   cooldown: 180
