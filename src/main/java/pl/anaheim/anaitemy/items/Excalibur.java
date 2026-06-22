@@ -26,6 +26,7 @@ public class Excalibur {
     public static final double BASE_DAMAGE = 11.5;
     // Maksymalny damage
     public static final double MAX_DAMAGE = 12.0;
+
     // Długość paska postępu - ile spacji dla pełnego paska
     public static final int BAR_LENGTH = 30;
 
@@ -43,6 +44,10 @@ public class Excalibur {
         String damageStr = String.format(Locale.US, "%.2f", attackDamage);
 
         List<String> lore = new ArrayList<>();
+
+        // Pierwsza linia pusta
+        lore.add("");
+
         lore.add(" &8» &7Jest to przedmiot zdobyty z");
         lore.add(" &8» &fwydarzenia wakacyjnego 2024&7!");
         lore.add("");
@@ -138,8 +143,8 @@ public class Excalibur {
             if (plain.contains("Aktualnie zabójstw:")) {
                 lore.set(i, colorize(" &8» &7Aktualnie zabójstw: &f" + kills));
             }
-            // Linia z paskiem postępu (zawiera strikethrough lub %)
-            else if ((plain.contains("▬") || plain.contains("-") || plain.length() > 30) && plain.contains("%")) {
+            // Linia z paskiem postępu (oparta o %)
+            else if (plain.contains("%") && plain.contains("»")) {
                 lore.set(i, colorize(" &8» " + progressBar + " &a" + percentStr + "%"));
             }
             // Linia z obrażeniami
@@ -187,7 +192,7 @@ public class Excalibur {
 
         // Część zielona (wypełniona)
         String green = filled > 0 ? "&a&m" + " ".repeat(filled) : "";
-        
+
         // Część biała (pusta)
         String white = (BAR_LENGTH - filled) > 0
                 ? "&f&m" + " ".repeat(BAR_LENGTH - filled)
