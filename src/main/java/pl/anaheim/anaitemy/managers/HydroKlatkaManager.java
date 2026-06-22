@@ -227,17 +227,13 @@ public class HydroKlatkaManager {
     // ==================== BOSS BAR ====================
 
     private void createBossBar(ActiveHydroKlatka klatka) {
-        ItemsConfig config = plugin.getItemsConfig();
-
         for (UUID playerId : klatka.getTrappedPlayers()) {
             Player player = Bukkit.getPlayer(playerId);
             if (player == null || !player.isOnline()) continue;
 
-            String title = config.getHydroKlatkaBossBarTitle()
-                    .replace("{time}", String.valueOf(klatka.getRemainingSeconds()));
-
+            // Tylko "Hydroklatka" bez licznika sekund
             BossBar bossBar = BossBar.bossBar(
-                    LegacyComponentSerializer.legacyAmpersand().deserialize(title),
+                    LegacyComponentSerializer.legacyAmpersand().deserialize("&bHydroklatka"),
                     1.0f,
                     BossBar.Color.BLUE,
                     BossBar.Overlay.PROGRESS
@@ -249,18 +245,19 @@ public class HydroKlatkaManager {
     }
 
     private void updateBossBar(ActiveHydroKlatka klatka) {
-        ItemsConfig config = plugin.getItemsConfig();
         int remaining = klatka.getRemainingSeconds();
-        float progress = Math.max(0.0f, (float) remaining / klatka.getOriginalDuration());
+        int totalDuration = klatka.getOriginalDuration();
 
-        String title = config.getHydroKlatkaBossBarTitle()
-                .replace("{time}", String.valueOf(remaining));
+        // Płynny progress (od 1.0 do 0.0)
+        float progress = totalDuration > 0
+                ? Math.max(0.0f, Math.min(1.0f, (float) remaining / totalDuration))
+                : 0.0f;
 
         for (UUID playerId : klatka.getTrappedPlayers()) {
             BossBar bossBar = playerBossBars.get(playerId);
             if (bossBar == null) continue;
 
-            bossBar.name(LegacyComponentSerializer.legacyAmpersand().deserialize(title));
+            // Tylko progress się zmienia, nazwa pozostaje "Hydroklatka"
             bossBar.progress(progress);
         }
     }
