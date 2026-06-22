@@ -8,7 +8,9 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
 import org.bukkit.*;
 import org.bukkit.entity.EvokerFangs;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
@@ -21,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RozdzkailuzjonistyManager {
 
     private final AnaItemy plugin;
-    
+
     private final Map<UUID, Long> fangsCooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, Long> vanishCooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, VanishData> activeVanishes = new ConcurrentHashMap<>();
@@ -30,6 +32,8 @@ public class RozdzkailuzjonistyManager {
     public RozdzkailuzjonistyManager(AnaItemy plugin) {
         this.plugin = plugin;
     }
+
+    // ==================== FANGS COOLDOWN ====================
 
     public boolean isFangsOnCooldown(Player player) {
         Long cooldownEnd = fangsCooldowns.get(player.getUniqueId());
@@ -45,13 +49,15 @@ public class RozdzkailuzjonistyManager {
     public void setFangsCooldown(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
         long cooldownSeconds = config.getRozdzkailuzjonistyFangsCooldown();
-        fangsCooldowns.put(player.getUniqueId(), 
+        fangsCooldowns.put(player.getUniqueId(),
                 System.currentTimeMillis() + (cooldownSeconds * 1000));
     }
 
     public void resetFangsCooldown(Player player) {
         fangsCooldowns.remove(player.getUniqueId());
     }
+
+    // ==================== VANISH COOLDOWN ====================
 
     public boolean isVanishOnCooldown(Player player) {
         Long cooldownEnd = vanishCooldowns.get(player.getUniqueId());
@@ -67,7 +73,7 @@ public class RozdzkailuzjonistyManager {
     public void setVanishCooldown(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
         long cooldownSeconds = config.getRozdzkailuzjonistyVanishCooldown();
-        vanishCooldowns.put(player.getUniqueId(), 
+        vanishCooldowns.put(player.getUniqueId(),
                 System.currentTimeMillis() + (cooldownSeconds * 1000));
     }
 
@@ -75,9 +81,11 @@ public class RozdzkailuzjonistyManager {
         vanishCooldowns.remove(player.getUniqueId());
     }
 
+    // ==================== FANGS ====================
+
     public void activateFangs(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
-        
+
         if (isFangsOnCooldown(player)) {
             showCooldownTitle(player, getFangsCooldownRemaining(player), true);
             return;
@@ -105,20 +113,20 @@ public class RozdzkailuzjonistyManager {
 
     private void spawnFangs(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
-        
+
         int length = config.getRozdzkailuzjonistyFangsLength();
         int width = config.getRozdzkailuzjonistyFangsWidth();
         double spacing = config.getRozdzkailuzjonistyFangsSpacing();
         double speed = config.getRozdzkailuzjonistyFangsSpeed();
-        
+
         Location start = player.getLocation();
         Vector direction = start.getDirection().normalize();
         direction.setY(0);
         direction.normalize();
-        
+
         Vector perpendicular = new Vector(-direction.getZ(), 0, direction.getX()).normalize();
         double centerOffset = (width - 1) * spacing / 2.0;
-        
+
         for (int w = 0; w < width; w++) {
             double offset = (w * spacing) - centerOffset;
             Vector sideways = perpendicular.clone().multiply(offset);
@@ -127,9 +135,11 @@ public class RozdzkailuzjonistyManager {
         }
     }
 
+    // ==================== VANISH ====================
+
     public void activateVanish(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
-        
+
         if (isVanishOnCooldown(player)) {
             showCooldownTitle(player, getVanishCooldownRemaining(player), false);
             return;
@@ -161,7 +171,8 @@ public class RozdzkailuzjonistyManager {
             Sound activateSound = Sound.valueOf(config.getRozdzkailuzjonistyVanishSoundActivate());
             player.playSound(player.getLocation(), activateSound, 1.0f, 1.0f);
         } catch (IllegalArgumentException e) {
-            plugin.getLogger().warning("Nieprawidłowy dźwięk aktywacji: " + config.getRozdzkailuzjonistyVanishSoundActivate());
+            plugin.getLogger().warning("Nieprawidłowy dźwięk aktywacji: " +
+                    config.getRozdzkailuzjonistyVanishSoundActivate());
         }
 
         startVanish(player);
@@ -171,94 +182,231 @@ public class RozdzkailuzjonistyManager {
         ItemsConfig config = plugin.getItemsConfig();
         int duration = config.getRozdzkailuzjonistyVanishDuration();
         double npcSpeed = config.getRozdzkailuzjonistyVanishNpcSpeed();
-        
+
+        // Stwórz NPC
         NPC npc = CitizensAPI.getNPCRegistry().createNPC(
                 org.bukkit.entity.EntityType.PLAYER,
                 player.getName()
         );
-        
+
+        // Ustaw skin gracza
         npc.getOrAddTrait(SkinTrait.class).setSkinName(player.getName());
-        
-        Location npcLoc = player.getLocation().clone();
-        npc.spawn(npcLoc);
-        
-        if (npc.getEntity() instanceof Player npcPlayer) {
-            npcPlayer.getInventory().setArmorContents(player.getInventory().getArmorContents());
-            npcPlayer.getInventory().setItemInMainHand(player.getInventory().getItemInMainHand());
-            npcPlayer.getInventory().setItemInOffHand(player.getInventory().getItemInOffHand());
-            
-            npcPlayer.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH)
-                    .setBaseValue(player.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH).getValue());
-            npcPlayer.setHealth(player.getHealth());
+
+        // Spawn NPC w lokalizacji gracza
+        // Zawsze spawnuj na ziemi (nawet jeśli gracz leci elytrą)
+        Location spawnLoc = findGroundLocation(player.getLocation());
+        npc.spawn(spawnLoc);
+
+        // Skopiuj ekwipunek do NPC
+        if (npc.getEntity() instanceof LivingEntity npcEntity) {
+            EntityEquipment equipment = npcEntity.getEquipment();
+            if (equipment != null) {
+                // Zbroja
+                equipment.setHelmet(player.getInventory().getHelmet());
+                equipment.setChestplate(player.getInventory().getChestplate());
+                equipment.setLeggings(player.getInventory().getLeggings());
+                equipment.setBoots(player.getInventory().getBoots());
+                // Ręka główna i offhand
+                equipment.setItemInMainHand(player.getInventory().getItemInMainHand());
+                equipment.setItemInOffHand(player.getInventory().getItemInOffHand());
+
+                // Ustaw drop chance na 0 - NPC nie dropuje ekwipunku
+                equipment.setHelmetDropChance(0f);
+                equipment.setChestplateDropChance(0f);
+                equipment.setLeggingsDropChance(0f);
+                equipment.setBootsDropChance(0f);
+                equipment.setItemInMainHandDropChance(0f);
+                equipment.setItemInOffHandDropChance(0f);
+            }
         }
-        
+
+        // Nieśmiertelność NPC
         npc.setProtected(true);
-        
+
+        // Ukryj gracza
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (!online.equals(player)) {
                 online.hidePlayer(plugin, player);
             }
         }
-        
-        VanishData data = new VanishData(player, npc, System.currentTimeMillis() + (duration * 1000L));
+
+        // Zapisz dane zniknięcia
+        VanishData data = new VanishData(
+                player, npc, System.currentTimeMillis() + (duration * 1000L)
+        );
         activeVanishes.put(player.getUniqueId(), data);
-        
+
+        // Kierunek ruchu NPC - tylko poziomo
         Vector direction = player.getLocation().getDirection().normalize();
         direction.setY(0);
-        direction.normalize().multiply(npcSpeed);
-        
+        direction.normalize().multiply(npcSpeed / 20.0); // Przelicz na ticki
+
         new BukkitRunnable() {
             int ticks = 0;
             final int maxTicks = duration * 20;
-            
+
             @Override
             public void run() {
+                // Sprawdź czy zniknięcie nadal aktywne
                 if (!activeVanishes.containsKey(player.getUniqueId())) {
                     cancel();
                     return;
                 }
-                
+
+                // Czas minął
                 if (ticks >= maxTicks) {
                     endVanish(player, false);
                     cancel();
                     return;
                 }
-                
-                if (npc.isSpawned() && npc.getEntity() != null) {
-                    Location current = npc.getEntity().getLocation();
-                    Location next = current.clone().add(direction);
-                    
-                    if (next.getBlock().getType().isSolid()) {
-                        return;
-                    }
-                    
-                    npc.getEntity().teleport(next);
+
+                // Sprawdź czy NPC istnieje
+                if (!npc.isSpawned() || npc.getEntity() == null) {
+                    cancel();
+                    return;
                 }
-                
+
+                // Zablokuj obrażenia dla NPC
+                if (npc.getEntity() instanceof LivingEntity le) {
+                    le.setNoDamageTicks(20);
+                    le.setFallDistance(0f);
+                }
+
+                Location current = npc.getEntity().getLocation();
+
+                // Oblicz nową pozycję (tylko X i Z)
+                Location nextHorizontal = current.clone().add(direction.getX(), 0, direction.getZ());
+
+                // Sprawdź teren przed NPC
+                Location nextGround = findGroundForMovement(current, nextHorizontal);
+
+                if (nextGround == null) {
+                    // Nie można iść dalej (np. za wysoka ściana) - zatrzymaj się
+                    ticks++;
+                    return;
+                }
+
+                // Zachowaj yaw/pitch z oryginalnej lokalizacji
+                nextGround.setYaw(current.getYaw());
+                nextGround.setPitch(current.getPitch());
+
+                npc.getEntity().teleport(nextGround);
                 ticks++;
             }
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
+    /**
+     * Znajdź lokalizację na ziemi dla spawnowania NPC
+     * Jeśli gracz leci elytrą to spawnuj na ziemi poniżej
+     */
+    private Location findGroundLocation(Location playerLoc) {
+        World world = playerLoc.getWorld();
+        int x = playerLoc.getBlockX();
+        int z = playerLoc.getBlockZ();
+
+        // Sprawdź czy gracz stoi na ziemi
+        Location feetLoc = playerLoc.clone();
+        Block below = feetLoc.clone().subtract(0, 0.1, 0).getBlock();
+
+        if (below.getType().isSolid()) {
+            // Gracz stoi na ziemi
+            return playerLoc.clone();
+        }
+
+        // Gracz leci - znajdź ziemię poniżej
+        for (int y = playerLoc.getBlockY(); y >= world.getMinHeight(); y--) {
+            Block block = world.getBlockAt(x, y, z);
+            Block above = world.getBlockAt(x, y + 1, z);
+            Block above2 = world.getBlockAt(x, y + 2, z);
+
+            if (block.getType().isSolid() && !above.getType().isSolid() && !above2.getType().isSolid()) {
+                return new Location(world, x + 0.5, y + 1, z + 0.5,
+                        playerLoc.getYaw(), playerLoc.getPitch());
+            }
+        }
+
+        // Fallback - użyj pozycji gracza
+        return playerLoc.clone();
+    }
+
+    /**
+     * Znajdź lokalizację dla ruchu NPC na następny krok
+     * Obsługuje: teren płaski, schodzenie w dół, wspinanie w górę, ściany
+     */
+    private Location findGroundForMovement(Location current, Location nextHorizontal) {
+        World world = current.getWorld();
+        int nx = nextHorizontal.getBlockX();
+        int nz = nextHorizontal.getBlockZ();
+        int currentY = current.getBlockY();
+
+        // Sprawdź czy można przejść na tym samym poziomie
+        Block targetBlock = world.getBlockAt(nx, currentY, nz);
+        Block targetBlockAbove = world.getBlockAt(nx, currentY + 1, nz);
+        Block targetBlockBelow = world.getBlockAt(nx, currentY - 1, nz);
+
+        // 1. Płaski teren - ten sam Y
+        if (!targetBlock.getType().isSolid() && !targetBlockAbove.getType().isSolid()) {
+            // Sprawdź czy jest podłoże
+            Block groundBlock = world.getBlockAt(nx, currentY - 1, nz);
+            if (groundBlock.getType().isSolid()) {
+                // Płaski teren
+                return new Location(world, nextHorizontal.getX(), currentY, nextHorizontal.getZ());
+            }
+
+            // 2. Teren idzie w dół - szukaj ziemi poniżej
+            for (int y = currentY - 1; y >= currentY - 4; y--) {
+                Block checkBlock = world.getBlockAt(nx, y, nz);
+                Block checkAbove = world.getBlockAt(nx, y + 1, nz);
+                Block checkAbove2 = world.getBlockAt(nx, y + 2, nz);
+
+                if (checkBlock.getType().isSolid() && !checkAbove.getType().isSolid() && !checkAbove2.getType().isSolid()) {
+                    return new Location(world, nextHorizontal.getX(), y + 1, nextHorizontal.getZ());
+                }
+            }
+        }
+
+        // 3. Teren idzie w górę - sprawdź czy można wskoczyć (max 1 blok w górę)
+        if (targetBlock.getType().isSolid()) {
+            Block jumpTarget = world.getBlockAt(nx, currentY + 1, nz);
+            Block jumpTargetAbove = world.getBlockAt(nx, currentY + 2, nz);
+
+            if (!jumpTarget.getType().isSolid() && !jumpTargetAbove.getType().isSolid()) {
+                // Można wskoczyć 1 blok w górę
+                return new Location(world, nextHorizontal.getX(), currentY + 1, nextHorizontal.getZ());
+            }
+
+            // 4. Ściana za wysoka - zatrzymaj NPC
+            return null;
+        }
+
+        // Fallback - pozostań na miejscu
+        return null;
+    }
+
     public void endVanish(Player player, boolean early) {
         VanishData data = activeVanishes.remove(player.getUniqueId());
         if (data == null) return;
-        
+
         ItemsConfig config = plugin.getItemsConfig();
-        
+
+        // Usuń NPC
         if (data.getNpc() != null && data.getNpc().isSpawned()) {
             data.getNpc().destroy();
         }
-        
+
+        // Pokaż gracza wszystkim
         for (Player online : Bukkit.getOnlinePlayers()) {
             online.showPlayer(plugin, player);
         }
-        
+
+        // Dźwięk zakończenia
         try {
             Sound deactivateSound = Sound.valueOf(config.getRozdzkailuzjonistyVanishSoundDeactivate());
             player.playSound(player.getLocation(), deactivateSound, 1.0f, 1.0f);
         } catch (IllegalArgumentException e) {
-            plugin.getLogger().warning("Nieprawidłowy dźwięk deaktywacji: " + config.getRozdzkailuzjonistyVanishSoundDeactivate());
+            plugin.getLogger().warning("Nieprawidłowy dźwięk deaktywacji: " +
+                    config.getRozdzkailuzjonistyVanishSoundDeactivate());
         }
     }
 
@@ -266,19 +414,21 @@ public class RozdzkailuzjonistyManager {
         return activeVanishes.containsKey(player.getUniqueId());
     }
 
+    // ==================== UTILITIES ====================
+
     private void showCooldownTitle(Player player, long seconds, boolean isFangs) {
         ItemsConfig config = plugin.getItemsConfig();
-        
-        String title = isFangs 
+
+        String title = isFangs
                 ? config.getRozdzkailuzjonistyFangsMessageCooldownTitle()
                 : config.getRozdzkailuzjonistyVanishMessageCooldownTitle();
-                
+
         String subtitle = isFangs
                 ? config.getRozdzkailuzjonistyFangsMessageCooldownSubtitle()
                 : config.getRozdzkailuzjonistyVanishMessageCooldownSubtitle();
-        
+
         subtitle = subtitle.replace("{seconds}", String.valueOf(seconds));
-        
+
         player.showTitle(Title.title(
                 LegacyComponentSerializer.legacyAmpersand().deserialize(title),
                 LegacyComponentSerializer.legacyAmpersand().deserialize(subtitle),
@@ -320,11 +470,13 @@ public class RozdzkailuzjonistyManager {
                 endVanish(player, true);
             }
         }
-        
+
         fangsCooldowns.clear();
         vanishCooldowns.clear();
         fangsDamagedPlayers.clear();
     }
+
+    // ==================== INNER CLASSES ====================
 
     private class FangStrip {
         private final Location start;
@@ -353,7 +505,8 @@ public class RozdzkailuzjonistyManager {
                     }
 
                     Location spawnLoc = start.clone().add(direction.clone().multiply(distance));
-                    
+
+                    // Znikaj na zablokowanych regionach
                     if (isInBlockedRegion(spawnLoc)) {
                         cancel();
                         return;
