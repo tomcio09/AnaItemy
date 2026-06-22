@@ -485,4 +485,7 @@ public class HydroKlatkaManager {
         playerCooldowns.clear();
         chunkCooldowns.clear();
     }
+    public Collection<ActiveHydroKlatka> getActiveKlatki() {
+        return new ArrayList<>(activeKlatki.values());
+    }
 }
