@@ -17,6 +17,7 @@ public class ActiveHydroKlatka {
     private final UUID creatorId;
     private final Map<Location, BlockData> originalBlocks;
     private final Set<UUID> trappedPlayers;
+    private final Set<UUID> offlinePlayers;
     private final Set<Location> destroyedBlocks;
     private boolean animationComplete;
     private int currentAnimationY;
@@ -31,6 +32,7 @@ public class ActiveHydroKlatka {
         this.creatorId = creatorId;
         this.originalBlocks = new ConcurrentHashMap<>();
         this.trappedPlayers = ConcurrentHashMap.newKeySet();
+        this.offlinePlayers = ConcurrentHashMap.newKeySet();
         this.destroyedBlocks = ConcurrentHashMap.newKeySet();
         this.animationComplete = false;
         this.currentAnimationY = center.getBlockY() + radius;
@@ -50,8 +52,8 @@ public class ActiveHydroKlatka {
         return (int) Math.max(0, remaining / 1000);
     }
 
-    public boolean isExpired() { 
-        return System.currentTimeMillis() >= expirationTime; 
+    public boolean isExpired() {
+        return System.currentTimeMillis() >= expirationTime;
     }
 
     // Original blocks management
@@ -59,12 +61,12 @@ public class ActiveHydroKlatka {
         originalBlocks.put(location.clone(), blockData.clone());
     }
 
-    public Map<Location, BlockData> getOriginalBlocks() { 
-        return new HashMap<>(originalBlocks); 
+    public Map<Location, BlockData> getOriginalBlocks() {
+        return new HashMap<>(originalBlocks);
     }
 
-    public boolean hasOriginalBlock(Location location) { 
-        return originalBlocks.containsKey(location); 
+    public boolean hasOriginalBlock(Location location) {
+        return originalBlocks.containsKey(location);
     }
 
     public void removeOriginalBlock(Location location) {
@@ -72,8 +74,8 @@ public class ActiveHydroKlatka {
         destroyedBlocks.add(location.clone());
     }
 
-    public boolean wasBlockDestroyed(Location location) { 
-        return destroyedBlocks.contains(location); 
+    public boolean wasBlockDestroyed(Location location) {
+        return destroyedBlocks.contains(location);
     }
 
     public void markBlockDestroyed(Location location) {
@@ -83,37 +85,50 @@ public class ActiveHydroKlatka {
     }
 
     // Trapped players management
-    public void addTrappedPlayer(UUID playerId) { 
-        trappedPlayers.add(playerId); 
+    public void addTrappedPlayer(UUID playerId) {
+        trappedPlayers.add(playerId);
     }
 
-    public boolean isPlayerTrapped(UUID playerId) { 
-        return trappedPlayers.contains(playerId); 
+    public boolean isPlayerTrapped(UUID playerId) {
+        return trappedPlayers.contains(playerId);
     }
 
-    public Set<UUID> getTrappedPlayers() { 
-        return new HashSet<>(trappedPlayers); 
+    public Set<UUID> getTrappedPlayers() {
+        return new HashSet<>(trappedPlayers);
     }
 
     public void removeTrappedPlayer(UUID playerId) {
         trappedPlayers.remove(playerId);
     }
 
+    // Offline players management
+    public void addOfflinePlayer(UUID playerId) {
+        offlinePlayers.add(playerId);
+    }
+
+    public void removeOfflinePlayer(UUID playerId) {
+        offlinePlayers.remove(playerId);
+    }
+
+    public boolean isPlayerOffline(UUID playerId) {
+        return offlinePlayers.contains(playerId);
+    }
+
     // Animation
-    public boolean isAnimationComplete() { 
-        return animationComplete; 
+    public boolean isAnimationComplete() {
+        return animationComplete;
     }
 
-    public void setAnimationComplete(boolean complete) { 
-        this.animationComplete = complete; 
+    public void setAnimationComplete(boolean complete) {
+        this.animationComplete = complete;
     }
 
-    public int getCurrentAnimationY() { 
-        return currentAnimationY; 
+    public int getCurrentAnimationY() {
+        return currentAnimationY;
     }
 
-    public void setCurrentAnimationY(int y) { 
-        this.currentAnimationY = y; 
+    public void setCurrentAnimationY(int y) {
+        this.currentAnimationY = y;
     }
 
     // Location checks
