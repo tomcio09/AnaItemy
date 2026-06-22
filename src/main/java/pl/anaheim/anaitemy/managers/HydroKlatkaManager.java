@@ -6,8 +6,6 @@ import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.Damageable;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import pl.anaheim.anaitemy.AnaItemy;
@@ -78,8 +76,18 @@ public class HydroKlatkaManager {
 
     public void setCooldown(Player player) {
         long cooldownSeconds = plugin.getConfig().getLong("hydroklatka.cooldown", 180);
+        long cooldownMillis = cooldownSeconds * 1000;
+
+        // Zapisz czas końca cooldownu
         playerCooldowns.put(player.getUniqueId(),
-                System.currentTimeMillis() + (cooldownSeconds * 1000));
+                System.currentTimeMillis() + cooldownMillis);
+
+        // WIZUALNY COOLDOWN jak Ender Perła - szare tło opadające na slocie
+        // setCooldown przyjmuje ticki (20 ticków = 1 sekunda)
+        int cooldownTicks = (int) (cooldownSeconds * 20);
+        player.setCooldown(Material.BLAZE_ROD, cooldownTicks);
+
+        // Uruchom action bar display
         startCooldownDisplay(player);
     }
 
@@ -113,7 +121,7 @@ public class HydroKlatkaManager {
                 + (location.getBlockZ() >> 4);
     }
 
-    // ==================== COOLDOWN DISPLAY ====================
+    // ==================== COOLDOWN DISPLAY (ACTION BAR) ====================
 
     public void startCooldownDisplay(Player player) {
         stopCooldownDisplay(player);
@@ -128,19 +136,15 @@ public class HydroKlatkaManager {
 
                 long remaining = getPlayerCooldownRemaining(player);
                 if (remaining <= 0) {
-                    resetItemCooldown(player);
                     cancel();
                     return;
                 }
 
-                // Action bar
+                // Action bar z pozostałym czasem
                 player.sendActionBar(
                         LegacyComponentSerializer.legacyAmpersand()
                                 .deserialize("&bHydro Klatka: &f" + remaining + "s")
                 );
-
-                // Visual cooldown (durability itemu)
-                updateItemCooldown(player, remaining);
             }
         }.runTaskTimer(plugin, 0L, 20L);
 
@@ -151,35 +155,6 @@ public class HydroKlatkaManager {
         BukkitTask task = cooldownTasks.remove(player.getUniqueId());
         if (task != null) {
             task.cancel();
-        }
-        resetItemCooldown(player);
-    }
-
-    private void updateItemCooldown(Player player, long remainingSeconds) {
-        ItemStack item = player.getInventory().getItemInMainHand();
-        if (!pl.anaheim.anaitemy.items.HydroKlatka.isHydroKlatka(item)) return;
-
-        long totalCooldown = plugin.getConfig().getLong("hydroklatka.cooldown", 180);
-        int maxDurability = item.getType().getMaxDurability();
-
-        if (maxDurability > 0) {
-            int damage = (int) ((totalCooldown - remainingSeconds) * maxDurability / totalCooldown);
-            ItemMeta meta = item.getItemMeta();
-            if (meta instanceof Damageable damageable) {
-                damageable.setDamage(Math.min(damage, maxDurability - 1));
-                item.setItemMeta(meta);
-            }
-        }
-    }
-
-    private void resetItemCooldown(Player player) {
-        ItemStack item = player.getInventory().getItemInMainHand();
-        if (!pl.anaheim.anaitemy.items.HydroKlatka.isHydroKlatka(item)) return;
-
-        ItemMeta meta = item.getItemMeta();
-        if (meta instanceof Damageable damageable) {
-            damageable.setDamage(0);
-            item.setItemMeta(meta);
         }
     }
 
@@ -234,7 +209,6 @@ public class HydroKlatkaManager {
             Player player = Bukkit.getPlayer(playerId);
             if (player == null || !player.isOnline()) continue;
 
-            // Sprawdź czy gracz jest w ścianie i teleportuj do centrum
             Location loc = player.getLocation();
             Block feet = loc.getBlock();
             Block head = loc.clone().add(0, 1, 0).getBlock();
@@ -443,7 +417,8 @@ public class HydroKlatkaManager {
         Location center = klatka.getCenter();
         World world = center.getWorld();
 
-        world.playSound(center, Sound.ENTITY_GENERIC_SPLASH, SoundCategory.BLOCKS, 1.5f, 1.2f);
+        world.playSound(center, Sound.ENTITY_GENERIC_SPLASH,
+                SoundCategory.BLOCKS, 1.5f, 1.2f);
         world.spawnParticle(Particle.WATER_SPLASH, center, 150, 4, 4, 4, 0.5);
         world.spawnParticle(Particle.CLOUD, center, 40, 3, 3, 3, 0.1);
 
