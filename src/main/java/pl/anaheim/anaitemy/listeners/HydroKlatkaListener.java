@@ -1,5 +1,7 @@
 package pl.anaheim.anaitemy.listeners;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
@@ -20,6 +22,8 @@ import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.items.HydroKlatka;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
+
+import java.time.Duration;
 
 public class HydroKlatkaListener implements Listener {
 
@@ -46,13 +50,35 @@ public class HydroKlatkaListener implements Listener {
 
         // Sprawdź cooldown gracza
         if (manager.isPlayerOnCooldown(player)) {
-            manager.sendCooldownMessage(player);
+            // Wiadomość na czacie
+            String message = config.getHydroKlatkaMessageCooldown();
+            manager.sendMessage(player, message);
+
+            // Subtitle (nie title!)
+            player.sendActionBar(Component.empty());
+            player.showTitle(Title.title(
+                    Component.empty(),
+                    net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacyAmpersand()
+                            .deserialize(message),
+                    Title.Times.times(
+                            Duration.ofMillis(250),
+                            Duration.ofMillis(2000),
+                            Duration.ofMillis(250)
+                    )
+            ));
+
+            // Dźwięk villagera (zaprzeczenie)
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO,
+                    SoundCategory.PLAYERS, 1.0f, 1.0f);
             return;
         }
 
         // Sprawdź region WorldGuard
         if (manager.isInBlockedRegion(player.getLocation())) {
-            manager.sendMessage(player, config.getHydroKlatkaMessageBlockedRegion());
+            String blockedMessage = config.getHydroKlatkaMessageBlockedRegion();
+            if (!blockedMessage.isEmpty()) {
+                manager.sendMessage(player, blockedMessage);
+            }
             return;
         }
 
