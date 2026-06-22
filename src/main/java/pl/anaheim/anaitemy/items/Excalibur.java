@@ -26,7 +26,7 @@ public class Excalibur {
     public static final double BASE_DAMAGE = 11.5;
     // Maksymalny damage
     public static final double MAX_DAMAGE = 12.0;
-    // Długość paska postępu (znaki) - trochę dłuższy
+    // Długość paska postępu (znaki)
     public static final int BAR_LENGTH = 15;
     // Znak paska - prawdziwie ciągła cienka linia
     public static final String BAR_CHAR = "━";
@@ -84,12 +84,14 @@ public class Excalibur {
         meta.addEnchant(Enchantment.FIRE_ASPECT, 2, true);
         meta.addEnchant(Enchantment.DURABILITY, 3, true);
 
-        // Attack speed modifier (-2.4)
+        // Attack speed modifier (-2.0 = nieco szybsze bicie niż zwykły netherite sword)
+        // Netherite sword domyślnie: -2.4 (1.6 attack speed)
+        // Excalibur: -2.0 (2.0 attack speed) = szybsze
         meta.addAttributeModifier(Attribute.GENERIC_ATTACK_SPEED,
                 new AttributeModifier(
                         UUID.fromString("FA233E1C-4180-4865-B01B-BCCE9785ACA3"),
                         "generic.attack_speed",
-                        -2.4,
+                        -2.0,
                         AttributeModifier.Operation.ADD_NUMBER,
                         EquipmentSlot.HAND
                 ));
