@@ -325,7 +325,7 @@ public class HydroKlatkaManager {
             }
         }.runTaskTimer(plugin, 0L, ticksPerLayer);
     }
-
+    
     private void buildLayer(ActiveHydroKlatka klatka, int y) {
         Location center = klatka.getCenter();
         int radius = klatka.getRadius();
@@ -341,7 +341,7 @@ public class HydroKlatkaManager {
                 double distance = blockLoc.distance(center);
                 if (distance > radius) continue;
 
-                // WORLDGUARD CHECK - jeśli blok jest w zablokowanym regionie, pomiń go
+                // WORLDGUARD CHECK - jeśli blok jest w zablokowanym regionie, pomiń go (dziura)
                 if (plugin.getWorldGuardManager().isInBlockedRegion(blockLoc, blockedRegions)) {
                     continue;
                 }
@@ -351,19 +351,11 @@ public class HydroKlatkaManager {
 
                 klatka.addOriginalBlock(blockLoc, block.getBlockData());
 
-                // Sprawdź czy to powłoka (shell) lub granica regionu
-                boolean isShell = distance > radius - 1.0;
-                
-                // Sprawdź czy sąsiaduje z zablokowanym regionem
-                boolean isRegionBorder = isNextToBlockedRegion(blockLoc, blockedRegions);
-
-                if (isShell || isRegionBorder) {
-                    // Powłoka klatki LUB granica z zablokowanym regionem
+                if (distance > radius - 1.0) {
                     block.setType(SHELL);
                 } else if (originalType != Material.AIR &&
                         originalType != Material.CAVE_AIR &&
                         originalType != Material.VOID_AIR) {
-                    // Wnętrze - zamień na wodny odpowiednik
                     block.setType(mapToWaterBlock(originalType));
                 }
             }
