@@ -14,7 +14,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.util.Vector;
@@ -85,7 +84,7 @@ public class HydroKlatkaListener implements Listener {
         // Wystrzał fireball
         shootFireball(player);
 
-        // Ustaw cooldown
+        // Ustaw cooldown (automatycznie uruchamia action bar)
         manager.setCooldown(player);
 
         // Dźwięk strzału z configu
@@ -148,16 +147,5 @@ public class HydroKlatkaListener implements Listener {
         manager.createKlatka(hitLocation, shooter);
     }
 
-    @EventHandler
-    public void onItemHeld(PlayerItemHeldEvent event) {
-        Player player = event.getPlayer();
-        ItemStack newItem = player.getInventory().getItem(event.getNewSlot());
-        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
-
-        if (HydroKlatka.isHydroKlatka(newItem)) {
-            manager.startCooldownDisplay(player);
-        } else {
-            manager.stopCooldownDisplay(player);
-        }
-    }
+    // USUNIĘTO onItemHeld - action bar będzie aktywny cały czas podczas cooldownu
 }
