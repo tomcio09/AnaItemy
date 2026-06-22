@@ -8,5 +8,5 @@ description: Plugin dodający customowe przedmioty eventowe.
 commands:
   itemyeventowe:
     description: Otwiera GUI z itemami eventowymi.
-    usage: /itemyeventowe
+    usage: /itemyeventowe [kills <liczba>]
     permission: anaitemy.admin
