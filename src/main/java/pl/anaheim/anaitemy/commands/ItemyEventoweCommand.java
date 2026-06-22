@@ -3,6 +3,7 @@ package pl.anaheim.anaitemy.commands;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -12,11 +13,13 @@ import org.bukkit.inventory.ItemStack;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.gui.EventoweGUI;
 import pl.anaheim.anaitemy.items.Excalibur;
+import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
@@ -42,27 +45,42 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        // /itemyeventowe
+        if (args.length == 0) {
+            EventoweGUI.open(player, plugin);
+            return true;
+        }
+
         // /itemyeventowe kills <liczba>
         if (args.length == 2 && args[0].equalsIgnoreCase("kills")) {
             handleKillsCommand(player, args[1]);
             return true;
         }
 
-        // /itemyeventowe - otwórz GUI
-        if (args.length == 0) {
-            EventoweGUI.open(player, plugin);
+        // /itemyeventowe cooldown reset <nick>
+        if (args.length == 3
+                && args[0].equalsIgnoreCase("cooldown")
+                && args[1].equalsIgnoreCase("reset")) {
+            handleCooldownReset(sender, args[2]);
             return true;
         }
 
-        player.sendMessage(color("&cUżycie: /itemyeventowe [kills <liczba>]"));
+        player.sendMessage(color("&cUżycie:"));
+        player.sendMessage(color("&7/itemyeventowe &8- &fotwiera GUI"));
+        player.sendMessage(color("&7/itemyeventowe kills <liczba> &8- &fustawia kille Excalibura"));
+        player.sendMessage(color("&7/itemyeventowe cooldown reset <nick> &8- &fresetuje cooldowny gracza"));
         return true;
     }
+
+    // ==================== KILLS COMMAND ====================
 
     private void handleKillsCommand(Player player, String killsStr) {
         ItemStack item = player.getInventory().getItemInMainHand();
 
         if (!Excalibur.isExcalibur(item)) {
-            player.sendMessage(color("&cMusisz trzymać Excalibur w ręku!"));
+            player.sendMessage(color(
+                    plugin.getItemsConfig().getExcaliburMessageNotHolding()
+            ));
             return;
         }
 
@@ -70,44 +88,91 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         try {
             kills = Integer.parseInt(killsStr);
         } catch (NumberFormatException e) {
-            player.sendMessage(color("&cPodaj poprawną liczbę!"));
+            player.sendMessage(color(
+                    plugin.getItemsConfig().getExcaliburMessageInvalidNumber()
+            ));
             return;
         }
-
-        int maxKills = plugin.getConfig().getInt("excalibur.max-kills", 100);
 
         if (kills < 0) {
-            player.sendMessage(color("&cLiczba zabójstw nie może być ujemna!"));
+            player.sendMessage(color(
+                    plugin.getItemsConfig().getExcaliburMessageNegativeNumber()
+            ));
             return;
         }
 
-        if (kills > maxKills) {
-            kills = maxKills;
-        }
+        int maxKills = plugin.getItemsConfig().getExcaliburMaxKills();
+        if (kills > maxKills) kills = maxKills;
 
-        // Edytuj tylko konkretne linie w lore
         ItemStack updated = Excalibur.updateKills(item, kills, maxKills);
         player.getInventory().setItemInMainHand(updated);
 
-        player.sendMessage(color("&aUstawiono zabójstwa Excalibura na: &f" + kills));
+        String msg = plugin.getItemsConfig().getExcaliburMessageKillsSet()
+                .replace("{kills}", String.valueOf(kills));
+        player.sendMessage(color(msg));
     }
+
+    // ==================== COOLDOWN RESET COMMAND ====================
+
+    private void handleCooldownReset(CommandSender sender, String targetName) {
+        Player target = Bukkit.getPlayer(targetName);
+
+        if (target == null) {
+            sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!"));
+            return;
+        }
+
+        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+
+        // Reset cooldownu Hydro Klatki
+        manager.resetCooldown(target);
+
+        // Reset wizualnego cooldownu (szare tło na slocie)
+        target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
+
+        // Zatrzymaj action bar display
+        manager.stopCooldownDisplay(target);
+
+        // Wiadomości
+        sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
+        target.sendMessage(color("&aTwoje cooldowny zostały zresetowane przez &f" + sender.getName() + "&a!"));
+
+        plugin.getLogger().info("[AnaItemy] " + sender.getName() +
+                " zresetowal cooldowny gracza " + target.getName());
+    }
+
+    // ==================== TAB COMPLETE ====================
 
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender,
-                                                  @NotNull Command command,
-                                                  @NotNull String label,
-                                                  @NotNull String[] args) {
+                                                @NotNull Command command,
+                                                @NotNull String label,
+                                                @NotNull String[] args) {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
             completions.add("kills");
-        } else if (args.length == 2 && args[0].equalsIgnoreCase("kills")) {
-            completions.add("0");
-            completions.add("50");
-            completions.add("100");
+            completions.add("cooldown");
+        } else if (args.length == 2) {
+            if (args[0].equalsIgnoreCase("kills")) {
+                completions.add("<liczba>");
+            } else if (args[0].equalsIgnoreCase("cooldown")) {
+                completions.add("reset");
+            }
+        } else if (args.length == 3) {
+            if (args[0].equalsIgnoreCase("cooldown") && args[1].equalsIgnoreCase("reset")) {
+                // Podpowiedz nicki graczy online
+                completions.addAll(
+                        Bukkit.getOnlinePlayers().stream()
+                                .map(Player::getName)
+                                .collect(Collectors.toList())
+                );
+            }
         }
 
-        return completions;
+        return completions.stream()
+                .filter(s -> s.toLowerCase().startsWith(args[args.length - 1].toLowerCase()))
+                .collect(Collectors.toList());
     }
 
     private Component color(String text) {
