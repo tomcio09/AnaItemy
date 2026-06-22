@@ -7,6 +7,7 @@ import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -92,7 +93,7 @@ public class HydroKlatkaManager {
         World world = center.getWorld();
         int centerX = center.getBlockX() >> 4;
         int centerZ = center.getBlockZ() >> 4;
-        int chunkRadius = (radius >> 4) + 1; // Convert block radius to chunk radius
+        int chunkRadius = (radius >> 4) + 1;
         
         for (int x = centerX - chunkRadius; x <= centerX + chunkRadius; x++) {
             for (int z = centerZ - chunkRadius; z <= centerZ + chunkRadius; z++) {
@@ -114,29 +115,12 @@ public class HydroKlatkaManager {
         
         ActiveHydroKlatka klatka = new ActiveHydroKlatka(center, radius, duration, creator.getUniqueId());
         activeKlatki.put(klatka.getId(), klatka);
-          public void createKlatka(Location center, Player creator) {
-        int radius = plugin.getConfig().getInt("hydroklatka.radius", 7);
-        int duration = plugin.getConfig().getInt("hydroklatka.duration", 15);
-        
-        ActiveHydroKlatka klatka = new ActiveHydroKlatka(center, radius, duration, creator.getUniqueId());
-        activeKlatki.put(klatka.getId(), klatka);
 
-        // Ustaw chunk cooldown
         setChunkCooldown(center);
-        
-        // Znajdź uwięzionych graczy
         trapPlayers(klatka);
-        
-        // Stwórz boss bar
         createBossBar(klatka);
-        
-        // Odtwórz custom dźwięk
         playCustomSound(center);
-        
-        // Rozpocznij animację budowy
         startBuildAnimation(klatka);
-        
-        // Zaplanuj usunięcie klatki
         scheduleRemoval(klatka);
     }
 
@@ -189,7 +173,6 @@ public class HydroKlatkaManager {
         World world = center.getWorld();
         for (Player player : world.getPlayers()) {
             if (player.getLocation().distance(center) <= 50) {
-                // Custom sound z resource packa
                 player.playSound(center, "custom.hydroklatka", 
                         SoundCategory.MASTER, 3.0f, 1.0f);
             }
@@ -246,17 +229,13 @@ public class HydroKlatkaManager {
                 Block block = blockLoc.getBlock();
                 Material originalType = block.getType();
                 
-                // Zapisz oryginalny blok
                 klatka.addOriginalBlock(blockLoc, block.getBlockData());
                 
-                // Sprawdź czy to powłoka czy wnętrze
                 if (distance > radius - 1.0) {
-                    // Powłoka (shell)
                     block.setType(SHELL);
                 } else if (originalType != Material.AIR && 
                           originalType != Material.CAVE_AIR && 
                           originalType != Material.VOID_AIR) {
-                    // Wnętrze - zamień na wodny odpowiednik
                     Material replacement = mapToWaterBlock(originalType);
                     block.setType(replacement);
                 }
@@ -267,46 +246,38 @@ public class HydroKlatkaManager {
     private Material mapToWaterBlock(Material original) {
         String name = original.name();
         
-        // Dirt/Grass -> Light Gray Terracotta
         if (original == Material.DIRT || original == Material.GRASS_BLOCK || 
             original == Material.COARSE_DIRT || original == Material.ROOTED_DIRT) {
             return Material.LIGHT_GRAY_TERRACOTTA;
         }
         
-        // Andesite/Diorite -> Sea Lantern
         if (original == Material.ANDESITE || original == Material.DIORITE || 
             original == Material.POLISHED_ANDESITE || original == Material.POLISHED_DIORITE) {
             return Material.SEA_LANTERN;
         }
         
-        // Stone -> Prismarine
         if (original == Material.STONE) {
             return Material.PRISMARINE;
         }
         
-        // Bricks -> Prismarine Bricks
         if (name.contains("BRICKS")) {
             return Material.PRISMARINE_BRICKS;
         }
         
-        // Spruce logs -> Brain Coral Block
         if (original == Material.SPRUCE_LOG || original == Material.SPRUCE_WOOD || 
             original == Material.STRIPPED_SPRUCE_LOG) {
             return Material.BRAIN_CORAL_BLOCK;
         }
         
-        // Leaves -> Purple Terracotta
         if (name.contains("LEAVES")) {
             return Material.PURPLE_TERRACOTTA;
         }
         
-        // Sand/Gravel -> Light Blue Concrete Powder
         if (original == Material.SAND || original == Material.RED_SAND || 
             original == Material.GRAVEL) {
             return INNER_POWDER;
         }
         
-        // Default -> Light Blue Concrete
         return INNER;
     }
 
@@ -324,14 +295,12 @@ public class HydroKlatkaManager {
     private void removeKlatka(ActiveHydroKlatka klatka) {
         if (!activeKlatki.containsKey(klatka.getId())) return;
         
-        // Przywróć oryginalne bloki
         klatka.getOriginalBlocks().forEach((location, blockData) -> {
             if (!klatka.wasBlockDestroyed(location)) {
                 location.getBlock().setBlockData(blockData);
             }
         });
         
-        // Usuń boss bary
         for (UUID playerId : klatka.getTrappedPlayers()) {
             BossBar bossBar = playerBossBars.remove(playerId);
             if (bossBar != null) {
@@ -342,25 +311,20 @@ public class HydroKlatkaManager {
             }
         }
         
-        // Efekty usunięcia
         Location center = klatka.getCenter();
         World world = center.getWorld();
         
-        // Dźwięk
         world.playSound(center, Sound.ENTITY_GENERIC_SPLASH, 1.5f, 1.2f);
-        
-        // Cząsteczki
         world.spawnParticle(Particle.WATER_SPLASH, center, 150, 4, 4, 4, 0.5);
         world.spawnParticle(Particle.CLOUD, center, 40, 3, 3, 3, 0.1);
         
         activeKlatki.remove(klatka.getId());
     }
 
-    // Cooldown display methods
     public void startCooldownDisplay(Player player) {
         if (!isPlayerOnCooldown(player)) return;
         
-        stopCooldownDisplay(player); // Stop existing task
+        stopCooldownDisplay(player);
         
         BukkitTask task = new BukkitRunnable() {
             @Override
@@ -372,17 +336,14 @@ public class HydroKlatkaManager {
                 
                 long remaining = getPlayerCooldownRemaining(player);
                 if (remaining <= 0) {
-                    // Cooldown finished - reset item durability
                     resetItemCooldown(player);
                     cancel();
                     return;
                 }
                 
-                // Update action bar
                 String message = "&bHydro Klatka: &f" + remaining + "s";
                 player.sendActionBar(LegacyComponentSerializer.legacyAmpersand().deserialize(message));
                 
-                // Update item durability as visual cooldown
                 updateItemCooldown(player, remaining);
             }
         }.runTaskTimer(plugin, 0L, 20L);
@@ -408,8 +369,8 @@ public class HydroKlatkaManager {
         if (maxDurability > 0) {
             int damage = (int) ((totalCooldown - remainingSeconds) * maxDurability / totalCooldown);
             ItemMeta meta = item.getItemMeta();
-            if (meta != null) {
-                ((org.bukkit.inventory.meta.Damageable) meta).setDamage(Math.min(damage, maxDurability - 1));
+            if (meta instanceof Damageable) {
+                ((Damageable) meta).setDamage(Math.min(damage, maxDurability - 1));
                 item.setItemMeta(meta);
             }
         }
@@ -420,8 +381,8 @@ public class HydroKlatkaManager {
         if (!pl.anaheim.anaitemy.items.HydroKlatka.isHydroKlatka(item)) return;
         
         ItemMeta meta = item.getItemMeta();
-        if (meta instanceof org.bukkit.inventory.meta.Damageable) {
-            ((org.bukkit.inventory.meta.Damageable) meta).setDamage(0);
+        if (meta instanceof Damageable) {
+            ((Damageable) meta).setDamage(0);
             item.setItemMeta(meta);
         }
     }
@@ -430,7 +391,6 @@ public class HydroKlatkaManager {
         long remaining = getPlayerCooldownRemaining(player);
         sendMessage(player, "&cNie możesz używać tego tak szybko! Pozostało: " + remaining + "s");
         
-        // Glass break sound
         player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK, 
                 SoundCategory.PLAYERS, 1.0f, 0.5f);
     }
@@ -439,13 +399,11 @@ public class HydroKlatkaManager {
         player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(message));
     }
 
-    // WorldGuard integration
     public boolean isInBlockedRegion(Location location) {
-        // TODO: Implementacja WorldGuard - sprawdź czy lokalizacja jest w chronionym regionie
-        return false; // Placeholder
+        // TODO: WorldGuard integration
+        return false;
     }
 
-    // Block protection methods dla listener
     public boolean isShellBlock(Location location) {
         return location.getBlock().getType() == SHELL && 
                activeKlatki.values().stream().anyMatch(k -> k.hasOriginalBlock(location));
@@ -456,7 +414,6 @@ public class HydroKlatkaManager {
     }
 
     public boolean canUseItem(Player player, Material material) {
-        // Sprawdź czy gracz jest w klatce i czy item jest zablokowany
         for (ActiveHydroKlatka klatka : activeKlatki.values()) {
             if (klatka.isPlayerTrapped(player.getUniqueId())) {
                 return !BLOCKED_ITEMS.contains(material);
@@ -466,16 +423,19 @@ public class HydroKlatkaManager {
     }
 
     public boolean canBreakBlock(Player player, Location location) {
-        // Sprawdź czy gracz może niszczyć bloki w klatce (WorldGuard integration)
-        return true; // Placeholder
+        // TODO: WorldGuard integration
+        return true;
     }
 
     public void markBlockAsDestroyed(Location location) {
         activeKlatki.values().forEach(k -> k.markBlockDestroyed(location));
     }
 
+    public Collection<ActiveHydroKlatka> getActiveKlatki() {
+        return new ArrayList<>(activeKlatki.values());
+    }
+
     public void cleanup() {
-        // Cleanup podczas wyłączania pluginu
         for (ActiveHydroKlatka klatka : new ArrayList<>(activeKlatki.values())) {
             removeKlatka(klatka);
         }
@@ -484,8 +444,5 @@ public class HydroKlatkaManager {
         cooldownTasks.clear();
         playerCooldowns.clear();
         chunkCooldowns.clear();
-    }
-    public Collection<ActiveHydroKlatka> getActiveKlatki() {
-        return new ArrayList<>(activeKlatki.values());
     }
 }
