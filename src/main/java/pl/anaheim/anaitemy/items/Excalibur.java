@@ -26,10 +26,10 @@ public class Excalibur {
     public static final double BASE_DAMAGE = 11.5;
     // Maksymalny damage
     public static final double MAX_DAMAGE = 12.0;
-    // Długość paska postępu (znaki) - zmniejszone do 10
-    public static final int BAR_LENGTH = 10;
-    // Znak paska - cienka linia
-    public static final String BAR_CHAR = "▬";
+    // Długość paska postępu (znaki) - trochę dłuższy
+    public static final int BAR_LENGTH = 15;
+    // Znak paska - prawdziwie ciągła cienka linia
+    public static final String BAR_CHAR = "━";
 
     public static ItemStack create(int maxKills) {
         return buildItem(0, maxKills);
