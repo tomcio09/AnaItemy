@@ -46,7 +46,7 @@ excalibur:
     fire-aspect: 2
     unbreaking: 3
   # Atrybut prędkości ataku (domyślny miecz netheritowy to -2.4)
-  attack-speed: -2.0
+  attack-speed: -1.6
   # Bazowe obrażenia (przy 0 killach)
   base-damage: 11.5
   # Maksymalne obrażenia (przy max killach)
@@ -54,7 +54,7 @@ excalibur:
   # Maksymalna liczba zabójstw do osiągnięcia max obrażeń
   max-kills: 100
   # Długość paska postępu (znaki)
-  bar-length: 20
+  bar-length: 18
   # Wiadomości
   messages:
     kills-set: '&aUstawiono zabójstwa Excalibura na: &f{kills}'
@@ -90,21 +90,21 @@ hydro-klatka:
   # Ustawienia klatki
   cage:
     # Promień klatki (bloki)
-    radius: 7
+    radius: 8
     # Czas trwania klatki (sekundy)
-    duration: 15
+    duration: 10
     # Czas animacji budowania (ticki, 20 = 1 sekunda)
     animation-duration: 60
   # Dźwięki
   sounds:
-    # Dźwięk strzału
+    # Dźwięk strzału z kuszy
     shoot:
       sound: ITEM_CROSSBOW_SHOOT
       volume: 2.0
       pitch: 1.0
     # Dźwięk tworzenia klatki (custom z resource packa)
     cage-create:
-      custom-sound: 'custom.hydroklatka'
+      custom-sound: 'custom.crate.hydroklatka'
       volume: 3.0
       pitch: 1.0
     # Dźwięk wybuchu przy tworzeniu
@@ -124,7 +124,7 @@ hydro-klatka:
       pitch: 0.5
   # BossBar dla uwięzionych graczy
   bossbar:
-    title: '&bHydroklatka &f{time}s'
+    title: '&bHydroklatka'
     color: BLUE
   # Zablokowane przedmioty w klatce
   blocked-items:
@@ -133,6 +133,7 @@ hydro-klatka:
     - FIRE_CHARGE
     - WATER_BUCKET
     - LAVA_BUCKET
+    - CHORUS_FRUIT
   # Zablokowane regiony WorldGuard (nie można użyć wyrzutni w tych regionach)
   blocked-regions: 
     - spawn
@@ -141,10 +142,10 @@ hydro-klatka:
     - netherspawnpvp
   # Wiadomości
   messages:
-    cooldown: '&cNie możesz używać tego tak szybko! Pozostało: &f{time}s'
+    cooldown: '&cNie możesz używać tego przedmiotu tak szybko!'
     chunk-blocked: '&cNie możesz w tym miejscu stworzyć klatki!'
-    blocked-region: '&cNie możesz użyć wyrzutni w tym regionie!'
+    blocked-region: ''
     cannot-use-in-cage: '&cNie możesz tego zrobić w Hydro Klatce!'
   # Action bar podczas cooldownu
   actionbar:
-    cooldown-format: '&b&lHydro Klatka&f: &b{time}s'
+    cooldown-format: '&fStrzał z &3Hydro klatki &fza: &b{time}s'
