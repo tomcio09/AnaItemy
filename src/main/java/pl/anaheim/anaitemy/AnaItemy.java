@@ -5,12 +5,14 @@ import pl.anaheim.anaitemy.commands.ItemyEventoweCommand;
 import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.listeners.*;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
+import pl.anaheim.anaitemy.managers.WorldGuardManager;
 
 public class AnaItemy extends JavaPlugin {
 
     private static AnaItemy instance;
     private HydroKlatkaManager hydroKlatkaManager;
     private ItemsConfig itemsConfig;
+    private WorldGuardManager worldGuardManager;
 
     @Override
     public void onEnable() {
@@ -21,6 +23,7 @@ public class AnaItemy extends JavaPlugin {
         itemsConfig = new ItemsConfig(this);
 
         // Inicjalizacja managerów
+        worldGuardManager = new WorldGuardManager(this);
         hydroKlatkaManager = new HydroKlatkaManager(this);
 
         // Komendy
@@ -58,5 +61,9 @@ public class AnaItemy extends JavaPlugin {
 
     public ItemsConfig getItemsConfig() {
         return itemsConfig;
+    }
+
+    public WorldGuardManager getWorldGuardManager() {
+        return worldGuardManager;
     }
 }
