@@ -26,10 +26,8 @@ public class Excalibur {
     public static final double BASE_DAMAGE = 11.5;
     // Maksymalny damage
     public static final double MAX_DAMAGE = 12.0;
-    // Długość paska postępu (znaki)
-    public static final int BAR_LENGTH = 15;
-    // Znak paska - prawdziwie ciągła cienka linia
-    public static final String BAR_CHAR = "━";
+    // Długość paska postępu - ile spacji dla pełnego paska
+    public static final int BAR_LENGTH = 30;
 
     public static ItemStack create(int maxKills) {
         return buildItem(0, maxKills);
@@ -140,12 +138,9 @@ public class Excalibur {
             if (plain.contains("Aktualnie zabójstw:")) {
                 lore.set(i, colorize(" &8» &7Aktualnie zabójstw: &f" + kills));
             }
-            // Linia z paskiem postępu
-            else if (plain.contains("━") || plain.contains("%")) {
-                // Sprawdź czy to linia paska (zawiera pasek lub procent)
-                if (plain.contains("»") && !plain.contains("Aktualnie")) {
-                    lore.set(i, colorize(" &8» " + progressBar + " &a" + percentStr + "%"));
-                }
+            // Linia z paskiem postępu (zawiera strikethrough lub %)
+            else if ((plain.contains("▬") || plain.contains("-") || plain.length() > 30) && plain.contains("%")) {
+                lore.set(i, colorize(" &8» " + progressBar + " &a" + percentStr + "%"));
             }
             // Linia z obrażeniami
             else if (plain.contains("Obrażenia od ataku:")) {
@@ -178,19 +173,24 @@ public class Excalibur {
     }
 
     /**
-     * Buduje pasek postępu jako ciągłą cienką linię.
+     * Buduje pasek postępu używając STRIKETHROUGH (&m) dla ciągłej linii.
+     * To tworzy wizualnie ciągłą linię bez przerw.
      */
     public static String buildProgressBar(int kills, int maxKills) {
         if (maxKills <= 0) {
-            return "&f" + BAR_CHAR.repeat(BAR_LENGTH);
+            // Pełny biały pasek ze strikethrough
+            return "&f&m" + " ".repeat(BAR_LENGTH);
         }
 
         int filled = (int) Math.round((double) kills / maxKills * BAR_LENGTH);
         if (filled > BAR_LENGTH) filled = BAR_LENGTH;
 
-        String green = filled > 0 ? "&a" + BAR_CHAR.repeat(filled) : "";
+        // Część zielona (wypełniona)
+        String green = filled > 0 ? "&a&m" + " ".repeat(filled) : "";
+        
+        // Część biała (pusta)
         String white = (BAR_LENGTH - filled) > 0
-                ? "&f" + BAR_CHAR.repeat(BAR_LENGTH - filled)
+                ? "&f&m" + " ".repeat(BAR_LENGTH - filled)
                 : "";
 
         return green + white;
