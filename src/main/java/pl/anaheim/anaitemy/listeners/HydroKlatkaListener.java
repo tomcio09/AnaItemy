@@ -1,7 +1,6 @@
 package pl.anaheim.anaitemy.listeners;
 
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.Fireball;
@@ -31,8 +30,8 @@ public class HydroKlatkaListener implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPlayerInteract(PlayerInteractEvent event) {
-        if (event.getAction() != Action.RIGHT_CLICK_AIR && 
-            event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if (event.getAction() != Action.RIGHT_CLICK_AIR &&
+                event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
 
         Player player = event.getPlayer();
         ItemStack item = player.getInventory().getItemInMainHand();
@@ -42,7 +41,7 @@ public class HydroKlatkaListener implements Listener {
         event.setCancelled(true);
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
-        
+
         // Sprawdź cooldown gracza
         if (manager.isPlayerOnCooldown(player)) {
             manager.sendCooldownMessage(player);
@@ -55,27 +54,27 @@ public class HydroKlatkaListener implements Listener {
             return;
         }
 
-        // Wystrzal fireball
+        // Wystrzał fireball
         shootFireball(player);
-        
+
         // Ustaw cooldown
         manager.setCooldown(player);
-        
+
         // Dźwięk strzału
-        player.playSound(player.getLocation(), Sound.ITEM_CROSSBOW_SHOOT, 
+        player.playSound(player.getLocation(), Sound.ITEM_CROSSBOW_SHOOT,
                 SoundCategory.PLAYERS, 2.0f, 1.0f);
     }
 
     private void shootFireball(Player player) {
         Location eye = player.getEyeLocation();
         Vector direction = eye.getDirection().normalize();
-        
+
         Fireball fireball = player.getWorld().spawn(eye.add(direction), Fireball.class);
         fireball.setShooter(player);
         fireball.setDirection(direction);
-        fireball.setYield(0f); // Bez eksplozji niszczącej bloki
-        fireball.setIsIncendiary(false); // Bez podpalania
-        
+        fireball.setYield(0f);
+        fireball.setIsIncendiary(false);
+
         // Oznacz jako Hydro Klatka pocisk
         fireball.setMetadata("hydro_klatka", new FixedMetadataValue(plugin, true));
     }
@@ -83,30 +82,28 @@ public class HydroKlatkaListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onProjectileHit(ProjectileHitEvent event) {
         Projectile projectile = event.getEntity();
-        
+
         if (!(projectile instanceof Fireball)) return;
         if (!projectile.hasMetadata("hydro_klatka")) return;
         if (!(projectile.getShooter() instanceof Player)) return;
+
+        // Usuń fireball
+        projectile.remove();
 
         Player shooter = (Player) projectile.getShooter();
         Location hitLocation = projectile.getLocation();
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
-        
-        // Sprawdź chunk cooldown
+
+        // Sprawdź chunk cooldown - dźwięk szkła tylko tutaj
         if (manager.isChunkBlocked(hitLocation)) {
             manager.sendMessage(shooter, "&cNie możesz w tym miejscu stworzyć klatki!");
-            // Dźwięk błędu
-            shooter.playSound(shooter.getLocation(), Sound.BLOCK_GLASS_BREAK, 
+            shooter.playSound(shooter.getLocation(), Sound.BLOCK_GLASS_BREAK,
                     SoundCategory.PLAYERS, 1.0f, 0.5f);
             return;
         }
 
-        // Dźwięk wybuchu (bez niszczenia)
-        hitLocation.getWorld().playSound(hitLocation, Sound.ENTITY_GENERIC_EXPLODE, 
-                SoundCategory.BLOCKS, 1.0f, 1.0f);
-
-        // Stwórz klatkę
+        // Stwórz klatkę (wewnątrz są dźwięki wybuchu + custom)
         manager.createKlatka(hitLocation, shooter);
     }
 
@@ -114,12 +111,11 @@ public class HydroKlatkaListener implements Listener {
     public void onItemHeld(PlayerItemHeldEvent event) {
         Player player = event.getPlayer();
         ItemStack newItem = player.getInventory().getItem(event.getNewSlot());
-        
+        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+
         if (HydroKlatka.isHydroKlatka(newItem)) {
-            HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
             manager.startCooldownDisplay(player);
         } else {
-            HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
             manager.stopCooldownDisplay(player);
         }
     }
