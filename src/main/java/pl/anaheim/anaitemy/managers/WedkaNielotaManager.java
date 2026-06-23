@@ -22,7 +22,7 @@ public class WedkaNielotaManager {
     // Cooldowny wędki
     private final Map<UUID, Long> wedkaCooldowns = new ConcurrentHashMap<>();
 
-    // Aktywne klątwy
+    // Aktywne klątwy (key = victimId)
     private final Map<UUID, CurseData> activeCurses = new ConcurrentHashMap<>();
 
     // BossBary dla złapanych graczy
@@ -45,13 +45,9 @@ public class WedkaNielotaManager {
             public void run() {
                 long now = System.currentTimeMillis();
 
-                // Cleanup cooldownów
                 wedkaCooldowns.entrySet().removeIf(entry -> now >= entry.getValue());
-
-                // Cleanup bugowanie reset timers
                 bugowanieResetTimers.entrySet().removeIf(entry -> now >= entry.getValue());
 
-                // Update BossBars + sprawdź wygaśnięcie klątwy
                 for (CurseData curse : new ArrayList<>(activeCurses.values())) {
                     updateBossBar(curse);
 
@@ -60,14 +56,14 @@ public class WedkaNielotaManager {
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 20L); // Co sekundę (dla bossbara wystarczy)
+        }.runTaskTimer(plugin, 0L, 20L);
     }
 
     // ==================== BUGOWANIE TASK ====================
 
     /**
-     * Task co tick sprawdza graczy z klątwą w powietrzu
-     * i aplikuje spowolnione opadanie jeśli klikają spację
+     * Co tick sprawdza graczy z klątwą w powietrzu
+     * i aplikuje spowolnione opadanie jeśli oznaczono bugowanieTick
      */
     private void startBugowanieTask() {
         new BukkitRunnable() {
@@ -79,13 +75,13 @@ public class WedkaNielotaManager {
                     Player victim = Bukkit.getPlayer(curse.getVictimId());
                     if (victim == null || !victim.isOnline()) continue;
 
-                    // Jeśli gracz leci elytrą - nie robimy nic (klątwa jeszcze go nie dotyczy)
+                    // Jeśli gracz leci elytrą - nie robimy nic
                     if (victim.isGliding()) continue;
 
-                    // Jeśli gracz na ziemi - nie robimy nic
-                    if (victim.isOnGround()) continue;
+                    // Jeśli gracz na ziemi lub w wodzie - nie robimy nic
+                    if (victim.isOnGround() || victim.isInWater()) continue;
 
-                    // Gracz w powietrzu bez elytry - aplikuj wolne opadanie jeśli buguje
+                    // Jeśli oznaczono bugowanieTick - zastosuj wolne opadanie
                     if (curse.isBugowanieTick()) {
                         if (!isBugowanieBlocked(victim)) {
                             applySlowFall(victim);
@@ -116,7 +112,6 @@ public class WedkaNielotaManager {
         wedkaCooldowns.put(player.getUniqueId(),
                 System.currentTimeMillis() + (cooldownSeconds * 1000));
 
-        // Wizualny cooldown na slocie (bez action bara)
         player.setCooldown(Material.FISHING_ROD, (int) (cooldownSeconds * 20));
     }
 
@@ -127,13 +122,9 @@ public class WedkaNielotaManager {
 
     // ==================== KLĄTWA ====================
 
-    /**
-     * Nakłada klątwę na gracza (złapany przez wędkę lub komendą)
-     */
     public void applyCurse(Player victim, Player attacker) {
         ItemsConfig config = plugin.getItemsConfig();
 
-        // Jeśli już ma klątwę - usuń starą
         if (activeCurses.containsKey(victim.getUniqueId())) {
             forceRemoveCurse(victim);
         }
@@ -148,18 +139,15 @@ public class WedkaNielotaManager {
 
         activeCurses.put(victim.getUniqueId(), curse);
 
-        // Titles dla obydwu graczy
+        // Titles
         if (attacker != null) {
             showCaughtTitles(victim, attacker);
-
-            // Cooldown dla atakującego
             setCooldown(attacker);
         } else {
-            // Nałożona komendą - tylko tytuł dla ofiary
             showCommandCurseTitle(victim);
         }
 
-        // BossBar dla złapanego
+        // BossBar
         createBossBar(victim, curse);
     }
 
@@ -189,7 +177,7 @@ public class WedkaNielotaManager {
     }
 
     /**
-     * Usuwa klątwę natychmiast (bez wiadomości, bez czekania na odlot)
+     * Usuwa klątwę natychmiast bez żadnych wiadomości
      */
     public void forceRemoveCurse(Player victim) {
         activeCurses.remove(victim.getUniqueId());
@@ -215,7 +203,7 @@ public class WedkaNielotaManager {
     // ==================== BUGOWANIE ====================
 
     /**
-     * Wywoływane gdy gracz z klątwą klika spację w powietrzu
+     * Wywoływane gdy gracz z klątwą klika spację w powietrzu (nie na ziemi)
      * Ustawia flagę że w następnym ticku ma być zastosowane wolne opadanie
      */
     public void handleSpaceClick(Player player) {
@@ -228,31 +216,33 @@ public class WedkaNielotaManager {
     }
 
     /**
-     * Aplikuje wolne opadanie gracza (bugowanie klątwy)
+     * ✅ Aplikuje wolne opadanie gracza (bugowanie klątwy)
+     * Prędkość z configu: bugowanie-fall-speed (bloki/sekundę)
+     * Np. 1.0 = 1 blok/s (bardzo wolno), 2.0 = 2 bloki/s
      */
     private void applySlowFall(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
+
+        // ✅ Prędkość podzielona przez 20 (ticki) i przez 2 dla płynności
         double fallSpeed = config.getWedkaNielotaBugowanieFallSpeed();
+        double fallVelocity = -(fallSpeed / 20.0);
 
         Vector velocity = player.getVelocity();
 
-        // fallSpeed = bloki/sekundę → dzielimy przez 20 (ticki/s)
-        double fallVelocity = -(fallSpeed / 20.0);
-
-        // Zachowaj poziomy ruch (X i Z)
+        // ✅ Zachowaj poziomy ruch (X i Z) - gracz może iść do przodu
         velocity.setY(fallVelocity);
         player.setVelocity(velocity);
     }
 
     /**
      * Resetuje bugowanie na krótki czas (po uderzeniu mieczem)
-     * Przez ten czas spacja nie spowalnia opadania
+     * Przez resetDuration ticki gracz normalnie spada (bugowanie nie działa)
      */
     public void resetBugowanie(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
         int resetTicks = config.getWedkaNielotaBugowanieResetDuration();
 
-        // Przeliczymy ticki → ms
+        // Ticki → ms (1 tick = 50ms)
         bugowanieResetTimers.put(player.getUniqueId(),
                 System.currentTimeMillis() + (resetTicks * 50L));
     }
@@ -303,9 +293,8 @@ public class WedkaNielotaManager {
             String titleWaiting = config.getWedkaNielotaBossBarTitleWaiting();
             bossBar.name(LegacyComponentSerializer.legacyAmpersand()
                     .deserialize(titleWaiting));
-            bossBar.progress(0.01f); // Prawie zero ale nie zero
+            bossBar.progress(0.01f);
         } else {
-            // Normalne odliczanie
             int remaining = curse.getRemainingSeconds();
             int total = curse.getTotalDuration();
 
@@ -348,7 +337,6 @@ public class WedkaNielotaManager {
     private void showCaughtTitles(Player victim, Player attacker) {
         ItemsConfig config = plugin.getItemsConfig();
 
-        // Dla złapanego
         victim.showTitle(Title.title(
                 LegacyComponentSerializer.legacyAmpersand()
                         .deserialize(config.getWedkaNielotaCaughtTitle()),
@@ -361,7 +349,6 @@ public class WedkaNielotaManager {
                         Duration.ofMillis(250))
         ));
 
-        // Dla łowiącego
         attacker.showTitle(Title.title(
                 LegacyComponentSerializer.legacyAmpersand()
                         .deserialize(config.getWedkaNielotaCatcherTitle()),
@@ -455,6 +442,9 @@ public class WedkaNielotaManager {
         private boolean wasReleased;
         private boolean bugowanieTick;
 
+        // ✅ Flaga "był na ziemi" - żeby blokować bugowanie przy pierwszym skoku
+        private boolean justOnGround;
+
         public CurseData(UUID victimId, UUID attackerId, long expirationTime, int totalDuration) {
             this.victimId = victimId;
             this.attackerId = attackerId;
@@ -463,6 +453,7 @@ public class WedkaNielotaManager {
             this.waitingForFlight = false;
             this.wasReleased = false;
             this.bugowanieTick = false;
+            this.justOnGround = true; // Na początku gracz stoi na ziemi
         }
 
         public UUID getVictimId() { return victimId; }
@@ -488,5 +479,9 @@ public class WedkaNielotaManager {
         public boolean isBugowanieTick() { return bugowanieTick; }
         public void markBugowanieTick() { this.bugowanieTick = true; }
         public void resetBugowanieTick() { this.bugowanieTick = false; }
+
+        // ✅ Flaga "był na ziemi" - zapobiega bugowaniu przy pierwszym skoku
+        public boolean wasJustOnGround() { return justOnGround; }
+        public void setJustOnGround(boolean v) { this.justOnGround = v; }
     }
 }
