@@ -12,19 +12,26 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.gui.EventoweGUI;
-import pl.anaheim.anaitemy.items.Excalibur;
+import pl.anaheim.anaitemy.items.*;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
+import pl.anaheim.anaitemy.managers.WedkaNielotaManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
     private final AnaItemy plugin;
+
+    // Dostępne ID itemów dla komendy give
+    private static final List<String> ITEM_IDS = Arrays.asList(
+            "totem", "excalibur", "hydroklatka", "rozdzka", "wedka"
+    );
 
     public ItemyEventoweCommand(AnaItemy plugin) {
         this.plugin = plugin;
@@ -36,28 +43,48 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
                              @NotNull String label,
                              @NotNull String[] args) {
 
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage("Ta komenda jest tylko dla graczy!");
-            return true;
-        }
-
-        if (!player.isOp()) {
+        // Sprawdź uprawnienia (OP lub konsola)
+        if (sender instanceof Player player && !player.isOp()) {
             player.sendMessage(color("&cNie masz uprawnień do tej komendy!"));
             return true;
         }
 
-        // /itemyeventowe
+        // /itemyeventowe (bez argumentów) - tylko gracz
         if (args.length == 0) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage("Ta komenda jest tylko dla graczy!");
+                return true;
+            }
             EventoweGUI.open(player, plugin);
             return true;
         }
 
+        // ==================== RELOAD ====================
+        // /itemyeventowe reload
+        if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
+            handleReload(sender);
+            return true;
+        }
+
+        // ==================== KILLS ====================
         // /itemyeventowe kills <liczba>
         if (args.length == 2 && args[0].equalsIgnoreCase("kills")) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage("Ta komenda jest tylko dla graczy!");
+                return true;
+            }
             handleKillsCommand(player, args[1]);
             return true;
         }
 
+        // ==================== GIVE ====================
+        // /itemyeventowe give <id> <nick> <ilość>
+        if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
+            handleGiveCommand(sender, args[1], args[2], args[3]);
+            return true;
+        }
+
+        // ==================== COOLDOWN RESET ====================
         // /itemyeventowe cooldown reset <nick>
         if (args.length == 3
                 && args[0].equalsIgnoreCase("cooldown")
@@ -66,14 +93,114 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        player.sendMessage(color("&cUżycie:"));
-        player.sendMessage(color("&7/itemyeventowe &8- &fotwiera GUI"));
-        player.sendMessage(color("&7/itemyeventowe kills <liczba> &8- &fustawia kille Excalibura"));
-        player.sendMessage(color("&7/itemyeventowe cooldown reset <nick> &8- &fresetuje cooldowny gracza"));
+        // ==================== KLATWA ====================
+        // /itemyeventowe klatwa naloz <nick>
+        // /itemyeventowe klatwa zdejmij <nick>
+        if (args.length == 3 && args[0].equalsIgnoreCase("klatwa")) {
+            handleKlatwaCommand(sender, args[1], args[2]);
+            return true;
+        }
+
+        // Pomoc
+        sendHelp(sender);
         return true;
     }
 
-    // ==================== KILLS COMMAND ====================
+    // ==================== RELOAD ====================
+
+    private void handleReload(CommandSender sender) {
+        // Przeładuj config.yml
+        plugin.reloadConfig();
+
+        // Przeładuj items.yml
+        plugin.getItemsConfig().reloadConfig();
+
+        sender.sendMessage(color("&aZreloadowano konfigurację &fconfig.yml &ai &fitems.yml&a!"));
+        plugin.getLogger().info("[AnaItemy] " + sender.getName() + " przeladowal konfiguracje.");
+    }
+
+    // ==================== GIVE ====================
+
+    private void handleGiveCommand(CommandSender sender, String itemId, String targetName, String amountStr) {
+        // Znajdź gracza
+        Player target = Bukkit.getPlayer(targetName);
+        if (target == null) {
+            sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!"));
+            return;
+        }
+
+        // Parsuj ilość
+        int amount;
+        try {
+            amount = Integer.parseInt(amountStr);
+            if (amount <= 0) {
+                sender.sendMessage(color("&cIlość musi być większa niż 0!"));
+                return;
+            }
+        } catch (NumberFormatException e) {
+            sender.sendMessage(color("&cPodaj poprawną liczbę!"));
+            return;
+        }
+
+        // Stwórz item
+        ItemStack item = createItemById(itemId.toLowerCase());
+        if (item == null) {
+            sender.sendMessage(color("&cNieznany item: &f" + itemId));
+            sender.sendMessage(color("&7Dostępne: &f" + String.join(", ", ITEM_IDS)));
+            return;
+        }
+
+        // Sprawdź czy gracz ma miejsce
+        int freeSlots = countFreeSlots(target);
+        int neededSlots = (int) Math.ceil((double) amount / item.getMaxStackSize());
+
+        if (freeSlots < neededSlots) {
+            sender.sendMessage(color("&cGracz &4" + target.getName() + " &cma pełny ekwipunek!"));
+            return;
+        }
+
+        // Daj item
+        item.setAmount(amount);
+        target.getInventory().addItem(item);
+
+        sender.sendMessage(color("&aDano &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
+        target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7]&a!"));
+    }
+
+    private ItemStack createItemById(String id) {
+        int maxKills = plugin.getItemsConfig().getExcaliburMaxKills();
+        return switch (id) {
+            case "totem" -> TotemUlaskawienia.create();
+            case "excalibur" -> Excalibur.create(maxKills);
+            case "hydroklatka" -> HydroKlatka.create();
+            case "rozdzka" -> RozdzkailuzjonistyItem.create();
+            case "wedka" -> WedkaNielotaItem.create();
+            default -> null;
+        };
+    }
+
+    private String getItemDisplayName(String id) {
+        return switch (id.toLowerCase()) {
+            case "totem" -> "&5Totem Ułaskawienia";
+            case "excalibur" -> "&eExcalibur";
+            case "hydroklatka" -> "&3Wyrzutnia Hydro Klatki";
+            case "rozdzka" -> "&5Różdżka Iluzjonisty";
+            case "wedka" -> "&5Wędka Nielota";
+            default -> id;
+        };
+    }
+
+    private int countFreeSlots(Player player) {
+        int free = 0;
+        for (ItemStack slot : player.getInventory().getStorageContents()) {
+            if (slot == null || slot.getType().isAir()) {
+                free++;
+            }
+        }
+        return free;
+    }
+
+    // ==================== KILLS ====================
 
     private void handleKillsCommand(Player player, String killsStr) {
         ItemStack item = player.getInventory().getItemInMainHand();
@@ -113,7 +240,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(color(msg));
     }
 
-    // ==================== COOLDOWN RESET COMMAND ====================
+    // ==================== COOLDOWN RESET ====================
 
     private void handleCooldownReset(CommandSender sender, String targetName) {
         Player target = Bukkit.getPlayer(targetName);
@@ -125,6 +252,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
         HydroKlatkaManager hydroManager = plugin.getHydroKlatkaManager();
         RozdzkailuzjonistyManager rozdzkaManager = plugin.getRozdzkailuzjonistyManager();
+        WedkaNielotaManager wedkaManager = plugin.getWedkaNielotaManager();
 
         // Reset cooldownu Hydro Klatki
         hydroManager.resetCooldown(target);
@@ -135,12 +263,67 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         rozdzkaManager.resetFangsCooldown(target);
         rozdzkaManager.resetVanishCooldown(target);
 
-        // Wiadomości
+        // ✅ Reset cooldownu Wędki Nielota
+        wedkaManager.resetCooldown(target);
+
         sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
         target.sendMessage(color("&aTwoje cooldowny zostały zresetowane przez &f" + sender.getName() + "&a!"));
 
         plugin.getLogger().info("[AnaItemy] " + sender.getName() +
                 " zresetowal cooldowny gracza " + target.getName());
+    }
+
+    // ==================== KLATWA ====================
+
+    private void handleKlatwaCommand(CommandSender sender, String action, String targetName) {
+        Player target = Bukkit.getPlayer(targetName);
+
+        if (target == null) {
+            sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!"));
+            return;
+        }
+
+        WedkaNielotaManager wedkaManager = plugin.getWedkaNielotaManager();
+
+        if (action.equalsIgnoreCase("naloz")) {
+            // Nałóż klątwę (attacker = null, bo komenda)
+            wedkaManager.applyCurse(target, null);
+            sender.sendMessage(color("&aNałożono klątwę na gracza &f" + target.getName() + "&a!"));
+            plugin.getLogger().info("[AnaItemy] " + sender.getName() +
+                    " nalozyl klatwe na gracza " + target.getName());
+
+        } else if (action.equalsIgnoreCase("zdejmij")) {
+            if (!wedkaManager.hasCurse(target)) {
+                sender.sendMessage(color("&cGracz &f" + target.getName() + " &cnie ma klątwy!"));
+                return;
+            }
+
+            wedkaManager.forceRemoveCurse(target);
+            sender.sendMessage(color("&aZdjęto klątwę z gracza &f" + target.getName() + "&a!"));
+            target.sendMessage(color("&aKlątwa została z Ciebie zdjęta!"));
+            plugin.getLogger().info("[AnaItemy] " + sender.getName() +
+                    " zdjalj klatwe z gracza " + target.getName());
+
+        } else {
+            sender.sendMessage(color("&cUżycie: &f/itemyeventowe klatwa <naloz|zdejmij> <nick>"));
+        }
+    }
+
+    // ==================== HELP ====================
+
+    private void sendHelp(CommandSender sender) {
+        sender.sendMessage(color("&8&m                                    "));
+        sender.sendMessage(color("&e&lAnaItemy &7- Dostępne komendy:"));
+        sender.sendMessage(color("&8&m                                    "));
+        sender.sendMessage(color("&7/itemyeventowe &8- &fotwiera GUI"));
+        sender.sendMessage(color("&7/itemyeventowe reload &8- &freładuje konfigurację"));
+        sender.sendMessage(color("&7/itemyeventowe give <id> <nick> <ilość> &8- &fdaje item"));
+        sender.sendMessage(color("&7/itemyeventowe kills <liczba> &8- &fustawia kille Excalibura"));
+        sender.sendMessage(color("&7/itemyeventowe cooldown reset <nick> &8- &fresetuje cooldowny"));
+        sender.sendMessage(color("&7/itemyeventowe klatwa naloz <nick> &8- &fnakłada klątwę"));
+        sender.sendMessage(color("&7/itemyeventowe klatwa zdejmij <nick> &8- &fzdejmuje klątwę"));
+        sender.sendMessage(color("&7Dostępne ID itemów: &f" + String.join(", ", ITEM_IDS)));
+        sender.sendMessage(color("&8&m                                    "));
     }
 
     // ==================== TAB COMPLETE ====================
@@ -153,22 +336,36 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            completions.add("kills");
-            completions.add("cooldown");
+            completions.addAll(Arrays.asList(
+                    "reload", "kills", "give", "cooldown", "klatwa"
+            ));
         } else if (args.length == 2) {
-            if (args[0].equalsIgnoreCase("kills")) {
-                completions.add("<liczba>");
-            } else if (args[0].equalsIgnoreCase("cooldown")) {
-                completions.add("reset");
+            switch (args[0].toLowerCase()) {
+                case "kills" -> completions.add("<liczba>");
+                case "give" -> completions.addAll(ITEM_IDS);
+                case "cooldown" -> completions.add("reset");
+                case "klatwa" -> completions.addAll(Arrays.asList("naloz", "zdejmij"));
             }
         } else if (args.length == 3) {
-            if (args[0].equalsIgnoreCase("cooldown") && args[1].equalsIgnoreCase("reset")) {
-                // Podpowiedz nicki graczy online
-                completions.addAll(
+            switch (args[0].toLowerCase()) {
+                case "give", "klatwa" -> completions.addAll(
                         Bukkit.getOnlinePlayers().stream()
                                 .map(Player::getName)
                                 .collect(Collectors.toList())
                 );
+                case "cooldown" -> {
+                    if (args[1].equalsIgnoreCase("reset")) {
+                        completions.addAll(
+                                Bukkit.getOnlinePlayers().stream()
+                                        .map(Player::getName)
+                                        .collect(Collectors.toList())
+                        );
+                    }
+                }
+            }
+        } else if (args.length == 4) {
+            if (args[0].equalsIgnoreCase("give")) {
+                completions.addAll(Arrays.asList("1", "5", "10", "64"));
             }
         }
 
