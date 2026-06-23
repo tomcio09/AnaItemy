@@ -40,8 +40,17 @@ public class HydroKlatkaBlockListener implements Listener {
         Location location = event.getBlock().getLocation();
         Player player = event.getPlayer();
 
-        if (!manager.isKlatkaBlock(location)) return;
+        // ✅ SPRAWDŹ CZY TO BLOK KLATKI - jeśli NIE, to pozwól zniszczyć (vanilla)
+        if (!manager.isKlatkaBlock(location)) {
+            // To NIE jest blok klatki - plugin nie ingeruje
+            return;
+        }
 
+        // ✅ DEBUG LOG (możesz usunąć później)
+        plugin.getLogger().info("[DEBUG] Gracz " + player.getName() + " próbuje zniszczyć blok klatki na " + 
+                location.getBlockX() + "," + location.getBlockY() + "," + location.getBlockZ());
+
+        // Jest blokiem klatki - sprawdź czy można zniszczyć
         if (manager.isShellBlock(location)) {
             event.setCancelled(true);
             manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
@@ -234,45 +243,4 @@ public class HydroKlatkaBlockListener implements Listener {
     public void onPistonExtend(BlockPistonExtendEvent event) {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
-        for (var block : event.getBlocks()) {
-            if (manager.isShellBlock(block.getLocation())) {
-                event.setCancelled(true);
-                return;
-            }
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onPistonRetract(BlockPistonRetractEvent event) {
-        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
-
-        for (var block : event.getBlocks()) {
-            if (manager.isShellBlock(block.getLocation())) {
-                event.setCancelled(true);
-                return;
-            }
-        }
-    }
-        // ==================== ŚMIERĆ W KLATCE ====================
-
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onPlayerDeath(org.bukkit.event.entity.PlayerDeathEvent event) {
-        Player player = event.getEntity();
-        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
-
-        // ✅ Jeśli gracz zginie w klatce - przestaje na niego działać
-        manager.removePlayerFromKlatka(player);
-    }
-
-    // ==================== ENTITY CHANGES ====================
-
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onEntityChangeBlock(EntityChangeBlockEvent event) {
-        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
-        Location location = event.getBlock().getLocation();
-
-        if (manager.isKlatkaBlock(location)) {
-            event.setCancelled(true);
-        }
-    }
-}
+        for 
