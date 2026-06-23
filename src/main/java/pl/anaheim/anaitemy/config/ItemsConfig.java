@@ -365,4 +365,103 @@ public class ItemsConfig {
     public List<String> getRozdzkailuzjonistyBlockedRegions() {
         return config.getStringList("rozdzka-iluzjonisty.blocked-regions");
     }
+        // ==================== WĘDKA NIELOTA ====================
+
+    public String getWedkaNielotaName() {
+        return config.getString("wedka-nielota.name", "&5&lWędka nielota");
+    }
+
+    public List<String> getWedkaNielotaLore() {
+        return config.getStringList("wedka-nielota.lore");
+    }
+
+    public int getWedkaNielotaCustomModelData() {
+        return config.getInt("wedka-nielota.custom-model-data", 2);
+    }
+
+    public int getWedkaNielotaGuiSlot() {
+        return config.getInt("wedka-nielota.gui-slot", 4);
+    }
+
+    public int getWedkaNielotaUnbreaking() {
+        return config.getInt("wedka-nielota.enchants.unbreaking", 10);
+    }
+
+    public int getWedkaNielotaCurseDuration() {
+        return config.getInt("wedka-nielota.curse-duration", 12);
+    }
+
+    public long getWedkaNielotaCooldown() {
+        return config.getLong("wedka-nielota.cooldown", 30);
+    }
+
+    public double getWedkaNielotaBugowanieFallSpeed() {
+        return config.getDouble("wedka-nielota.bugowanie-fall-speed", 2.0);
+    }
+
+    public int getWedkaNielotaBugowanieResetDuration() {
+        return config.getInt("wedka-nielota.bugowanie-reset-duration", 4);
+    }
+
+    public List<String> getWedkaNielotaBlockedRegions() {
+        return config.getStringList("wedka-nielota.blocked-regions");
+    }
+
+    // Messages
+    public String getWedkaNielotaCaughtTitle() {
+        return config.getString("wedka-nielota.messages.caught-title", "&c&lZłapany!");
+    }
+
+    public String getWedkaNielotaCaughtSubtitle() {
+        return config.getString("wedka-nielota.messages.caught-subtitle", "&7Złapany przez: &e{attacker}");
+    }
+
+    public String getWedkaNielotaCatcherTitle() {
+        return config.getString("wedka-nielota.messages.catcher-title", "&a&lZłapałeś gracza!");
+    }
+
+    public String getWedkaNielotaCatcherSubtitle() {
+        return config.getString("wedka-nielota.messages.catcher-subtitle", "&7Złapany gracz: &e{victim}");
+    }
+
+    public String getWedkaNielotaReleasedTitle() {
+        return config.getString("wedka-nielota.messages.released-title", "&c&lPuścił cię!");
+    }
+
+    public String getWedkaNielotaReleasedSubtitle() {
+        return config.getString("wedka-nielota.messages.released-subtitle", "&cPuścił cię gracz!");
+    }
+
+    public String getWedkaNielotaReleaserTitle() {
+        return config.getString("wedka-nielota.messages.releaser-title", "&c&lPuściłeś gracza!");
+    }
+
+    public String getWedkaNielotaReleaserSubtitle() {
+        return config.getString("wedka-nielota.messages.releaser-subtitle", "&cPuściłeś gracza!");
+    }
+
+    public String getWedkaNielotaFreedTitle() {
+        return config.getString("wedka-nielota.messages.freed-title", "&c&lUwolniony!");
+    }
+
+    public String getWedkaNielotaFreedSubtitle() {
+        return config.getString("wedka-nielota.messages.freed-subtitle", "&7Klątwa została zdjęta!");
+    }
+
+    public String getWedkaNielotaCooldownMessage() {
+        return config.getString("wedka-nielota.messages.cooldown-message", "&cNie możesz użyć wędki tak szybko!");
+    }
+
+    // BossBar
+    public String getWedkaNielotaBossBarTitle() {
+        return config.getString("wedka-nielota.bossbar.title", "&cPosiadasz klątwę! Nie możesz latać przez &e{seconds}s");
+    }
+
+    public String getWedkaNielotaBossBarTitleWaiting() {
+        return config.getString("wedka-nielota.bossbar.title-waiting", "&cPosiadasz klątwę! Nie możesz latać przez &e<1s");
+    }
+
+    public String getWedkaNielotaBossBarColor() {
+        return config.getString("wedka-nielota.bossbar.color", "RED");
+    }
 }
