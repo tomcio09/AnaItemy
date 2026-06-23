@@ -374,6 +374,11 @@ public class HydroKlatkaManager {
     private Material mapToWaterBlock(Material original) {
         String name = original.name();
 
+        // ✅ BEDROCK nie zmienia się
+        if (original == Material.BEDROCK) {
+            return Material.BEDROCK;
+        }
+
         if (original == Material.DIRT || original == Material.GRASS_BLOCK ||
                 original == Material.COARSE_DIRT || original == Material.ROOTED_DIRT) {
             return Material.LIGHT_GRAY_TERRACOTTA;
