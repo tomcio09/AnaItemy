@@ -243,4 +243,46 @@ public class HydroKlatkaBlockListener implements Listener {
     public void onPistonExtend(BlockPistonExtendEvent event) {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
-        for 
+        for (var block : event.getBlocks()) {
+            if (manager.isShellBlock(block.getLocation())) {
+                event.setCancelled(true);
+                return;
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPistonRetract(BlockPistonRetractEvent event) {
+        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+
+        for (var block : event.getBlocks()) {
+            if (manager.isShellBlock(block.getLocation())) {
+                event.setCancelled(true);
+                return;
+            }
+        }
+    }
+
+    // ==================== ŚMIERĆ W KLATCE ====================
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerDeath(org.bukkit.event.entity.PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+
+        // ✅ Jeśli gracz zginie w klatce - przestaje na niego działać
+        manager.removePlayerFromKlatka(player);
+    }
+
+    // ==================== ENTITY CHANGES ====================
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onEntityChangeBlock(EntityChangeBlockEvent event) {
+        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+        Location location = event.getBlock().getLocation();
+
+        if (manager.isKlatkaBlock(location)) {
+            event.setCancelled(true);
+        }
+    }
+}
