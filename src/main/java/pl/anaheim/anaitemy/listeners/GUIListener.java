@@ -11,6 +11,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.gui.EventoweGUI;
+import pl.anaheim.anaitemy.items.SakiewkaDropu;
 
 public class GUIListener implements Listener {
 
@@ -37,7 +38,15 @@ public class GUIListener implements Listener {
         ItemStack clickedItem = event.getCurrentItem();
         if (clickedItem == null || clickedItem.getType().isAir()) return;
 
-        // Spróbuj dać graczowi item
+        // ✅ NOWA LOGIKA - sprawdź czy to sakiewka
+        if (SakiewkaDropu.isSakiewka(clickedItem)) {
+            // Generuj NOWĄ unikalną sakiewkę zamiast klonować
+            ItemStack newSakiewka = SakiewkaDropu.create();
+            giveItem(player, newSakiewka);
+            return;
+        }
+
+        // Spróbuj dać graczowi item (clone dla innych itemów)
         giveItem(player, clickedItem.clone());
     }
 
