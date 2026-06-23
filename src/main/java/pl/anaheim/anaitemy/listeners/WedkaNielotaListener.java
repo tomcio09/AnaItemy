@@ -9,8 +9,9 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityToggleGlideEvent;
 import org.bukkit.event.player.*;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.metadata.FixedMetadataValue;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.WedkaNielotaItem;
 import pl.anaheim.anaitemy.managers.WedkaNielotaManager;
@@ -19,8 +20,33 @@ public class WedkaNielotaListener implements Listener {
 
     private final AnaItemy plugin;
 
+    // Klucz metadata dla hooka wędki nielota
+    private static final String HOOK_META_KEY = "wedka_nielota_hook";
+
     public WedkaNielotaListener(AnaItemy plugin) {
         this.plugin = plugin;
+    }
+
+    // ==================== RZUCENIE WĘDKI - OZNACZ HOOK ====================
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        Player fisher = event.getPlayer();
+
+        // Sprawdź obie ręce
+        ItemStack mainHand = fisher.getInventory().getItemInMainHand();
+        ItemStack offHand = fisher.getInventory().getItemInOffHand();
+
+        if (!WedkaNielotaItem.isWedkaNielota(mainHand) &&
+                !WedkaNielotaItem.isWedkaNielota(offHand)) return;
+
+        // Sprawdź cooldown przy próbie rzutu
+        WedkaNielotaManager manager = plugin.getWedkaNielotaManager();
+        if (manager.isOnCooldown(fisher)) {
+            event.setCancelled(true);
+            manager.sendMessage(fisher,
+                    plugin.getItemsConfig().getWedkaNielotaCooldownMessage());
+        }
     }
 
     // ==================== ZŁAPANIE GRACZA ====================
@@ -29,28 +55,31 @@ public class WedkaNielotaListener implements Listener {
     public void onPlayerFish(PlayerFishEvent event) {
         Player fisher = event.getPlayer();
 
-        // ✅ Sprawdź obie ręce
+        // Sprawdź obie ręce
         ItemStack mainHand = fisher.getInventory().getItemInMainHand();
         ItemStack offHand = fisher.getInventory().getItemInOffHand();
 
-        boolean isMainHand = WedkaNielotaItem.isWedkaNielota(mainHand);
-        boolean isOffHand = WedkaNielotaItem.isWedkaNielota(offHand);
+        boolean isWedka = WedkaNielotaItem.isWedkaNielota(mainHand)
+                || WedkaNielotaItem.isWedkaNielota(offHand);
 
-        if (!isMainHand && !isOffHand) return;
+        if (!isWedka) return;
 
         WedkaNielotaManager manager = plugin.getWedkaNielotaManager();
 
-        // Sprawdź cooldown
-        if (manager.isOnCooldown(fisher)) {
-            event.setCancelled(true);
-            manager.sendMessage(fisher,
-                    plugin.getItemsConfig().getWedkaNielotaCooldownMessage());
-            return;
-        }
+        PlayerFishEvent.State state = event.getState();
 
-        // ✅ Złapanie gracza na haczyk - TYLKO state CAUGHT_ENTITY
-        if (event.getState() == PlayerFishEvent.State.CAUGHT_ENTITY) {
+        // ✅ CAUGHT_ENTITY = haczyk trafił w gracza
+        if (state == PlayerFishEvent.State.CAUGHT_ENTITY) {
             if (!(event.getCaught() instanceof Player victim)) return;
+            if (victim.equals(fisher)) return;
+
+            // Sprawdź cooldown
+            if (manager.isOnCooldown(fisher)) {
+                event.setCancelled(true);
+                manager.sendMessage(fisher,
+                        plugin.getItemsConfig().getWedkaNielotaCooldownMessage());
+                return;
+            }
 
             // Sprawdź region
             if (plugin.getWorldGuardManager().isInBlockedRegion(
@@ -59,9 +88,12 @@ public class WedkaNielotaListener implements Listener {
                 return;
             }
 
-            // Nałóż klątwę natychmiast przy złapaniu
+            // ✅ Nałóż klątwę NATYCHMIAST przy złapaniu
             manager.applyCurse(victim, fisher);
+            return;
         }
+
+        // ✅ IN_GROUND / FAILED_ATTEMPT / FISHING - ignoruj (nie nakładaj klątwy)
     }
 
     // ==================== BLOKADA STARTU ELYTRY ====================
@@ -75,7 +107,7 @@ public class WedkaNielotaListener implements Listener {
 
         WedkaNielotaManager.CurseData curse = manager.getCurse(player);
 
-        // ✅ Klątwa wygasła / puszczona - czeka na odlot
+        // ✅ Klątwa wygasła / puszczona - czeka na odlot → pozwól odlecieć + wiadomość
         if (curse.isWaitingForFlight() && event.isGliding()) {
             if (curse.isWasReleased()) {
                 manager.showReleasedTitle(player);
@@ -86,66 +118,27 @@ public class WedkaNielotaListener implements Listener {
             return;
         }
 
-        // ✅ Klątwa aktywna - blokuj START elytry
+        // ✅ Klątwa aktywna - blokuj próbę wejścia w glide TYLKO gdy:
+        // a) gracz próbuje WŁĄCZYĆ glide (isGliding() = true = włącza)
+        // b) gracz ma elytrę na sobie
+        // c) gracz jest w powietrzu (nie na ziemi)
         if (!curse.isWaitingForFlight() && event.isGliding()) {
-            event.setCancelled(true);
+            // Sprawdź czy gracz ma elytrę w slocie
+            ItemStack chestplate = player.getInventory().getChestplate();
+            if (chestplate != null &&
+                    chestplate.getType() == org.bukkit.Material.ELYTRA) {
+                // ✅ Gracz w powietrzu i próbuje wejść w glide - zablokuj
+                if (!player.isOnGround()) {
+                    event.setCancelled(true);
+                }
+            }
         }
     }
 
-    // ==================== BUGOWANIE (SPACJA W POWIETRZU) ====================
+    // ==================== BUGOWANIE - LIMIT PRĘDKOŚCI OPADANIA ====================
 
-    @EventHandler(priority = EventPriority.NORMAL)
-    public void onPlayerMove(PlayerMoveEvent event) {
-        Player player = event.getPlayer();
-        WedkaNielotaManager manager = plugin.getWedkaNielotaManager();
-
-        if (!manager.hasCurse(player)) return;
-
-        WedkaNielotaManager.CurseData curse = manager.getCurse(player);
-        if (curse.isWaitingForFlight()) return;
-
-        // Jeśli gracz już leci elytrą - nie robimy nic
-        if (player.isGliding()) return;
-
-        // ✅ Tylko jeśli gracz NIE jest na ziemi i NIE jest w wodzie
-        if (player.isOnGround() || player.isInWater()) return;
-
-        // ✅ Bugowanie działa TYLKO gdy gracz jest w powietrzu i klika spację
-        // Wykrywamy przez velocity Y > 0 (próba lotu elytrą = spacja w powietrzu)
-        // ale NIE przy pierwszym skoku (skaczemy z ziemi - isOnGround był true)
-        double velY = player.getVelocity().getY();
-
-        // ✅ Wykryj "drugą spację" - gracz już spada (velY < 0) i klika spację (velY nagle > 0)
-        // lub gracz jest w powietrzu i klika spację (velY > 0.1 ale nie jest to skok z ziemi)
-        if (velY > 0.05 && !curse.wasJustOnGround()) {
-            manager.handleSpaceClick(player);
-        }
-
-        // ✅ Aktualizuj flagę "był na ziemi"
-        curse.setJustOnGround(false);
-    }
-
-    // ==================== ŚLEDZENIE LĄDOWANIA ====================
-
-    /**
-     * Gdy gracz ląduje na ziemi - resetujemy flagę aby następny skok był normalny
-     * Bugowanie zaczyna działać dopiero przy DRUGIEJ spacji (w powietrzu)
-     */
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onPlayerLand(PlayerMoveEvent event) {
-        Player player = event.getPlayer();
-        WedkaNielotaManager manager = plugin.getWedkaNielotaManager();
-
-        if (!manager.hasCurse(player)) return;
-
-        WedkaNielotaManager.CurseData curse = manager.getCurse(player);
-        if (curse == null) return;
-
-        // Gracz wylądował - ustaw flagę
-        if (player.isOnGround()) {
-            curse.setJustOnGround(true);
-        }
-    }
+    // ✅ Nie używamy PlayerMoveEvent do wykrywania spacji
+    // Logika działa w WedkaNielotaManager.startBugowanieTask() co tick
 
     // ==================== UDERZENIE MIECZEM ====================
 
@@ -160,7 +153,7 @@ public class WedkaNielotaListener implements Listener {
         WedkaNielotaManager.CurseData curse = manager.getCurse(victim);
         if (curse.isWaitingForFlight()) return;
 
-        // ✅ Resetuj bugowanie na 3-4 ticki
+        // ✅ Resetuj bugowanie na 3-4 ticki (gracz normalnie spada przez krótką chwilę)
         manager.resetBugowanie(victim);
     }
 
@@ -174,14 +167,7 @@ public class WedkaNielotaListener implements Listener {
         WedkaNielotaManager manager = plugin.getWedkaNielotaManager();
         if (!manager.hasCurse(victim)) return;
 
-        EntityDamageEvent.DamageCause cause = event.getCause();
-
-        // Void, poison, fall - nic nie robimy
-        if (cause == EntityDamageEvent.DamageCause.VOID ||
-                cause == EntityDamageEvent.DamageCause.POISON ||
-                cause == EntityDamageEvent.DamageCause.FALL) {
-            // Celowo puste
-        }
+        // Void, poison, fall - nic nie robimy z bugowaniem
     }
 
     // ==================== ZMIANA SLOTU ====================
@@ -194,7 +180,7 @@ public class WedkaNielotaListener implements Listener {
         if (previousItem == null) return;
         if (!WedkaNielotaItem.isWedkaNielota(previousItem)) return;
 
-        // ✅ Sprawdź czy gracz nadal trzyma wędkę w offhandzie
+        // Sprawdź czy nadal trzyma wędkę w offhandzie
         if (WedkaNielotaItem.isWedkaNielota(fisher.getInventory().getItemInOffHand())) return;
 
         WedkaNielotaManager manager = plugin.getWedkaNielotaManager();
