@@ -7,10 +7,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import pl.anaheim.anaitemy.AnaItemy;
-import pl.anaheim.anaitemy.items.Excalibur;
-import pl.anaheim.anaitemy.items.HydroKlatka;
-import pl.anaheim.anaitemy.items.RozdzkailuzjonistyItem;
-import pl.anaheim.anaitemy.items.TotemUlaskawienia;
+import pl.anaheim.anaitemy.items.*;
 
 public class EventoweGUI {
 
@@ -23,20 +20,13 @@ public class EventoweGUI {
                 .deserialize("&8&lItemy Eventowe")
                 .decoration(TextDecoration.ITALIC, false);
 
-        // 6 rzędów = 54 sloty
         Inventory gui = Bukkit.createInventory(null, 54, title);
 
-        // Slot 0 - Totem Ułaskawienia
         gui.setItem(0, TotemUlaskawienia.create());
-
-        // Slot 1 - Excalibur
         gui.setItem(1, Excalibur.create(maxKills));
-
-        // Slot 2 - Hydro Klatka
         gui.setItem(2, HydroKlatka.create());
-
-        // Slot 3 - Różdżka Iluzjonisty
         gui.setItem(3, RozdzkailuzjonistyItem.create());
+        gui.setItem(4, WedkaNielotaItem.create());
 
         player.openInventory(gui);
     }
