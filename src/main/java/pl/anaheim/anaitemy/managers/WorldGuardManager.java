@@ -2,12 +2,17 @@ package pl.anaheim.anaitemy.managers;
 
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.math.BlockVector3;
+import com.sk89q.worldguard.LocalPlayer;
 import com.sk89q.worldguard.WorldGuard;
+import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
+import com.sk89q.worldguard.protection.flags.Flags;
+import com.sk89q.worldguard.protection.flags.StateFlag;
 import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import com.sk89q.worldguard.protection.regions.RegionContainer;
 import org.bukkit.Location;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import pl.anaheim.anaitemy.AnaItemy;
 
@@ -21,7 +26,6 @@ public class WorldGuardManager {
     public WorldGuardManager(AnaItemy plugin) {
         this.plugin = plugin;
         
-        // Sprawdź czy WorldGuard jest załadowany
         Plugin wg = plugin.getServer().getPluginManager().getPlugin("WorldGuard");
         this.worldGuardEnabled = wg != null && wg.isEnabled();
         
@@ -33,7 +37,7 @@ public class WorldGuardManager {
     }
 
     /**
-     * Sprawdza czy lokalizacja jest w zablokowanym regionie (z listy blocked-regions w items.yml)
+     * ✅ Sprawdza czy lokalizacja jest w zablokowanym regionie (blocked-regions z items.yml)
      */
     public boolean isInBlockedRegion(Location location, List<String> blockedRegions) {
         if (!worldGuardEnabled) return false;
@@ -53,9 +57,15 @@ public class WorldGuardManager {
 
             ApplicableRegionSet regions = regionManager.getApplicableRegions(position);
 
-            // Sprawdź czy któryś z regionów w tej lokalizacji jest na liście zablokowanych
             for (ProtectedRegion region : regions) {
+                // ✅ Sprawdź nazwę regionu
                 if (blockedRegions.contains(region.getId())) {
+                    return true;
+                }
+                
+                // ✅ Sprawdź flagę PVP (jeśli pvp=deny to region jest zablokowany)
+                StateFlag.State pvpState = region.getFlag(Flags.PVP);
+                if (pvpState == StateFlag.State.DENY) {
                     return true;
                 }
             }
@@ -68,14 +78,34 @@ public class WorldGuardManager {
     }
 
     /**
-     * Sprawdza czy gracz może niszczyć bloki w danej lokalizacji
+     * ✅ Sprawdza czy gracz może niszczyć bloki w danej lokalizacji
+     * Uwzględnia flagę block-break w WorldGuard
      */
-    public boolean canBreakBlock(Location location) {
+    public boolean canBreakBlock(Player player, Location location) {
         if (!worldGuardEnabled) return true;
         
-        // Tutaj można dodać dodatkową logikę WorldGuard jeśli potrzebna
-        // Na razie zwracamy true - gracz może niszczyć bloki w klatce
-        return true;
+        try {
+            RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
+            RegionManager regionManager = container.get(BukkitAdapter.adapt(location.getWorld()));
+            
+            if (regionManager == null) return true;
+
+            BlockVector3 position = BlockVector3.at(
+                    location.getBlockX(),
+                    location.getBlockY(),
+                    location.getBlockZ()
+            );
+
+            ApplicableRegionSet regions = regionManager.getApplicableRegions(position);
+            LocalPlayer localPlayer = WorldGuardPlugin.inst().wrapPlayer(player);
+
+            // ✅ Sprawdź flagę BLOCK_BREAK
+            return regions.testState(localPlayer, Flags.BLOCK_BREAK);
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("Błąd podczas sprawdzania block-break: " + e.getMessage());
+            return true; // Domyślnie pozwól
+        }
     }
 
     public boolean isEnabled() {
