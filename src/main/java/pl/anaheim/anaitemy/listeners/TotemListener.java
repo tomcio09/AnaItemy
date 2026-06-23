@@ -17,6 +17,7 @@ import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.items.TotemUlaskawienia;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -40,6 +41,29 @@ public class TotemListener implements Listener {
         if (!TotemUlaskawienia.isTotemUlaskawienia(item)) return;
 
         event.setCancelled(true);
+
+        ItemsConfig config = plugin.getItemsConfig();
+        List<String> blockedRegions = config.getTotemBlockedRegions();
+
+        // ✅ Sprawdź czy gracz jest w zablokowanym regionie
+        boolean inBlockedRegion = plugin.getWorldGuardManager().isInBlockedRegion(
+                player.getLocation(), 
+                blockedRegions
+        );
+
+        if (inBlockedRegion) {
+            /**
+             * ✅ TOTEM W ZABLOKOWANYM REGIONIE:
+             * - Totem NIE zostaje zużyty (gracz zostaje z nim w ręku)
+             * - Gracz się odradza normalnie (keep inventory + exp)
+             * - Totem można używać wielokrotnie w zablokowanym regionie
+             */
+            // NIE usuwamy totemu z inventory
+            usedTotem.add(player.getUniqueId());
+            return;
+        }
+
+        // ✅ TOTEM POZA ZABLOKOWANYM REGIONEM - jednorazowe użycie
         player.getInventory().setItem(event.getHand(), null);
         usedTotem.add(player.getUniqueId());
     }
@@ -56,7 +80,6 @@ public class TotemListener implements Listener {
         event.getDrops().clear();
         event.setDroppedExp(0);
 
-        // Wiadomość z configu
         ItemsConfig config = plugin.getItemsConfig();
         String message = config.getTotemDeathMessage()
                 .replace("{victim}", player.getName());
@@ -66,7 +89,6 @@ public class TotemListener implements Listener {
             online.sendMessage(msg);
         }
 
-        // Heal po respawnie
         Bukkit.getScheduler().runTask(plugin, () -> {
             player.spigot().respawn();
 
