@@ -253,6 +253,16 @@ public class HydroKlatkaBlockListener implements Listener {
             }
         }
     }
+        // ==================== ŚMIERĆ W KLATCE ====================
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerDeath(org.bukkit.event.entity.PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+
+        // ✅ Jeśli gracz zginie w klatce - przestaje na niego działać
+        manager.removePlayerFromKlatka(player);
+    }
 
     // ==================== ENTITY CHANGES ====================
 
