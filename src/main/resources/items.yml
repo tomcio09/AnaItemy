@@ -225,11 +225,8 @@ rozdzka-iluzjonisty:
 #         WĘDKA NIELOTA
 # ==========================================
 wedka-nielota:
-  # Materiał itemu
   material: FISHING_ROD
-  # Nazwa itemu
   name: '&5&lWędka nielota'
-  # Opis itemu
   lore:
     - ''
     - ' &8» &7Wędka nielota była do zdobycia'
@@ -237,52 +234,38 @@ wedka-nielota:
     - ''
     - ' &8» &7Po złapaniu gracza na haczyk'
     - ' &8» &7nie może on odlecieć &delytrą!'
-  # Custom Model Data
   custom-model-data: 2
-  # Slot w GUI
   gui-slot: 4
-  # Enchanty
   enchants: []
   
-  # Czas trwania klątwy (sekundy)
   curse-duration: 12
-  
-  # Cooldown wędki (sekundy) - NIE MOŻNA użyć PPM
   cooldown: 30
   
-  # Prędkość opadania podczas bugowania (bloki/sekundę przy ~5 CPS spam spacji)
-  bugowanie-fall-speed: 0.2
+  # ✅ Zwiększono prędkość bugowania z 2.0 na 3.5 bloków/s
+  bugowanie-fall-speed: 2.0
   
-  # Jak długo nie działa bugowanie po uderzeniu mieczem (ticki, 20 = 1s)
   bugowanie-reset-duration: 4
   
-  # Zablokowane regiony WorldGuard
   blocked-regions:
     - spawn
     - endspawn
   
-  # Wiadomości
   messages:
-    # Złapanie
     caught-title: '&c&lZłapany!'
     caught-subtitle: '&7Złapany przez: &e{attacker}'
     catcher-title: '&a&lZłapałeś gracza!'
     catcher-subtitle: '&7Złapany gracz: &e{victim}'
     
-    # Puszczenie (pokazuje się DOPIERO gdy gracz odleci)
     released-title: '&c&lPuścił cię!'
     released-subtitle: '&cPuścił cię gracz!'
     releaser-title: '&c&lPuściłeś gracza!'
     releaser-subtitle: '&cPuściłeś gracza!'
     
-    # Wygaśnięcie klątwy (pokazuje się DOPIERO gdy gracz odleci)
     freed-title: '&c&lUwolniony!'
     freed-subtitle: '&7Klątwa została zdjęta!'
     
-    # Cooldown
     cooldown-message: '&cNie możesz użyć wędki tak szybko!'
     
-  # BossBar
   bossbar:
     title: '&cPosiadasz klątwę! Nie możesz latać przez &e{seconds}s'
     title-waiting: '&cPosiadasz klątwę! Nie możesz latać przez &e<1s'
