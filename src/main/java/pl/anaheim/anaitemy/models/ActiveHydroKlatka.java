@@ -114,6 +114,11 @@ public class ActiveHydroKlatka {
         return offlinePlayers.contains(playerId);
     }
 
+    // ✅ DODANA METODA
+    public Set<UUID> getOfflinePlayers() {
+        return new HashSet<>(offlinePlayers);
+    }
+
     // Animation
     public boolean isAnimationComplete() {
         return animationComplete;
