@@ -204,7 +204,7 @@ rozdzka-iluzjonisty:
     # Czas trwania zniknięcia (sekundy)
     duration: 4
     # Szybkość ruchu NPC
-    npc-speed: 1.0
+    npc-speed: 0.5
     # Dźwięki
     sounds:
       activate: ENTITY_ENDERMAN_AMBIENT
