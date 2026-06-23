@@ -270,3 +270,31 @@ wedka-nielota:
     title: '&cPosiadasz klątwę! Nie możesz latać przez &e{seconds}s'
     title-waiting: '&cPosiadasz klątwę! Nie możesz latać przez &e<1s'
     color: RED
+# ==========================================
+#         SAKIEWKA DROPU
+# ==========================================
+sakiewka-dropu:
+  material: RABBIT_FOOT
+  name: '&a&lSakiewka dropu'
+  lore:
+    - ''
+    - ' &8» &7Posiadając ten przedmiot w'
+    - ' &8» &7ekwipunku po &czabiciu &7dowolnego'
+    - ' &8» &fgracza &7jego przedmioty trafiają'
+    - ' &8» &7do twojej &asakiewki&7!'
+    - ''
+    - ' &8» &eKliknij PRAWYM, aby otworzyć sakiewkę!'
+  custom-model-data: 1
+  gui-slot: 5
+  
+  # Regiony gdzie nie można zbierać itemów do sakiewki
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+  
+  # Regiony gdzie nie można wypłacić wszystkich itemów przyciskiem
+  blocked-regions-no-payout:
+    - spawn
+    - endspawn
+    - netherspawn
