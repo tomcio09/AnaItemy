@@ -267,6 +267,7 @@ public class HydroKlatkaManager {
         World world = center.getWorld();
         ItemsConfig config = plugin.getItemsConfig();
 
+        // 1. Dźwięk wybuchu
         try {
             Sound explodeSound = Sound.valueOf(config.getHydroKlatkaExplodeSound());
             world.playSound(center, explodeSound, SoundCategory.BLOCKS,
@@ -276,17 +277,28 @@ public class HydroKlatkaManager {
             plugin.getLogger().warning("Nieprawidłowy dźwięk wybuchu: " + config.getHydroKlatkaExplodeSound());
         }
 
-        // ✅ Custom dźwięk z większą głośnością (10.0 zamiast 3.0)
+        // ✅ 2. GENERIC_SPLASH natychmiast
+        try {
+            Sound splashSound = Sound.valueOf(config.getHydroKlatkaSplashSound());
+            world.playSound(center, splashSound, SoundCategory.BLOCKS,
+                    config.getHydroKlatkaSplashVolume(),
+                    config.getHydroKlatkaSplashPitch());
+        } catch (IllegalArgumentException e) {
+            plugin.getLogger().warning("Nieprawidłowy dźwięk splash: " + config.getHydroKlatkaSplashSound());
+        }
+
+        // ✅ 3. AMBIENT_UNDERWATER_LOOP (głośny) - pod koniec animacji
+        int animationDuration = config.getHydroKlatkaAnimationDuration();
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            String customSound = config.getHydroKlatkaCustomSound();
-            for (Player player : world.getPlayers()) {
-                if (player.getLocation().distance(center) <= 100) { // Zasięg zwiększony do 100 bloków
-                    player.playSound(center, customSound, SoundCategory.MASTER,
-                            10.0f, // ✅ Głośność x3 większa
-                            config.getHydroKlatkaCustomSoundPitch());
-                }
+            try {
+                Sound ambientSound = Sound.valueOf(config.getHydroKlatkaAmbientSound());
+                world.playSound(center, ambientSound, SoundCategory.BLOCKS,
+                        config.getHydroKlatkaAmbientVolume(),
+                        config.getHydroKlatkaAmbientPitch());
+            } catch (IllegalArgumentException e) {
+                plugin.getLogger().warning("Nieprawidłowy dźwięk ambient: " + config.getHydroKlatkaAmbientSound());
             }
-        }, 1L);
+        }, animationDuration - 10L); // Przed końcem animacji
     }
 
     // ==================== BUILD ANIMATION ====================
