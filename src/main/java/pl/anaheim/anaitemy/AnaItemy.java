@@ -6,6 +6,7 @@ import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.listeners.*;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
+import pl.anaheim.anaitemy.managers.WedkaNielotaManager;
 import pl.anaheim.anaitemy.managers.WorldGuardManager;
 
 public class AnaItemy extends JavaPlugin {
@@ -13,6 +14,7 @@ public class AnaItemy extends JavaPlugin {
     private static AnaItemy instance;
     private HydroKlatkaManager hydroKlatkaManager;
     private RozdzkailuzjonistyManager rozdzkailuzjonistyManager;
+    private WedkaNielotaManager wedkaNielotaManager;
     private ItemsConfig itemsConfig;
     private WorldGuardManager worldGuardManager;
 
@@ -28,6 +30,12 @@ public class AnaItemy extends JavaPlugin {
         worldGuardManager = new WorldGuardManager(this);
         hydroKlatkaManager = new HydroKlatkaManager(this);
         rozdzkailuzjonistyManager = new RozdzkailuzjonistyManager(this);
+        wedkaNielotaManager = new WedkaNielotaManager(this);
+
+        // Informacja o Citizens
+        if (!getServer().getPluginManager().isPluginEnabled("Citizens")) {
+            getLogger().warning("Citizens nie znaleziono - Różdżka Iluzjonisty działa bez NPC!");
+        }
 
         // Komendy
         ItemyEventoweCommand cmd = new ItemyEventoweCommand(this);
@@ -43,6 +51,7 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new HydroKlatkaMovementListener(this), this);
         getServer().getPluginManager().registerEvents(new HydroKlatkaJoinListener(this), this);
         getServer().getPluginManager().registerEvents(new RozdzkailuzjonistyListener(this), this);
+        getServer().getPluginManager().registerEvents(new WedkaNielotaListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
@@ -55,26 +64,16 @@ public class AnaItemy extends JavaPlugin {
         if (rozdzkailuzjonistyManager != null) {
             rozdzkailuzjonistyManager.cleanup();
         }
+        if (wedkaNielotaManager != null) {
+            wedkaNielotaManager.cleanup();
+        }
         getLogger().info("AnaItemy zostal wylaczony!");
     }
 
-    public static AnaItemy getInstance() {
-        return instance;
-    }
-
-    public HydroKlatkaManager getHydroKlatkaManager() {
-        return hydroKlatkaManager;
-    }
-
-    public RozdzkailuzjonistyManager getRozdzkailuzjonistyManager() {
-        return rozdzkailuzjonistyManager;
-    }
-
-    public ItemsConfig getItemsConfig() {
-        return itemsConfig;
-    }
-
-    public WorldGuardManager getWorldGuardManager() {
-        return worldGuardManager;
-    }
+    public static AnaItemy getInstance() { return instance; }
+    public HydroKlatkaManager getHydroKlatkaManager() { return hydroKlatkaManager; }
+    public RozdzkailuzjonistyManager getRozdzkailuzjonistyManager() { return rozdzkailuzjonistyManager; }
+    public WedkaNielotaManager getWedkaNielotaManager() { return wedkaNielotaManager; }
+    public ItemsConfig getItemsConfig() { return itemsConfig; }
+    public WorldGuardManager getWorldGuardManager() { return worldGuardManager; }
 }
