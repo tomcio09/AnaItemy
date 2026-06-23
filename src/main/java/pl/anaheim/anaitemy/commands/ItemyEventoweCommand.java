@@ -129,29 +129,53 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        ItemStack item = createItemById(itemId.toLowerCase());
-        if (item == null) {
-            sender.sendMessage(color("&cNieznany item: &f" + itemId));
-            sender.sendMessage(color("&7Dostępne: &f" + String.join(", ", ITEM_IDS)));
+        // ✅ SPRAWDŹ CZY TO SAKIEWKA - jeśli tak, generuj każdą osobno
+        if (itemId.equalsIgnoreCase("sakiewka")) {
+            int freeSlots = countFreeSlots(target);
+            
+            if (freeSlots < amount) {
+                sender.sendMessage(color("&cGracz &4" + target.getName() + " &cma pełny ekwipunek!"));
+                sender.sendMessage(color("&7Potrzebne: &f" + amount + " &7slotów, dostępne: &f" + freeSlots));
+                return;
+            }
+            
+            // Generuj każdą sakiewkę osobno (unikalne UUID)
+            for (int i = 0; i < amount; i++) {
+                ItemStack newSakiewka = SakiewkaDropu.create();
+                target.getInventory().addItem(newSakiewka);
+            }
+        
+            sender.sendMessage(color("&aDano &f" + amount + "x &7["
+                    + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
+            target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7["
+                    + getItemDisplayName(itemId) + "&7]&a!"));
             return;
         }
 
-        int freeSlots = countFreeSlots(target);
-        int neededSlots = (int) Math.ceil((double) amount / item.getMaxStackSize());
-
-        if (freeSlots < neededSlots) {
-            sender.sendMessage(color("&cGracz &4" + target.getName() + " &cma pełny ekwipunek!"));
-            return;
-        }
-
-        item.setAmount(amount);
-        target.getInventory().addItem(item);
-
-        sender.sendMessage(color("&aDano &f" + amount + "x &7["
-                + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
-        target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7["
-                + getItemDisplayName(itemId) + "&7]&a!"));
+    // Dla innych itemów - normalna logika
+    ItemStack item = createItemById(itemId.toLowerCase());
+    if (item == null) {
+        sender.sendMessage(color("&cNieznany item: &f" + itemId));
+        sender.sendMessage(color("&7Dostępne: &f" + String.join(", ", ITEM_IDS)));
+        return;
     }
+
+    int freeSlots = countFreeSlots(target);
+    int neededSlots = (int) Math.ceil((double) amount / item.getMaxStackSize());
+
+    if (freeSlots < neededSlots) {
+        sender.sendMessage(color("&cGracz &4" + target.getName() + " &cma pełny ekwipunek!"));
+        return;
+    }
+
+    item.setAmount(amount);
+    target.getInventory().addItem(item);
+
+    sender.sendMessage(color("&aDano &f" + amount + "x &7["
+            + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
+    target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7["
+            + getItemDisplayName(itemId) + "&7]&a!"));
+}
 
     private ItemStack createItemById(String id) {
         int maxKills = plugin.getItemsConfig().getExcaliburMaxKills();
