@@ -29,7 +29,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
     private final AnaItemy plugin;
 
     private static final List<String> ITEM_IDS = Arrays.asList(
-            "totem", "excalibur", "hydroklatka", "rozdzka", "wedka"
+            "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka"
     );
 
     public ItemyEventoweCommand(AnaItemy plugin) {
@@ -161,6 +161,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "hydroklatka" -> HydroKlatka.create();
             case "rozdzka" -> RozdzkailuzjonistyItem.create();
             case "wedka" -> WedkaNielotaItem.create();
+            case "sakiewka" -> SakiewkaDropu.create();
             default -> null;
         };
     }
@@ -172,6 +173,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "hydroklatka" -> "&3Wyrzutnia Hydro Klatki";
             case "rozdzka" -> "&5Różdżka Iluzjonisty";
             case "wedka" -> "&5Wędka Nielota";
+            case "sakiewka" -> "&aSakiewka Dropu";
             default -> id;
         };
     }
