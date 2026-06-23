@@ -6,6 +6,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityToggleGlideEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemStack;
 import pl.anaheim.anaitemy.AnaItemy;
@@ -59,8 +60,10 @@ public class WedkaNielotaListener implements Listener {
     // ==================== BLOKADA STARTU ELYTRY ====================
 
     @EventHandler(priority = EventPriority.HIGH)
-    public void onToggleGlide(PlayerToggleGlideEvent event) {
-        Player player = event.getPlayer();
+    public void onToggleGlide(EntityToggleGlideEvent event) {
+        // Tylko gracze
+        if (!(event.getEntity() instanceof Player player)) return;
+
         WedkaNielotaManager manager = plugin.getWedkaNielotaManager();
 
         if (!manager.hasCurse(player)) return;
@@ -79,7 +82,7 @@ public class WedkaNielotaListener implements Listener {
             return;
         }
 
-        // ✅ Klątwa aktywna - blokuj start elytry (ale nie przerywaj istniejącego lotu)
+        // ✅ Klątwa aktywna - blokuj START elytry (nie przerywaj istniejącego lotu)
         if (!curse.isWaitingForFlight() && event.isGliding()) {
             event.setCancelled(true);
         }
@@ -159,8 +162,9 @@ public class WedkaNielotaListener implements Listener {
 
         WedkaNielotaManager manager = plugin.getWedkaNielotaManager();
 
-        // ✅ Gracz przestał trzymać wędkę - klątwa czeka na odlot
+        // ✅ Gracz przestał trzymać wędkę - klątwa przechodzi w tryb "czeka na odlot"
         for (WedkaNielotaManager.CurseData curse : manager.getActiveCurses()) {
+            if (curse.getAttackerId() == null) continue;
             if (!curse.getAttackerId().equals(fisher.getUniqueId())) continue;
 
             Player victim = org.bukkit.Bukkit.getPlayer(curse.getVictimId());
