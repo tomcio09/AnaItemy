@@ -251,7 +251,7 @@ wedka-nielota:
   cooldown: 30
   
   # Prędkość opadania podczas bugowania (bloki/sekundę przy ~5 CPS spam spacji)
-  bugowanie-fall-speed: 0.6
+  bugowanie-fall-speed: 0.2
   
   # Jak długo nie działa bugowanie po uderzeniu mieczem (ticki, 20 = 1s)
   bugowanie-reset-duration: 4
