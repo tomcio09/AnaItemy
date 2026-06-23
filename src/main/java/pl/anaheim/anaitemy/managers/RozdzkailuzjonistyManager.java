@@ -183,34 +183,30 @@ public class RozdzkailuzjonistyManager {
         int duration = config.getRozdzkailuzjonistyVanishDuration();
         double npcSpeed = config.getRozdzkailuzjonistyVanishNpcSpeed();
 
-        // Stwórz NPC
+        // ✅ Sprawdź czy gracz leci elytrą
+        boolean isGliding = player.isGliding();
+
         NPC npc = CitizensAPI.getNPCRegistry().createNPC(
                 org.bukkit.entity.EntityType.PLAYER,
                 player.getName()
         );
 
-        // Ustaw skin gracza
         npc.getOrAddTrait(SkinTrait.class).setSkinName(player.getName());
 
-        // Spawn NPC w lokalizacji gracza
-        // Zawsze spawnuj na ziemi (nawet jeśli gracz leci elytrą)
-        Location spawnLoc = findGroundLocation(player.getLocation());
+        // ✅ Jeśli gracz leci - spawn w powietrzu, inaczej na ziemi
+        Location spawnLoc = isGliding ? player.getLocation().clone() : findGroundLocation(player.getLocation());
         npc.spawn(spawnLoc);
 
-        // Skopiuj ekwipunek do NPC
         if (npc.getEntity() instanceof LivingEntity npcEntity) {
             EntityEquipment equipment = npcEntity.getEquipment();
             if (equipment != null) {
-                // Zbroja
                 equipment.setHelmet(player.getInventory().getHelmet());
                 equipment.setChestplate(player.getInventory().getChestplate());
                 equipment.setLeggings(player.getInventory().getLeggings());
                 equipment.setBoots(player.getInventory().getBoots());
-                // Ręka główna i offhand
                 equipment.setItemInMainHand(player.getInventory().getItemInMainHand());
                 equipment.setItemInOffHand(player.getInventory().getItemInOffHand());
 
-                // Ustaw drop chance na 0 - NPC nie dropuje ekwipunku
                 equipment.setHelmetDropChance(0f);
                 equipment.setChestplateDropChance(0f);
                 equipment.setLeggingsDropChance(0f);
@@ -220,77 +216,86 @@ public class RozdzkailuzjonistyManager {
             }
         }
 
-        // Nieśmiertelność NPC
         npc.setProtected(true);
 
-        // Ukryj gracza
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (!online.equals(player)) {
                 online.hidePlayer(plugin, player);
             }
         }
 
-        // Zapisz dane zniknięcia
         VanishData data = new VanishData(
                 player, npc, System.currentTimeMillis() + (duration * 1000L)
         );
         activeVanishes.put(player.getUniqueId(), data);
 
-        // Kierunek ruchu NPC - tylko poziomo
-        Vector direction = player.getLocation().getDirection().normalize();
-        direction.setY(0);
-        direction.normalize().multiply(npcSpeed / 20.0); // Przelicz na ticki
+        // ✅ Kierunek ruchu - jeśli leci to spada, jeśli idzie to poziomo
+        Vector direction = isGliding
+                ? player.getVelocity().clone().normalize().multiply(0.2) // Spadanie z elytrą
+                : player.getLocation().getDirection().normalize().setY(0).normalize().multiply(npcSpeed / 20.0);
 
         new BukkitRunnable() {
             int ticks = 0;
             final int maxTicks = duration * 20;
+            boolean wasGliding = isGliding;
 
             @Override
             public void run() {
-                // Sprawdź czy zniknięcie nadal aktywne
                 if (!activeVanishes.containsKey(player.getUniqueId())) {
                     cancel();
                     return;
                 }
 
-                // Czas minął
                 if (ticks >= maxTicks) {
-                    endVanish(player, false);
+                    endVanish(player, false); // ✅ false = upłynął czas (pokaż subtitle)
                     cancel();
                     return;
                 }
 
-                // Sprawdź czy NPC istnieje
                 if (!npc.isSpawned() || npc.getEntity() == null) {
                     cancel();
                     return;
                 }
 
-                // Zablokuj obrażenia dla NPC
                 if (npc.getEntity() instanceof LivingEntity le) {
                     le.setNoDamageTicks(20);
-                    le.setFallDistance(0f);
+                    le.setFallDistance(0f); // ✅ Bez fall damage
                 }
 
                 Location current = npc.getEntity().getLocation();
 
-                // Oblicz nową pozycję (tylko X i Z)
-                Location nextHorizontal = current.clone().add(direction.getX(), 0, direction.getZ());
+                if (wasGliding) {
+                    // ✅ NPC spada (elytra)
+                    Location next = current.clone().add(direction);
+                    
+                    // Sprawdź czy dotknął ziemi
+                    Location ground = findGroundBelow(next, 2);
+                    if (ground != null) {
+                        // Wylądował - przestaw na chodzenie
+                        wasGliding = false;
+                        direction.setY(0).normalize().multiply(npcSpeed / 20.0);
+                        next = ground;
+                    }
 
-                // Sprawdź teren przed NPC
-                Location nextGround = findGroundForMovement(current, nextHorizontal);
+                    next.setYaw(current.getYaw());
+                    next.setPitch(current.getPitch());
+                    npc.getEntity().teleport(next);
 
-                if (nextGround == null) {
-                    // Nie można iść dalej (np. za wysoka ściana) - zatrzymaj się
-                    ticks++;
-                    return;
+                } else {
+                    // ✅ NPC idzie normalnie (obsługa schodów, stromych spadków)
+                    Location nextHorizontal = current.clone().add(direction.getX(), 0, direction.getZ());
+                    Location nextGround = findGroundForMovement(current, nextHorizontal);
+
+                    if (nextGround == null) {
+                        ticks++;
+                        return;
+                    }
+
+                    nextGround.setYaw(current.getYaw());
+                    nextGround.setPitch(current.getPitch());
+                    npc.getEntity().teleport(nextGround);
                 }
 
-                // Zachowaj yaw/pitch z oryginalnej lokalizacji
-                nextGround.setYaw(current.getYaw());
-                nextGround.setPitch(current.getPitch());
-
-                npc.getEntity().teleport(nextGround);
                 ticks++;
             }
         }.runTaskTimer(plugin, 0L, 1L);
@@ -298,27 +303,23 @@ public class RozdzkailuzjonistyManager {
 
     /**
      * Znajdź lokalizację na ziemi dla spawnowania NPC
-     * Jeśli gracz leci elytrą to spawnuj na ziemi poniżej
      */
     private Location findGroundLocation(Location playerLoc) {
         World world = playerLoc.getWorld();
         int x = playerLoc.getBlockX();
         int z = playerLoc.getBlockZ();
 
-        // Sprawdź czy gracz stoi na ziemi
         Location feetLoc = playerLoc.clone();
-        Block below = feetLoc.clone().subtract(0, 0.1, 0).getBlock();
+        org.bukkit.block.Block below = feetLoc.clone().subtract(0, 0.1, 0).getBlock();
 
         if (below.getType().isSolid()) {
-            // Gracz stoi na ziemi
             return playerLoc.clone();
         }
 
-        // Gracz leci - znajdź ziemię poniżej
         for (int y = playerLoc.getBlockY(); y >= world.getMinHeight(); y--) {
-            Block block = world.getBlockAt(x, y, z);
-            Block above = world.getBlockAt(x, y + 1, z);
-            Block above2 = world.getBlockAt(x, y + 2, z);
+            org.bukkit.block.Block block = world.getBlockAt(x, y, z);
+            org.bukkit.block.Block above = world.getBlockAt(x, y + 1, z);
+            org.bukkit.block.Block above2 = world.getBlockAt(x, y + 2, z);
 
             if (block.getType().isSolid() && !above.getType().isSolid() && !above2.getType().isSolid()) {
                 return new Location(world, x + 0.5, y + 1, z + 0.5,
@@ -326,13 +327,32 @@ public class RozdzkailuzjonistyManager {
             }
         }
 
-        // Fallback - użyj pozycji gracza
         return playerLoc.clone();
     }
 
     /**
-     * Znajdź lokalizację dla ruchu NPC na następny krok
-     * Obsługuje: teren płaski, schodzenie w dół, wspinanie w górę, ściany
+     * ✅ Znajdź ziemię poniżej (dla spadającego NPC)
+     */
+    private Location findGroundBelow(Location location, int maxDepth) {
+        World world = location.getWorld();
+        int x = location.getBlockX();
+        int z = location.getBlockZ();
+        int startY = location.getBlockY();
+
+        for (int y = startY; y >= startY - maxDepth && y >= world.getMinHeight(); y--) {
+            org.bukkit.block.Block block = world.getBlockAt(x, y, z);
+            org.bukkit.block.Block above = world.getBlockAt(x, y + 1, z);
+
+            if (block.getType().isSolid() && !above.getType().isSolid()) {
+                return new Location(world, location.getX(), y + 1, location.getZ());
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * ✅ Znajdź lokalizację dla ruchu NPC - obsługa schodów w dół/górę
      */
     private Location findGroundForMovement(Location current, Location nextHorizontal) {
         World world = current.getWorld();
@@ -340,25 +360,21 @@ public class RozdzkailuzjonistyManager {
         int nz = nextHorizontal.getBlockZ();
         int currentY = current.getBlockY();
 
-        // Sprawdź czy można przejść na tym samym poziomie
-        Block targetBlock = world.getBlockAt(nx, currentY, nz);
-        Block targetBlockAbove = world.getBlockAt(nx, currentY + 1, nz);
-        Block targetBlockBelow = world.getBlockAt(nx, currentY - 1, nz);
+        org.bukkit.block.Block targetBlock = world.getBlockAt(nx, currentY, nz);
+        org.bukkit.block.Block targetBlockAbove = world.getBlockAt(nx, currentY + 1, nz);
 
         // 1. Płaski teren - ten sam Y
         if (!targetBlock.getType().isSolid() && !targetBlockAbove.getType().isSolid()) {
-            // Sprawdź czy jest podłoże
-            Block groundBlock = world.getBlockAt(nx, currentY - 1, nz);
+            org.bukkit.block.Block groundBlock = world.getBlockAt(nx, currentY - 1, nz);
             if (groundBlock.getType().isSolid()) {
-                // Płaski teren
                 return new Location(world, nextHorizontal.getX(), currentY, nextHorizontal.getZ());
             }
 
-            // 2. Teren idzie w dół - szukaj ziemi poniżej
+            // 2. ✅ Teren idzie w dół (schody, strome spadki)
             for (int y = currentY - 1; y >= currentY - 4; y--) {
-                Block checkBlock = world.getBlockAt(nx, y, nz);
-                Block checkAbove = world.getBlockAt(nx, y + 1, nz);
-                Block checkAbove2 = world.getBlockAt(nx, y + 2, nz);
+                org.bukkit.block.Block checkBlock = world.getBlockAt(nx, y, nz);
+                org.bukkit.block.Block checkAbove = world.getBlockAt(nx, y + 1, nz);
+                org.bukkit.block.Block checkAbove2 = world.getBlockAt(nx, y + 2, nz);
 
                 if (checkBlock.getType().isSolid() && !checkAbove.getType().isSolid() && !checkAbove2.getType().isSolid()) {
                     return new Location(world, nextHorizontal.getX(), y + 1, nextHorizontal.getZ());
@@ -366,47 +382,58 @@ public class RozdzkailuzjonistyManager {
             }
         }
 
-        // 3. Teren idzie w górę - sprawdź czy można wskoczyć (max 1 blok w górę)
+        // 3. ✅ Teren idzie w górę (skok 1 blok jak gracz)
         if (targetBlock.getType().isSolid()) {
-            Block jumpTarget = world.getBlockAt(nx, currentY + 1, nz);
-            Block jumpTargetAbove = world.getBlockAt(nx, currentY + 2, nz);
+            org.bukkit.block.Block jumpTarget = world.getBlockAt(nx, currentY + 1, nz);
+            org.bukkit.block.Block jumpTargetAbove = world.getBlockAt(nx, currentY + 2, nz);
 
             if (!jumpTarget.getType().isSolid() && !jumpTargetAbove.getType().isSolid()) {
-                // Można wskoczyć 1 blok w górę
                 return new Location(world, nextHorizontal.getX(), currentY + 1, nextHorizontal.getZ());
             }
 
-            // 4. Ściana za wysoka - zatrzymaj NPC
-            return null;
+            return null; // Ściana za wysoka
         }
 
-        // Fallback - pozostań na miejscu
         return null;
     }
 
+    /**
+     * ✅ early = true → gracz zaatakował (nie pokazuj subtitle)
+     * ✅ early = false → upłynął czas (pokaż subtitle)
+     */
     public void endVanish(Player player, boolean early) {
         VanishData data = activeVanishes.remove(player.getUniqueId());
         if (data == null) return;
 
         ItemsConfig config = plugin.getItemsConfig();
 
-        // Usuń NPC
         if (data.getNpc() != null && data.getNpc().isSpawned()) {
             data.getNpc().destroy();
         }
 
-        // Pokaż gracza wszystkim
         for (Player online : Bukkit.getOnlinePlayers()) {
             online.showPlayer(plugin, player);
         }
 
-        // Dźwięk zakończenia
         try {
             Sound deactivateSound = Sound.valueOf(config.getRozdzkailuzjonistyVanishSoundDeactivate());
             player.playSound(player.getLocation(), deactivateSound, 1.0f, 1.0f);
         } catch (IllegalArgumentException e) {
             plugin.getLogger().warning("Nieprawidłowy dźwięk deaktywacji: " +
                     config.getRozdzkailuzjonistyVanishSoundDeactivate());
+        }
+
+        // ✅ Pokaż subtitle tylko jeśli upłynął czas (nie przy ataku)
+        if (!early) {
+            player.showTitle(Title.title(
+                    Component.empty(),
+                    LegacyComponentSerializer.legacyAmpersand().deserialize("&cJesteś znowu widoczny!"),
+                    Title.Times.times(
+                            Duration.ofMillis(250),
+                            Duration.ofMillis(2000),
+                            Duration.ofMillis(250)
+                    )
+            ));
         }
     }
 
@@ -506,7 +533,6 @@ public class RozdzkailuzjonistyManager {
 
                     Location spawnLoc = start.clone().add(direction.clone().multiply(distance));
 
-                    // Znikaj na zablokowanych regionach
                     if (isInBlockedRegion(spawnLoc)) {
                         cancel();
                         return;
