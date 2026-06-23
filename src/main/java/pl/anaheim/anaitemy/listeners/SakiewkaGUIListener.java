@@ -73,7 +73,7 @@ public class SakiewkaGUIListener implements Listener {
         openSakiewki.put(player.getUniqueId(), sakiewka);
 
         Component title = LegacyComponentSerializer.legacyAmpersand()
-                .deserialize("&7Sakiewka dropu");
+                .deserialize("&8Sakiewka dropu");
 
         Inventory gui = Bukkit.createInventory(null, 54, title);
 
