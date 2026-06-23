@@ -464,4 +464,29 @@ public class ItemsConfig {
     public String getWedkaNielotaBossBarColor() {
         return config.getString("wedka-nielota.bossbar.color", "RED");
     }
+        // ✅ NOWE DŹWIĘKI HYDRO KLATKI
+
+    public String getHydroKlatkaSplashSound() {
+        return config.getString("hydro-klatka.sounds.splash.sound", "ENTITY_GENERIC_SPLASH");
+    }
+
+    public float getHydroKlatkaSplashVolume() {
+        return (float) config.getDouble("hydro-klatka.sounds.splash.volume", 1.5);
+    }
+
+    public float getHydroKlatkaSplashPitch() {
+        return (float) config.getDouble("hydro-klatka.sounds.splash.pitch", 1.0);
+    }
+
+    public String getHydroKlatkaAmbientSound() {
+        return config.getString("hydro-klatka.sounds.ambient.sound", "AMBIENT_UNDERWATER_LOOP");
+    }
+
+    public float getHydroKlatkaAmbientVolume() {
+        return (float) config.getDouble("hydro-klatka.sounds.ambient.volume", 3.0);
+    }
+
+    public float getHydroKlatkaAmbientPitch() {
+        return (float) config.getDouble("hydro-klatka.sounds.ambient.pitch", 1.0);
+    }
 }
