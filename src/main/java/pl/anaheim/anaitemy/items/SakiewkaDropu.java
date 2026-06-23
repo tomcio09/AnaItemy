@@ -83,11 +83,6 @@ public class SakiewkaDropu {
         String plainName = PlainTextComponentSerializer.plainText()
                 .serialize(item.getItemMeta().displayName());
 
-        // Sprawdź UUID (każda sakiewka musi mieć swoje)
-        if (!item.getItemMeta().getPersistentDataContainer().has(UUID_KEY, PersistentDataType.STRING)) {
-            return false;
-        }
-
         return plainName.equals(ITEM_NAME_STRIPPED);
     }
 
@@ -98,6 +93,24 @@ public class SakiewkaDropu {
         if (!isSakiewka(item)) return null;
         return item.getItemMeta().getPersistentDataContainer()
                 .get(UUID_KEY, PersistentDataType.STRING);
+    }
+
+    /**
+     * ✅ REGENERUJE UUID sakiewki (tworzy nową unikalną sakiewkę z tymi samymi itemami w środku).
+     */
+    public static ItemStack regenerateUUID(ItemStack oldSakiewka) {
+        if (!isSakiewka(oldSakiewka)) return oldSakiewka;
+
+        // Pobierz zapisane itemy ze starej sakiewki
+        List<ItemStack> savedItems = pl.anaheim.anaitemy.utils.SakiewkaData.loadItems(oldSakiewka);
+
+        // Stwórz nową sakiewkę z nowym UUID
+        ItemStack newSakiewka = create();
+
+        // Przenieś itemy do nowej sakiewki
+        pl.anaheim.anaitemy.utils.SakiewkaData.saveItems(newSakiewka, savedItems);
+
+        return newSakiewka;
     }
 
     /**
