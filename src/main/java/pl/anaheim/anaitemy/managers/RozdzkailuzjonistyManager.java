@@ -232,7 +232,6 @@ public class RozdzkailuzjonistyManager {
         Location spawnLoc = isGliding ? player.getLocation().clone() : findGroundLocation(player.getLocation());
         npc.spawn(spawnLoc);
 
-        // ✅ POPRAWKA: Equipment NPC (bez ustawiania drop chance - to powodowało błąd)
         if (npc.getEntity() instanceof LivingEntity npcEntity) {
             EntityEquipment equipment = npcEntity.getEquipment();
             if (equipment != null) {
@@ -242,8 +241,6 @@ public class RozdzkailuzjonistyManager {
                 equipment.setBoots(player.getInventory().getBoots());
                 equipment.setItemInMainHand(player.getInventory().getItemInMainHand());
                 equipment.setItemInOffHand(player.getInventory().getItemInOffHand());
-
-                // ✅ USUNIĘTO setDropChance - to powodowało crash
             }
         }
 
@@ -260,8 +257,11 @@ public class RozdzkailuzjonistyManager {
         );
         activeVanishes.put(player.getUniqueId(), data);
 
+        // ✅ ZWIĘKSZONA PRĘDKOŚĆ - 7-10 bloków/sekundę
+        // npcSpeed z configu = bloki/sekundę
+        // Podzielone przez 20 (ticki) = velocity na tick
         Vector direction = isGliding
-                ? player.getVelocity().clone().normalize().multiply(0.2)
+                ? player.getVelocity().clone().normalize().multiply(npcSpeed / 20.0)
                 : player.getLocation().getDirection().normalize().setY(0).normalize().multiply(npcSpeed / 20.0);
 
         new BukkitRunnable() {
@@ -295,6 +295,7 @@ public class RozdzkailuzjonistyManager {
                 Location current = npc.getEntity().getLocation();
 
                 if (wasGliding) {
+                    // ✅ Spadanie z elytrą - zwiększona prędkość
                     Location next = current.clone().add(direction);
                     
                     Location ground = findGroundBelow(next, 2);
@@ -309,6 +310,7 @@ public class RozdzkailuzjonistyManager {
                     npc.getEntity().teleport(next);
 
                 } else {
+                    // ✅ Chodzenie - zwiększona prędkość (7-10 bloków/s)
                     Location nextHorizontal = current.clone().add(direction.getX(), 0, direction.getZ());
                     Location nextGround = findGroundForMovement(current, nextHorizontal);
 
@@ -326,7 +328,7 @@ public class RozdzkailuzjonistyManager {
             }
         }.runTaskTimer(plugin, 0L, 1L);
     }
-
+    
     private Location findGroundLocation(Location playerLoc) {
         World world = playerLoc.getWorld();
         int x = playerLoc.getBlockX();
