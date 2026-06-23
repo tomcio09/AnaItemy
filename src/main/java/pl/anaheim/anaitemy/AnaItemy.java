@@ -8,9 +8,6 @@ import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
 import pl.anaheim.anaitemy.managers.WedkaNielotaManager;
 import pl.anaheim.anaitemy.managers.WorldGuardManager;
-import pl.anaheim.anaitemy.listeners.SakiewkaListener;
-import pl.anaheim.anaitemy.listeners.SakiewkaGUIListener;
-import pl.anaheim.anaitemy.listeners.SakiewkaPortalListener;
 
 public class AnaItemy extends JavaPlugin {
 
@@ -58,6 +55,7 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SakiewkaListener(this), this);
         getServer().getPluginManager().registerEvents(new SakiewkaGUIListener(this), this);
         getServer().getPluginManager().registerEvents(new SakiewkaPortalListener(this), this);
+        getServer().getPluginManager().registerEvents(new SakiewkaUUIDListener(this), this); // ✅ NOWY
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
