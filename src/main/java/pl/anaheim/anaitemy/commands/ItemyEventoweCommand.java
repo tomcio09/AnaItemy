@@ -28,7 +28,6 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
     private final AnaItemy plugin;
 
-    // Dostępne ID itemów dla komendy give
     private static final List<String> ITEM_IDS = Arrays.asList(
             "totem", "excalibur", "hydroklatka", "rozdzka", "wedka"
     );
@@ -43,13 +42,12 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
                              @NotNull String label,
                              @NotNull String[] args) {
 
-        // Sprawdź uprawnienia (OP lub konsola)
         if (sender instanceof Player player && !player.isOp()) {
             player.sendMessage(color("&cNie masz uprawnień do tej komendy!"));
             return true;
         }
 
-        // /itemyeventowe (bez argumentów) - tylko gracz
+        // /itemyeventowe
         if (args.length == 0) {
             if (!(sender instanceof Player player)) {
                 sender.sendMessage("Ta komenda jest tylko dla graczy!");
@@ -59,14 +57,12 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // ==================== RELOAD ====================
         // /itemyeventowe reload
         if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
             handleReload(sender);
             return true;
         }
 
-        // ==================== KILLS ====================
         // /itemyeventowe kills <liczba>
         if (args.length == 2 && args[0].equalsIgnoreCase("kills")) {
             if (!(sender instanceof Player player)) {
@@ -77,14 +73,12 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // ==================== GIVE ====================
         // /itemyeventowe give <id> <nick> <ilość>
         if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
             handleGiveCommand(sender, args[1], args[2], args[3]);
             return true;
         }
 
-        // ==================== COOLDOWN RESET ====================
         // /itemyeventowe cooldown reset <nick>
         if (args.length == 3
                 && args[0].equalsIgnoreCase("cooldown")
@@ -93,15 +87,14 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // ==================== KLATWA ====================
         // /itemyeventowe klatwa naloz <nick>
         // /itemyeventowe klatwa zdejmij <nick>
+        // /itemyeventowe klatwa uderzenie <nick>
         if (args.length == 3 && args[0].equalsIgnoreCase("klatwa")) {
             handleKlatwaCommand(sender, args[1], args[2]);
             return true;
         }
 
-        // Pomoc
         sendHelp(sender);
         return true;
     }
@@ -109,12 +102,8 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
     // ==================== RELOAD ====================
 
     private void handleReload(CommandSender sender) {
-        // Przeładuj config.yml
         plugin.reloadConfig();
-
-        // Przeładuj items.yml
         plugin.getItemsConfig().reloadConfig();
-
         sender.sendMessage(color("&aZreloadowano konfigurację &fconfig.yml &ai &fitems.yml&a!"));
         plugin.getLogger().info("[AnaItemy] " + sender.getName() + " przeladowal konfiguracje.");
     }
@@ -122,14 +111,12 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
     // ==================== GIVE ====================
 
     private void handleGiveCommand(CommandSender sender, String itemId, String targetName, String amountStr) {
-        // Znajdź gracza
         Player target = Bukkit.getPlayer(targetName);
         if (target == null) {
             sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!"));
             return;
         }
 
-        // Parsuj ilość
         int amount;
         try {
             amount = Integer.parseInt(amountStr);
@@ -142,7 +129,6 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        // Stwórz item
         ItemStack item = createItemById(itemId.toLowerCase());
         if (item == null) {
             sender.sendMessage(color("&cNieznany item: &f" + itemId));
@@ -150,7 +136,6 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        // Sprawdź czy gracz ma miejsce
         int freeSlots = countFreeSlots(target);
         int neededSlots = (int) Math.ceil((double) amount / item.getMaxStackSize());
 
@@ -159,12 +144,13 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        // Daj item
         item.setAmount(amount);
         target.getInventory().addItem(item);
 
-        sender.sendMessage(color("&aDano &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
-        target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7]&a!"));
+        sender.sendMessage(color("&aDano &f" + amount + "x &7["
+                + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
+        target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7["
+                + getItemDisplayName(itemId) + "&7]&a!"));
     }
 
     private ItemStack createItemById(String id) {
@@ -206,9 +192,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         ItemStack item = player.getInventory().getItemInMainHand();
 
         if (!Excalibur.isExcalibur(item)) {
-            player.sendMessage(color(
-                    plugin.getItemsConfig().getExcaliburMessageNotHolding()
-            ));
+            player.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageNotHolding()));
             return;
         }
 
@@ -216,16 +200,12 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         try {
             kills = Integer.parseInt(killsStr);
         } catch (NumberFormatException e) {
-            player.sendMessage(color(
-                    plugin.getItemsConfig().getExcaliburMessageInvalidNumber()
-            ));
+            player.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageInvalidNumber()));
             return;
         }
 
         if (kills < 0) {
-            player.sendMessage(color(
-                    plugin.getItemsConfig().getExcaliburMessageNegativeNumber()
-            ));
+            player.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageNegativeNumber()));
             return;
         }
 
@@ -254,16 +234,13 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         RozdzkailuzjonistyManager rozdzkaManager = plugin.getRozdzkailuzjonistyManager();
         WedkaNielotaManager wedkaManager = plugin.getWedkaNielotaManager();
 
-        // Reset cooldownu Hydro Klatki
         hydroManager.resetCooldown(target);
         target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
         hydroManager.stopCooldownDisplay(target);
 
-        // Reset cooldownów Różdżki Iluzjonisty
         rozdzkaManager.resetFangsCooldown(target);
         rozdzkaManager.resetVanishCooldown(target);
 
-        // ✅ Reset cooldownu Wędki Nielota
         wedkaManager.resetCooldown(target);
 
         sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
@@ -285,27 +262,41 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
         WedkaNielotaManager wedkaManager = plugin.getWedkaNielotaManager();
 
-        if (action.equalsIgnoreCase("naloz")) {
-            // Nałóż klątwę (attacker = null, bo komenda)
-            wedkaManager.applyCurse(target, null);
-            sender.sendMessage(color("&aNałożono klątwę na gracza &f" + target.getName() + "&a!"));
-            plugin.getLogger().info("[AnaItemy] " + sender.getName() +
-                    " nalozyl klatwe na gracza " + target.getName());
+        switch (action.toLowerCase()) {
 
-        } else if (action.equalsIgnoreCase("zdejmij")) {
-            if (!wedkaManager.hasCurse(target)) {
-                sender.sendMessage(color("&cGracz &f" + target.getName() + " &cnie ma klątwy!"));
-                return;
+            case "naloz" -> {
+                wedkaManager.applyCurse(target, null);
+                sender.sendMessage(color("&aNałożono klątwę na gracza &f" + target.getName() + "&a!"));
+                plugin.getLogger().info("[AnaItemy] " + sender.getName() +
+                        " nalozyl klatwe na gracza " + target.getName());
             }
 
-            wedkaManager.forceRemoveCurse(target);
-            sender.sendMessage(color("&aZdjęto klątwę z gracza &f" + target.getName() + "&a!"));
-            target.sendMessage(color("&aKlątwa została z Ciebie zdjęta!"));
-            plugin.getLogger().info("[AnaItemy] " + sender.getName() +
-                    " zdjalj klatwe z gracza " + target.getName());
+            case "zdejmij" -> {
+                if (!wedkaManager.hasCurse(target)) {
+                    sender.sendMessage(color("&cGracz &f" + target.getName() + " &cnie ma klątwy!"));
+                    return;
+                }
+                wedkaManager.forceRemoveCurse(target);
+                sender.sendMessage(color("&aZdjęto klątwę z gracza &f" + target.getName() + "&a!"));
+                target.sendMessage(color("&aKlątwa została z Ciebie zdjęta!"));
+                plugin.getLogger().info("[AnaItemy] " + sender.getName() +
+                        " zdjalj klatwe z gracza " + target.getName());
+            }
 
-        } else {
-            sender.sendMessage(color("&cUżycie: &f/itemyeventowe klatwa <naloz|zdejmij> <nick>"));
+            case "uderzenie" -> {
+                // ✅ Symuluje uderzenie mieczem (resetuje bugowanie) - do testów
+                if (!wedkaManager.hasCurse(target)) {
+                    sender.sendMessage(color("&cGracz &f" + target.getName() + " &cnie ma klątwy!"));
+                    return;
+                }
+                wedkaManager.resetBugowanie(target);
+                sender.sendMessage(color("&aSymulowano uderzenie mieczem na graczu &f"
+                        + target.getName() + "&a!"));
+                target.sendMessage(color("&c[TEST] Uderzenie mieczem - bugowanie zresetowane!"));
+            }
+
+            default -> sender.sendMessage(color(
+                    "&cUżycie: &f/itemyeventowe klatwa <naloz|zdejmij|uderzenie> <nick>"));
         }
     }
 
@@ -322,6 +313,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(color("&7/itemyeventowe cooldown reset <nick> &8- &fresetuje cooldowny"));
         sender.sendMessage(color("&7/itemyeventowe klatwa naloz <nick> &8- &fnakłada klątwę"));
         sender.sendMessage(color("&7/itemyeventowe klatwa zdejmij <nick> &8- &fzdejmuje klątwę"));
+        sender.sendMessage(color("&7/itemyeventowe klatwa uderzenie <nick> &8- &fsymuluje uderzenie"));
         sender.sendMessage(color("&7Dostępne ID itemów: &f" + String.join(", ", ITEM_IDS)));
         sender.sendMessage(color("&8&m                                    "));
     }
@@ -344,7 +336,9 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
                 case "kills" -> completions.add("<liczba>");
                 case "give" -> completions.addAll(ITEM_IDS);
                 case "cooldown" -> completions.add("reset");
-                case "klatwa" -> completions.addAll(Arrays.asList("naloz", "zdejmij"));
+                case "klatwa" -> completions.addAll(
+                        Arrays.asList("naloz", "zdejmij", "uderzenie")
+                );
             }
         } else if (args.length == 3) {
             switch (args[0].toLowerCase()) {
