@@ -277,7 +277,7 @@ public class HydroKlatkaManager {
             plugin.getLogger().warning("Nieprawidłowy dźwięk wybuchu: " + config.getHydroKlatkaExplodeSound());
         }
 
-        // ✅ 2. GENERIC_SPLASH natychmiast
+        // 2. GENERIC_SPLASH natychmiast
         try {
             Sound splashSound = Sound.valueOf(config.getHydroKlatkaSplashSound());
             world.playSound(center, splashSound, SoundCategory.BLOCKS,
@@ -287,18 +287,24 @@ public class HydroKlatkaManager {
             plugin.getLogger().warning("Nieprawidłowy dźwięk splash: " + config.getHydroKlatkaSplashSound());
         }
 
-        // ✅ 3. AMBIENT_UNDERWATER_LOOP (głośny) - pod koniec animacji
+        // ✅ 3. BLOCK_WATER_AMBIENT (głośny) - pod koniec animacji
         int animationDuration = config.getHydroKlatkaAnimationDuration();
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             try {
                 Sound ambientSound = Sound.valueOf(config.getHydroKlatkaAmbientSound());
-                world.playSound(center, ambientSound, SoundCategory.BLOCKS,
-                        config.getHydroKlatkaAmbientVolume(),
-                        config.getHydroKlatkaAmbientPitch());
+                
+                // ✅ Odtwórz dla wszystkich graczy w zasięgu 50 bloków
+                for (Player player : world.getPlayers()) {
+                    if (player.getLocation().distance(center) <= 50) {
+                        player.playSound(center, ambientSound, SoundCategory.BLOCKS,
+                                config.getHydroKlatkaAmbientVolume(),
+                                config.getHydroKlatkaAmbientPitch());
+                    }
+                }
             } catch (IllegalArgumentException e) {
                 plugin.getLogger().warning("Nieprawidłowy dźwięk ambient: " + config.getHydroKlatkaAmbientSound());
             }
-        }, animationDuration - 10L); // Przed końcem animacji
+        }, animationDuration - 10L);
     }
 
     // ==================== BUILD ANIMATION ====================
