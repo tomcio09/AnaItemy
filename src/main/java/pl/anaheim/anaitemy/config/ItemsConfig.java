@@ -489,4 +489,29 @@ public class ItemsConfig {
     public float getHydroKlatkaAmbientPitch() {
         return (float) config.getDouble("hydro-klatka.sounds.ambient.pitch", 1.0);
     }
+    // ==================== SAKIEWKA DROPU ====================
+
+    public String getSakiewkaDropuName() {
+        return config.getString("sakiewka-dropu.name", "&a&lSakiewka dropu");
+    }
+
+    public List<String> getSakiewkaDropuLore() {
+        return config.getStringList("sakiewka-dropu.lore");
+    }
+
+    public int getSakiewkaDropuCustomModelData() {
+        return config.getInt("sakiewka-dropu.custom-model-data", 1);
+    }
+
+    public int getSakiewkaDropuGuiSlot() {
+        return config.getInt("sakiewka-dropu.gui-slot", 5);
+    }
+    
+    public List<String> getSakiewkaBlockedRegions() {
+        return config.getStringList("sakiewka-dropu.blocked-regions");
+    }
+
+    public List<String> getSakiewkaBlockedRegionsNoPayout() {
+        return config.getStringList("sakiewka-dropu.blocked-regions-no-payout");
+    }
 }
