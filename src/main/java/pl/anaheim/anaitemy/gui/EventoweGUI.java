@@ -27,6 +27,7 @@ public class EventoweGUI {
         gui.setItem(2, HydroKlatka.create());
         gui.setItem(3, RozdzkailuzjonistyItem.create());
         gui.setItem(4, WedkaNielotaItem.create());
+        gui.setItem(5, SakiewkaDropu.create());
 
         player.openInventory(gui);
     }
