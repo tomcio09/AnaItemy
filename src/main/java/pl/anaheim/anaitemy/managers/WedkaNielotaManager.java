@@ -6,6 +6,7 @@ import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
@@ -23,10 +24,6 @@ public class WedkaNielotaManager {
     private final Map<UUID, CurseData> activeCurses = new ConcurrentHashMap<>();
     private final Map<UUID, BossBar> curseBossBars = new ConcurrentHashMap<>();
     private final Map<UUID, Long> bugowanieResetTimers = new ConcurrentHashMap<>();
-
-    // ✅ Maksymalna prędkość opadania w m/s (domyślnie 3 bloki/s = 0.15 velocity/tick)
-    // Vanilla swobodny spadek osiąga ~0.98 velocity po 1s
-    private static final double MAX_FALL_VELOCITY = -3.0 / 20.0; // -0.15 na tick
 
     public WedkaNielotaManager(AnaItemy plugin) {
         this.plugin = plugin;
@@ -67,7 +64,7 @@ public class WedkaNielotaManager {
      *
      * Jeśli gracz spada szybciej niż limit (fallSpeed z configu) ORAZ
      * bugowanie nie jest zablokowane (po uderzeniu) ORAZ
-     * gracz klikał spację (oznaczony przez spacjaClickedTick) →
+     * gracz klikał spację (oznaczony przez spaceClicked) →
      * → ustaw velocity Y na -fallSpeed/20
      *
      * Dzięki temu:
@@ -115,9 +112,6 @@ public class WedkaNielotaManager {
                         // Reset flagi - musi kliknąć znowu w następnym ticku
                         curse.resetSpaceClicked();
                     }
-
-                    // ✅ Jeśli gracz jest w powietrzu i próbuje wejść w glide (spacja)
-                    // ale ma klątwę - oznacz kliknięcie (obsługiwane przez EntityToggleGlideEvent cancel)
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
