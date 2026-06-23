@@ -107,7 +107,7 @@ public class WedkaNielotaListener implements Listener {
 
         WedkaNielotaManager.CurseData curse = manager.getCurse(player);
 
-        // ✅ Klątwa wygasła / puszczona - czeka na odlot → pozwól odlecieć + wiadomość
+        // ✅ Klątwa wygasła / puszczona - pozwól odlecieć + wiadomość
         if (curse.isWaitingForFlight() && event.isGliding()) {
             if (curse.isWasReleased()) {
                 manager.showReleasedTitle(player);
@@ -118,19 +118,17 @@ public class WedkaNielotaListener implements Listener {
             return;
         }
 
-        // ✅ Klątwa aktywna - blokuj próbę wejścia w glide TYLKO gdy:
-        // a) gracz próbuje WŁĄCZYĆ glide (isGliding() = true = włącza)
-        // b) gracz ma elytrę na sobie
-        // c) gracz jest w powietrzu (nie na ziemi)
+        // ✅ Klątwa aktywna + gracz próbuje włączyć glide + ma elytrę + jest w powietrzu
         if (!curse.isWaitingForFlight() && event.isGliding()) {
-            // Sprawdź czy gracz ma elytrę w slocie
             ItemStack chestplate = player.getInventory().getChestplate();
-            if (chestplate != null &&
-                    chestplate.getType() == org.bukkit.Material.ELYTRA) {
-                // ✅ Gracz w powietrzu i próbuje wejść w glide - zablokuj
-                if (!player.isOnGround()) {
-                    event.setCancelled(true);
-                }
+            boolean hasElytra = chestplate != null &&
+                    chestplate.getType() == org.bukkit.Material.ELYTRA;
+
+            if (hasElytra && !player.isOnGround()) {
+                // ✅ Zablokuj glide
+                event.setCancelled(true);
+                // ✅ Oznacz że gracz kliknął spację (do bugowania)
+                manager.markSpaceClicked(player);
             }
         }
     }
