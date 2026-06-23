@@ -82,7 +82,6 @@ public class WedkaNielotaManager {
                     Player victim = Bukkit.getPlayer(curse.getVictimId());
                     if (victim == null || !victim.isOnline()) continue;
 
-                    // ✅ Tylko jeśli: w powietrzu + nie glide + ma elytrę
                     if (victim.isOnGround()) continue;
                     if (victim.isInWater()) continue;
                     if (victim.isGliding()) continue;
@@ -94,22 +93,30 @@ public class WedkaNielotaManager {
 
                     double currentVelY = victim.getVelocity().getY();
 
-                    // ✅ Gracz spada (velY < 0) i kliknął spację
                     if (currentVelY < 0 && curse.isSpaceClicked()) {
                         if (!isBugowanieBlocked(victim)) {
-                            // ✅ Ogranicz prędkość opadania do limitu z configu
                             ItemsConfig config = plugin.getItemsConfig();
                             double fallSpeed = config.getWedkaNielotaBugowanieFallSpeed();
                             double maxVelY = -(fallSpeed / 20.0);
 
-                            // Tylko jeśli gracz spada szybciej niż limit
                             if (currentVelY < maxVelY) {
                                 Vector vel = victim.getVelocity();
                                 vel.setY(maxVelY);
+
+                                // ✅ RUCH DO PRZODU - prędkość chodzenia (~4.3 bloków/s = 0.215/tick)
+                                // Kierunek patrzenia gracza (tylko X i Z, bez Y)
+                                Vector direction = victim.getLocation().getDirection();
+                                direction.setY(0).normalize();
+
+                                // Szybkość chodzenia (bez sprintu)
+                                double walkSpeed = 0.215;
+
+                                vel.setX(direction.getX() * walkSpeed);
+                                vel.setZ(direction.getZ() * walkSpeed);
+
                                 victim.setVelocity(vel);
                             }
                         }
-                        // Reset flagi - musi kliknąć znowu w następnym ticku
                         curse.resetSpaceClicked();
                     }
                 }
