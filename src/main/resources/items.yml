@@ -105,7 +105,7 @@ hydro-klatka:
     # Dźwięk tworzenia klatki (custom z resource packa)
     cage-create:
       custom-sound: 'custom.crate.hydroklatka'
-      volume: 3.0
+      volume: 1.0
       pitch: 1.0
     # Dźwięk wybuchu przy tworzeniu
     cage-explode:
@@ -242,8 +242,7 @@ wedka-nielota:
   # Slot w GUI
   gui-slot: 4
   # Enchanty
-  enchants:
-    unbreaking: 10
+  enchants: []
   
   # Czas trwania klątwy (sekundy)
   curse-duration: 12
@@ -252,7 +251,7 @@ wedka-nielota:
   cooldown: 30
   
   # Prędkość opadania podczas bugowania (bloki/sekundę przy ~5 CPS spam spacji)
-  bugowanie-fall-speed: 2.0
+  bugowanie-fall-speed: 0.6
   
   # Jak długo nie działa bugowanie po uderzeniu mieczem (ticki, 20 = 1s)
   bugowanie-reset-duration: 4
