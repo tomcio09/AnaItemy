@@ -102,14 +102,15 @@ hydro-klatka:
       pitch: 1.0
     
     # Dźwięk pod koniec animacji (głośny)
+    # ✅ BLOCK_WATER_AMBIENT zamiast AMBIENT_UNDERWATER_LOOP
     ambient:
-      sound: AMBIENT_UNDERWATER_LOOP
+      sound: BLOCK_WATER_AMBIENT
       volume: 5.0
       pitch: 1.0
     
     cage-explode:
       sound: ENTITY_GENERIC_EXPLODE
-      volume: 1.5
+      volume: 1.0
       pitch: 1.0
     
     cage-remove:
