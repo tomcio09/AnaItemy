@@ -98,14 +98,14 @@ hydro-klatka:
     # Dźwięk natychmiast po wybuchu
     splash:
       sound: ENTITY_GENERIC_SPLASH
-      volume: 1.5
+      volume: 3.0
       pitch: 1.0
     
     # Dźwięk pod koniec animacji (głośny)
     ambient:
       sound: AMBIENT_UNDERWATER_LOOP
-      volume: 3.0
-      pitch: 2.0
+      volume: 5.0
+      pitch: 1.0
     
     cage-explode:
       sound: ENTITY_GENERIC_EXPLODE
@@ -204,7 +204,7 @@ rozdzka-iluzjonisty:
     # Czas trwania zniknięcia (sekundy)
     duration: 4
     # Szybkość ruchu NPC
-    npc-speed: 0.5
+    npc-speed: 3.0
     # Dźwięki
     sounds:
       activate: ENTITY_ENDERMAN_AMBIENT
