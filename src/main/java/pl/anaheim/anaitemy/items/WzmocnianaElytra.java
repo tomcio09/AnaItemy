@@ -14,24 +14,21 @@ import org.bukkit.persistence.PersistentDataType;
 import pl.anaheim.anaitemy.AnaItemy;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class WzmocnianaElytra {
 
-    public static final String ITEM_NAME_STRIPPED = "Wzmocniona elytra";
+    public static final String ITEM_NAME_STRIPPED = "Wzmocniana elytra";
     private static final NamespacedKey CHARGE_KEY = new NamespacedKey(AnaItemy.getInstance(), "elytra_charge");
 
     public static ItemStack create() {
-        List<String> lore = Arrays.asList(
-                "",
-                " &8» &7Jest to przedmiot zdobyty podczas",
-                " &8» &fWielkanocnego Wydarzenia 2025&7!",
-                "",
-                " &8» &7Po naładowaniu elytry do &f100% &7zyskujesz",
-                " &8» &cpotężną moc&7, która przy uderzeniu w ziemię",
-                " &8» &7uwolni się, oddziałując na pobliskich graczy!"
-        );
+        List<String> lore = new ArrayList<>();
+        lore.add(" &8» &7Jest to przedmiot zdobyty podczas");
+        lore.add(" &8» &fWielkanocnego Wydarzenia 2025&7!");
+        lore.add("");
+        lore.add(" &8» &7Po naładowaniu elytry do &f100% &7zyskujesz");
+        lore.add(" &8» &cpotężną moc&7, która przy uderzeniu w ziemię");
+        lore.add(" &8» &7uwolni się, oddziałując na pobliskich graczy!");
 
         ItemStack item = new ItemStack(Material.ELYTRA);
         ItemMeta meta = item.getItemMeta();
