@@ -38,11 +38,9 @@ public class HydroKlatkaManager {
             public void run() {
                 long now = System.currentTimeMillis();
 
-                // ✅ Cleanup cooldownów (nie usuwamy przy wylogowaniu, tylko gdy upłynął czas)
                 playerCooldowns.entrySet().removeIf(entry -> now >= entry.getValue());
                 chunkCooldowns.entrySet().removeIf(entry -> now >= entry.getValue());
 
-                // ✅ Cleanup expired klatek automatycznie
                 for (ActiveHydroKlatka klatka : new ArrayList<>(activeKlatki.values())) {
                     if (klatka.isExpired()) {
                         removeKlatka(klatka);
@@ -147,7 +145,7 @@ public class HydroKlatkaManager {
                 plugin.getActionBarManager().setActionBar(player, "hydroklatka", message);
             }
         }.runTaskTimer(plugin, 0L, 20L);
-    
+
         cooldownTasks.put(player.getUniqueId(), task);
     }
 
@@ -196,11 +194,22 @@ public class HydroKlatkaManager {
     private void trapPlayers(ActiveHydroKlatka klatka) {
         Location center = klatka.getCenter();
         World world = center.getWorld();
+        Player creator = Bukkit.getPlayer(klatka.getCreatorId());
+
+        ItemsConfig config = plugin.getItemsConfig();
 
         for (Player player : world.getPlayers()) {
             if (player.getLocation().distance(center) <= klatka.getRadius()) {
                 if (!isInBlockedRegion(player.getLocation())) {
                     klatka.addTrappedPlayer(player.getUniqueId());
+
+                    // ✅ Taguj gracza w combat (jeśli włączone w configu)
+                    if (config.isHydroKlatkaTagPlayers() &&
+                            plugin.getCombatIntegrationManager().isEnabled() &&
+                            plugin.getCombatIntegrationManager().hasTagPlayerMethod()) {
+
+                        plugin.getCombatIntegrationManager().tagPlayer(player, creator);
+                    }
                 }
             }
         }
@@ -270,7 +279,6 @@ public class HydroKlatkaManager {
         World world = center.getWorld();
         ItemsConfig config = plugin.getItemsConfig();
 
-        // 1. Dźwięk wybuchu
         try {
             Sound explodeSound = Sound.valueOf(config.getHydroKlatkaExplodeSound());
             world.playSound(center, explodeSound, SoundCategory.BLOCKS,
@@ -280,7 +288,6 @@ public class HydroKlatkaManager {
             plugin.getLogger().warning("Nieprawidłowy dźwięk wybuchu: " + config.getHydroKlatkaExplodeSound());
         }
 
-        // 2. GENERIC_SPLASH natychmiast
         try {
             Sound splashSound = Sound.valueOf(config.getHydroKlatkaSplashSound());
             world.playSound(center, splashSound, SoundCategory.BLOCKS,
@@ -290,13 +297,11 @@ public class HydroKlatkaManager {
             plugin.getLogger().warning("Nieprawidłowy dźwięk splash: " + config.getHydroKlatkaSplashSound());
         }
 
-        // ✅ 3. BLOCK_WATER_AMBIENT (głośny) - pod koniec animacji
         int animationDuration = config.getHydroKlatkaAnimationDuration();
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             try {
                 Sound ambientSound = Sound.valueOf(config.getHydroKlatkaAmbientSound());
-                
-                // ✅ Odtwórz dla wszystkich graczy w zasięgu 50 bloków
+
                 for (Player player : world.getPlayers()) {
                     if (player.getLocation().distance(center) <= 50) {
                         player.playSound(center, ambientSound, SoundCategory.BLOCKS,
@@ -344,7 +349,7 @@ public class HydroKlatkaManager {
             }
         }.runTaskTimer(plugin, 0L, ticksPerLayer);
     }
-    
+
     private void buildLayer(ActiveHydroKlatka klatka, int y) {
         Location center = klatka.getCenter();
         int radius = klatka.getRadius();
@@ -383,7 +388,6 @@ public class HydroKlatkaManager {
     private Material mapToWaterBlock(Material original) {
         String name = original.name();
 
-        // ✅ BEDROCK nie zmienia się
         if (original == Material.BEDROCK) {
             return Material.BEDROCK;
         }
@@ -443,7 +447,6 @@ public class HydroKlatkaManager {
             }
         });
 
-        // ✅ Cleanup BossBar dla wszystkich graczy (także offline)
         for (UUID playerId : klatka.getTrappedPlayers()) {
             BossBar bossBar = playerBossBars.remove(playerId);
             if (bossBar != null) {
@@ -454,7 +457,6 @@ public class HydroKlatkaManager {
             }
         }
 
-        // ✅ Cleanup BossBar dla graczy offline
         for (UUID playerId : klatka.getOfflinePlayers()) {
             playerBossBars.remove(playerId);
         }
@@ -516,7 +518,6 @@ public class HydroKlatkaManager {
         return true;
     }
 
-    // ✅ POPRAWIONE - sprawdzanie flag WorldGuard (pvp + block-break)
     public boolean canBreakBlock(Player player, Location location) {
         return plugin.getWorldGuardManager().canBreakBlock(player, location);
     }
@@ -538,13 +539,11 @@ public class HydroKlatkaManager {
         return null;
     }
 
-    // ✅ Usuń gracza z klatki przy śmierci
     public void removePlayerFromKlatka(Player player) {
         for (ActiveHydroKlatka klatka : activeKlatki.values()) {
             if (klatka.isPlayerTrapped(player.getUniqueId())) {
                 klatka.removeTrappedPlayer(player.getUniqueId());
-                
-                // Ukryj BossBar
+
                 BossBar bossBar = playerBossBars.remove(player.getUniqueId());
                 if (bossBar != null) {
                     player.hideBossBar(bossBar);
@@ -563,10 +562,7 @@ public class HydroKlatkaManager {
 
         cooldownTasks.values().forEach(BukkitTask::cancel);
         cooldownTasks.clear();
-        
-        // ✅ NIE usuwamy playerCooldowns - mają przetrwać restart
-        // playerCooldowns.clear();
-        
+
         chunkCooldowns.clear();
     }
 }
