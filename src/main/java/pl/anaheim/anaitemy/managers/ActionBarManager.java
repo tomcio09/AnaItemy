@@ -14,12 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * ✅ Centralny manager action barów.
  * 
- * Priorytety:
- * 1. Combat plugin (najwyższy) - nasze action bary znikają
- * 2. Nasze action bary (normalny) - Hydro Klatka, Wzmocniona Elytra
- * 
- * Gdy combat action bar jest aktywny, nasze action bary są wstrzymane.
- * Po zakończeniu walki, nasze action bary wracają po configurowalnym opóźnieniu.
+ * Gdy combat action bar jest aktywny, nasze action bary są całkowicie wstrzymane.
  */
 public class ActionBarManager {
 
@@ -38,12 +33,12 @@ public class ActionBarManager {
 
     public ActionBarManager(AnaItemy plugin) {
         this.plugin = plugin;
-        this.resumeDelayMs = plugin.getItemsConfig().getActionBarResumeDelay() * 50L; // ticki -> ms
+        this.resumeDelayMs = plugin.getItemsConfig().getActionBarResumeDelay() * 50L;
         startTickTask();
     }
 
     /**
-     * ✅ Task który co tick aktualizuje action bary.
+     * ✅ Task który co 1 sekundę aktualizuje action bary (nie co 0.5s - mniej migania).
      */
     private void startTickTask() {
         tickTask = new BukkitRunnable() {
@@ -59,8 +54,10 @@ public class ActionBarManager {
                 for (Map.Entry<UUID, Map<String, String>> entry : pendingActionBars.entrySet()) {
                     UUID playerId = entry.getKey();
 
-                    // Jeśli gracz jest w walce - nie wyświetlaj naszych
-                    if (isCombatActive(playerId)) continue;
+                    // Jeśli gracz jest w walce - NIE WYSYŁAJ (całkowicie wstrzymane)
+                    if (isCombatActive(playerId)) {
+                        continue;
+                    }
 
                     Player player = Bukkit.getPlayer(playerId);
                     if (player == null || !player.isOnline()) {
@@ -68,7 +65,6 @@ public class ActionBarManager {
                         continue;
                     }
 
-                    // Wyświetl pierwszy aktywny action bar (priorytet: kolejność dodania)
                     Map<String, String> bars = entry.getValue();
                     if (!bars.isEmpty()) {
                         String firstBar = bars.values().iterator().next();
@@ -77,19 +73,18 @@ public class ActionBarManager {
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 10L); // Co 10 ticków (0.5s)
+        }.runTaskTimer(plugin, 0L, 20L); // ✅ ZMIENIONO: Co 20 ticków (1 sekunda) zamiast 10
     }
 
     /**
      * ✅ Oznacz że combat plugin wysłał action bar do gracza.
-     * Nasze action bary zostaną wstrzymane.
      */
     public void markCombatActive(Player player) {
         combatActionBarActive.put(player.getUniqueId(), System.currentTimeMillis());
     }
 
     /**
-     * Sprawdza czy combat action bar jest aktywny (lub czekamy na resume delay).
+     * Sprawdza czy combat action bar jest aktywny.
      */
     public boolean isCombatActive(UUID playerId) {
         Long lastCombat = combatActionBarActive.get(playerId);
@@ -97,16 +92,12 @@ public class ActionBarManager {
         return System.currentTimeMillis() - lastCombat <= resumeDelayMs;
     }
 
-    /**
-     * Sprawdza czy combat action bar jest aktywny dla gracza.
-     */
     public boolean isCombatActive(Player player) {
         return isCombatActive(player.getUniqueId());
     }
 
     /**
      * ✅ Rejestruje nasz action bar do wyświetlenia.
-     * Źródło identyfikuje który system go wysyła (np. "hydroklatka", "elytra").
      */
     public void setActionBar(Player player, String source, String message) {
         pendingActionBars.computeIfAbsent(player.getUniqueId(), k -> new LinkedHashMap<>())
@@ -122,39 +113,29 @@ public class ActionBarManager {
             bars.remove(source);
             if (bars.isEmpty()) {
                 pendingActionBars.remove(player.getUniqueId());
-                // Wyczyść action bar
-                player.sendActionBar(Component.empty());
+                // ✅ TYLKO jeśli nie ma combat bara - wyczyść
+                if (!isCombatActive(player)) {
+                    player.sendActionBar(Component.empty());
+                }
             }
         }
     }
 
-    /**
-     * ✅ Sprawdza czy gracz ma aktywny action bar z danego źródła.
-     */
     public boolean hasActionBar(Player player, String source) {
         Map<String, String> bars = pendingActionBars.get(player.getUniqueId());
         return bars != null && bars.containsKey(source);
     }
 
-    /**
-     * ✅ Czyści wszystkie action bary gracza.
-     */
     public void clearAll(Player player) {
         pendingActionBars.remove(player.getUniqueId());
         combatActionBarActive.remove(player.getUniqueId());
         player.sendActionBar(Component.empty());
     }
 
-    /**
-     * Przeładuj config.
-     */
     public void reload() {
         this.resumeDelayMs = plugin.getItemsConfig().getActionBarResumeDelay() * 50L;
     }
 
-    /**
-     * Cleanup.
-     */
     public void cleanup() {
         if (tickTask != null) {
             tickTask.cancel();
