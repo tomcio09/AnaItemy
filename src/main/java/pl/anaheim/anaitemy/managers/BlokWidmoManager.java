@@ -44,39 +44,30 @@ public class BlokWidmoManager {
             public void run() {
                 long now = System.currentTimeMillis();
 
-                // Czyść cooldowny
                 cooldowns.entrySet().removeIf(e -> now >= e.getValue());
 
-                // Sprawdzaj zainfekowanych graczy
                 for (AffectedData data : new ArrayList<>(affectedPlayers.values())) {
                     Player player = Bukkit.getPlayer(data.getVictimId());
 
                     if (player == null || !player.isOnline()) {
-                        // Gracz offline - usuń efekt (bez przywracania bo offline)
                         removeEffect(data.getVictimId());
                         continue;
                     }
 
                     if (data.isExpired()) {
-                        // Czas minął - przywróć zdrowie
                         restoreHealth(player);
                         removeEffect(data.getVictimId());
-                        
-                        // ✅ Dźwięk przywrócenia
+
                         try {
                             Sound deactivateSound = Sound.valueOf(
                                     plugin.getItemsConfig().getBlokWidmoDeactivateSound());
                             player.playSound(player.getLocation(), deactivateSound, 1.0f, 1.5f);
                         } catch (IllegalArgumentException ignored) {}
-                        
+
                         continue;
                     }
 
-                    // Aktualizuj bossbar
                     updateBossBar(player, data);
-                    
-                    // ✅ Sprawdź czy modifier nadal jest na graczu
-                    // (inny plugin mógł go usunąć)
                     ensureModifierExists(player, data);
                 }
             }
@@ -100,8 +91,6 @@ public class BlokWidmoManager {
         ItemsConfig config = plugin.getItemsConfig();
         long cooldownSeconds = config.getBlokWidmoCooldown();
         cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (cooldownSeconds * 1000));
-
-        // ✅ Szare tło na slocie
         player.setCooldown(Material.STRUCTURE_BLOCK, (int) (cooldownSeconds * 20));
     }
 
@@ -119,7 +108,33 @@ public class BlokWidmoManager {
         double healthReduction = config.getBlokWidmoHealthReduction();
         double minimumHealth = config.getBlokWidmoMinimumHealth();
 
-        // ✅ 1. Dźwięk dla atakującego
+        // ✅ 1. NATYCHMIAST ustaw cooldown (żeby nie można było spamować)
+        setCooldown(activator);
+
+        // ✅ 2. NATYCHMIAST zainfekuj graczy - ZANIM cokolwiek innego
+        // To jest SYNCHRONICZNE - serca znikają w tym samym ticku
+        List<Player> infectedPlayers = new ArrayList<>();
+        World world = location.getWorld();
+
+        for (Player victim : world.getPlayers()) {
+            if (victim.equals(activator)) continue;
+            if (victim.getLocation().distance(location) > radius) continue;
+
+            List<String> blockedRegions = config.getBlokWidmoBlockedRegions();
+            if (plugin.getWorldGuardManager().isInBlockedRegion(victim.getLocation(), blockedRegions)) {
+                continue;
+            }
+
+            // ✅ NATYCHMIASTOWE zabranie serc
+            boolean applied = applyEffect(victim, effectDuration, healthReduction, minimumHealth);
+            if (applied) {
+                infectedPlayers.add(victim);
+            }
+        }
+
+        // ✅ 3. DOPIERO TERAZ - efekty wizualne i dźwiękowe (nie blokują mechaniki)
+
+        // Dźwięk dla atakującego
         try {
             Sound activateSound = Sound.valueOf(config.getBlokWidmoActivateSound());
             activator.playSound(activator.getLocation(), activateSound, 1.0f, 1.0f);
@@ -128,7 +143,7 @@ public class BlokWidmoManager {
                     config.getBlokWidmoActivateSound());
         }
 
-        // ✅ 2. Subtitle dla atakującego
+        // Subtitle dla atakującego
         activator.showTitle(Title.title(
                 Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand()
@@ -140,28 +155,12 @@ public class BlokWidmoManager {
                 )
         ));
 
-        // ✅ 3. Particle effect - używamy SPELL_WITCH zamiast WITCH
+        // Particle effect
         location.getWorld().spawnParticle(Particle.SPELL_WITCH, location, 100, 2, 2, 2, 0.1);
         location.getWorld().spawnParticle(Particle.SMOKE_LARGE, location, 50, 1, 1, 1, 0.05);
 
-        // ✅ 4. Cooldown
-        setCooldown(activator);
-
-        // ✅ 5. Zainfekuj graczy w okolicy
-        World world = location.getWorld();
-        for (Player victim : world.getPlayers()) {
-            if (victim.equals(activator)) continue;
-            if (victim.getLocation().distance(location) > radius) continue;
-
-            // Sprawdź region
-            List<String> blockedRegions = config.getBlokWidmoBlockedRegions();
-            if (plugin.getWorldGuardManager().isInBlockedRegion(victim.getLocation(), blockedRegions)) {
-                continue;
-            }
-
-            applyEffect(victim, effectDuration, healthReduction, minimumHealth);
-
-            // ✅ Title/subtitle dla zainfekowanego
+        // Title/subtitle dla zainfekowanych
+        for (Player victim : infectedPlayers) {
             victim.showTitle(Title.title(
                     LegacyComponentSerializer.legacyAmpersand()
                             .deserialize(config.getBlokWidmoAffectedTitle()),
@@ -178,31 +177,30 @@ public class BlokWidmoManager {
 
     // ==================== EFEKT ====================
 
-    private void applyEffect(Player victim, int durationSeconds, double healthReduction, double minimumHealth) {
+    /**
+     * ✅ Natychmiastowe zabranie serc. Zwraca true jeśli efekt został nałożony.
+     */
+    private boolean applyEffect(Player victim, int durationSeconds, double healthReduction, double minimumHealth) {
         UUID victimId = victim.getUniqueId();
 
-        // ✅ Jeśli gracz już ma efekt - zresetuj czas (ale nie stackuj)
+        // Jeśli gracz już ma efekt - zresetuj czas (ale nie stackuj)
         if (affectedPlayers.containsKey(victimId)) {
-            // Usuń stary efekt (przywróć zdrowie)
             restoreHealth(victim);
             removeEffect(victimId);
         }
 
-        // ✅ Oblicz ile HP zabrać
         AttributeInstance maxHealthAttr = victim.getAttribute(Attribute.GENERIC_MAX_HEALTH);
-        if (maxHealthAttr == null) return;
+        if (maxHealthAttr == null) return false;
 
-        // ✅ Pobierz BAZOWY max health (bez naszego modifiera - ale po modifierach innych pluginów)
         double currentMaxHealth = maxHealthAttr.getValue();
         double targetMaxHealth = Math.max(minimumHealth, currentMaxHealth - healthReduction);
         double actualReduction = currentMaxHealth - targetMaxHealth;
 
         if (actualReduction <= 0) {
-            // Gracz ma za mało HP - nie redukuj
-            return;
+            return false;
         }
 
-        // ✅ Dodaj modifier obniżający max health
+        // ✅ NATYCHMIAST dodaj modifier - serca znikają W TYM TICKU
         AttributeModifier modifier = new AttributeModifier(
                 MODIFIER_UUID,
                 MODIFIER_NAME,
@@ -210,52 +208,43 @@ public class BlokWidmoManager {
                 AttributeModifier.Operation.ADD_NUMBER
         );
 
-        // Usuń stary modifier jeśli istnieje (zabezpieczenie)
         removeModifier(maxHealthAttr);
-
         maxHealthAttr.addModifier(modifier);
 
-        // ✅ Jeśli aktualne zdrowie przekracza nowy max - obetnij
+        // ✅ NATYCHMIAST obetnij zdrowie jeśli przekracza nowy max
         double newMaxHealth = maxHealthAttr.getValue();
         if (victim.getHealth() > newMaxHealth) {
-            victim.setHealth(Math.max(1.0, newMaxHealth)); // Minimum 1 HP żeby nie zabić
+            victim.setHealth(Math.max(1.0, newMaxHealth));
         }
 
-        // ✅ Zapisz dane
+        // Zapisz dane
         long expirationTime = System.currentTimeMillis() + (durationSeconds * 1000L);
         AffectedData data = new AffectedData(victimId, expirationTime, durationSeconds, actualReduction);
         affectedPlayers.put(victimId, data);
 
-        // ✅ Stwórz bossbar
+        // Stwórz bossbar
         createBossBar(victim, data);
 
-        // ✅ Dźwięk dla zainfekowanego
+        // Dźwięk
         try {
             Sound sound = Sound.valueOf(
                     plugin.getItemsConfig().getBlokWidmoDeactivateSound());
             victim.playSound(victim.getLocation(), sound, 1.0f, 0.5f);
         } catch (IllegalArgumentException ignored) {}
+
+        return true;
     }
 
-    /**
-     * ✅ Przywraca max health gracza (usuwa modifier).
-     * WAŻNE: Ta metoda MUSI być wywołana ZANIM inne pluginy przetworzą śmierć.
-     */
     private void restoreHealth(Player player) {
         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
         if (maxHealthAttr == null) return;
-
         removeModifier(maxHealthAttr);
     }
 
-    /**
-     * ✅ Bezpieczne usunięcie naszego modifiera z atrybutu.
-     */
     private void removeModifier(AttributeInstance attribute) {
-        // Iteruj po kopii żeby uniknąć ConcurrentModification
         for (AttributeModifier modifier : new ArrayList<>(attribute.getModifiers())) {
-            if (modifier.getUniqueId().equals(MODIFIER_UUID) || 
-                MODIFIER_NAME.equals(modifier.getName())) {
+            if (modifier.getUniqueId().equals(MODIFIER_UUID) ||
+                    MODIFIER_NAME.equals(modifier.getName())) {
                 attribute.removeModifier(modifier);
             }
         }
@@ -273,11 +262,6 @@ public class BlokWidmoManager {
         }
     }
 
-    /**
-     * ✅ Sprawdza czy modifier nadal istnieje na graczu.
-     * Jeśli inny plugin go usunął - nie dodajemy go ponownie,
-     * ale kończymy efekt.
-     */
     private void ensureModifierExists(Player player, AffectedData data) {
         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
         if (maxHealthAttr == null) return;
@@ -290,23 +274,17 @@ public class BlokWidmoManager {
             }
         }
 
-        // ✅ Jeśli modifier zniknął (np. inny plugin go usunął) - zakończ efekt
         if (!hasModifier && !data.isExpired()) {
-            plugin.getLogger().info("[BlokWidmo] Modifier usunięty przez zewnętrzny plugin dla gracza " + 
+            plugin.getLogger().info("[BlokWidmo] Modifier usunięty przez zewnętrzny plugin dla gracza " +
                     player.getName() + " - kończę efekt.");
             removeEffect(player.getUniqueId());
         }
     }
 
-    /**
-     * ✅ Czyści modifier który mógł zostać po crashu/restarcie serwera.
-     * Wywoływane przy logowaniu gracza.
-     */
     public void cleanupStaleModifier(Player player) {
         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
         if (maxHealthAttr == null) return;
 
-        // Jeśli gracz NIE jest w mapie zainfekowanych, ale MA nasz modifier - usuń go
         if (!affectedPlayers.containsKey(player.getUniqueId())) {
             removeModifier(maxHealthAttr);
         }
@@ -334,7 +312,6 @@ public class BlokWidmoManager {
                 BossBar.Overlay.PROGRESS
         );
 
-        // Usuń stary bossbar jeśli istnieje
         BossBar old = bossBars.remove(player.getUniqueId());
         if (old != null) {
             player.hideBossBar(old);
@@ -376,38 +353,24 @@ public class BlokWidmoManager {
 
     // ==================== API PUBLICZNE ====================
 
-    /**
-     * ✅ Sprawdza czy gracz jest zainfekowany blokiem widmo.
-     */
     public boolean isAffected(Player player) {
         return affectedPlayers.containsKey(player.getUniqueId());
     }
 
-    /**
-     * ✅ Zwraca ile sekund pozostało do końca efektu.
-     */
     public int getRemainingSeconds(Player player) {
         AffectedData data = affectedPlayers.get(player.getUniqueId());
         if (data == null) return 0;
         return data.getRemainingSeconds();
     }
 
-    /**
-     * ✅ Zwraca ile HP zostało zabrane.
-     */
     public double getReducedHealth(Player player) {
         AffectedData data = affectedPlayers.get(player.getUniqueId());
         if (data == null) return 0;
         return data.getReduction();
     }
 
-    /**
-     * ✅ Ręczne usunięcie efektu (np. z komendy lub przy śmierci).
-     * Przywraca max health i usuwa bossbar.
-     */
     public void forceRemoveEffect(Player player) {
         if (!affectedPlayers.containsKey(player.getUniqueId())) {
-            // Nawet jeśli nie ma danych - spróbuj usunąć modifier
             cleanupStaleModifier(player);
             return;
         }
@@ -415,9 +378,6 @@ public class BlokWidmoManager {
         removeEffect(player.getUniqueId());
     }
 
-    /**
-     * ✅ Sprawdza blocked region.
-     */
     public boolean isInBlockedRegion(Location location) {
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getBlokWidmoBlockedRegions();
