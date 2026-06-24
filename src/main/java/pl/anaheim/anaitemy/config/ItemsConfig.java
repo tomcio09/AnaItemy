@@ -132,6 +132,10 @@ public class ItemsConfig {
     public List<String> getExcaliburBlockedRegions() {
         return config.getStringList("excalibur.blocked-regions");
     }
+    public String getExcaliburMessageTooFast() {
+        return config.getString("excalibur.messages.too-fast",
+                "&cNie możesz zliczyć zabójstwa &f{victim} &c- poczekaj &f{time}s&c!");
+    }
 
     // ==================== HYDRO KLATKA ====================
 
