@@ -16,6 +16,7 @@ import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
+import pl.anaheim.anaitemy.items.TotemUlaskawienia;
 import pl.anaheim.anaitemy.items.WzmocnianaElytra;
 
 import java.time.Duration;
@@ -28,40 +29,25 @@ public class WzmocnianaElytraManager {
 
     private final AnaItemy plugin;
 
-    // Gracze którzy aktualnie latają elytrą (UUID -> taska actionbara)
     private final Map<UUID, BukkitTask> flyingPlayers = new ConcurrentHashMap<>();
-
-    // Gracze którzy są w locie (do sprawdzenia czy naładować)
     private final Map<UUID, Double> playerFlightDistance = new ConcurrentHashMap<>();
-
-    // Shift clicks (UUID -> liczba kliknięć)
     private final Map<UUID, Integer> shiftClicks = new ConcurrentHashMap<>();
-
-    // Poprzednia pozycja gracza (do liczenia dystansu)
     private final Map<UUID, Location> previousLocations = new ConcurrentHashMap<>();
-
-    // ✅ Dystans od ostatniej aktualizacji (co 10 ticków)
     private final Map<UUID, Double> distanceSinceLastUpdate = new ConcurrentHashMap<>();
-
-    // ✅ Poprzedni stan gliding (do wykrywania lądowania)
     private final Map<UUID, Boolean> wasGliding = new ConcurrentHashMap<>();
 
-    // ✅ 500 bloków = 100%
     private static final double TOTAL_BLOCKS_FOR_100_PERCENT = 500.0;
     private static final int MAX_CHARGE = 100;
     private static final int DAMAGE_RADIUS = 5;
-    private static final int DAMAGE = 20; // 10 serc
+    private static final int DAMAGE = 20;
     private static final int SHIFT_CLICKS_NEEDED = 1;
-    private static final int UPDATE_INTERVAL = 10; // ✅ Aktualizacja co 10 ticków
+    private static final int UPDATE_INTERVAL = 10;
 
     public WzmocnianaElytraManager(AnaItemy plugin) {
         this.plugin = plugin;
         startFlightMonitor();
     }
 
-    /**
-     * ✅ Monitoruj lot graczy z elytrą - CO TICK!
-     */
     private void startFlightMonitor() {
         new BukkitRunnable() {
             int tickCounter = 0;
@@ -73,34 +59,25 @@ public class WzmocnianaElytraManager {
                 for (Player player : plugin.getServer().getOnlinePlayers()) {
                     ItemStack chestplate = player.getInventory().getChestplate();
 
-                    // ✅ Gracz leci z wzmocnianą elytrą
                     if (player.isGliding() && WzmocnianaElytra.isWzmocnianaElytra(chestplate)) {
                         updateFlying(player, chestplate, tickCounter);
                         wasGliding.put(player.getUniqueId(), true);
                     } else {
-                        // ✅ Sprawdź czy gracz przed chwilą lądował
                         if (wasGliding.getOrDefault(player.getUniqueId(), false)) {
-                            // Gracz PRZESTAŁ lecieć - możliwe lądowanie
                             handleLanding(player, chestplate);
                         }
-
-                        // Gracz przestał lecieć lub zdje elytrę
                         stopFlying(player);
                         wasGliding.remove(player.getUniqueId());
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 1L); // Co tick
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    /**
-     * ✅ Aktualizuj lot gracza - liczenie dystansu.
-     */
     private void updateFlying(Player player, ItemStack elytra, int tickCounter) {
         UUID uuid = player.getUniqueId();
         Location currentLoc = player.getLocation();
 
-        // ✅ PIERWSZY LOT - resetuj wszystko
         if (!playerFlightDistance.containsKey(uuid)) {
             WzmocnianaElytra.resetCharge(elytra);
             playerFlightDistance.put(uuid, 0.0);
@@ -110,20 +87,17 @@ public class WzmocnianaElytraManager {
             return;
         }
 
-        // ✅ DODAJ DYSTANS - liczba przeletanych bloków (3D distance)
         Location prevLoc = previousLocations.get(uuid);
         if (prevLoc != null && prevLoc.getWorld().equals(currentLoc.getWorld())) {
             double distance = currentLoc.distance(prevLoc);
             double accumulated = distanceSinceLastUpdate.getOrDefault(uuid, 0.0) + distance;
             distanceSinceLastUpdate.put(uuid, accumulated);
 
-            // ✅ AKTUALIZUJ CHARGE CO 10 TICKÓW
             if (tickCounter % UPDATE_INTERVAL == 0) {
                 double totalDistance = playerFlightDistance.get(uuid) + accumulated;
                 playerFlightDistance.put(uuid, totalDistance);
                 distanceSinceLastUpdate.put(uuid, 0.0);
 
-                // ✅ ZAŁADUJ ELYTRĘ
                 double charge = Math.min(100.0, (totalDistance / TOTAL_BLOCKS_FOR_100_PERCENT) * 100.0);
                 WzmocnianaElytra.setCharge(elytra, charge);
             }
@@ -132,21 +106,16 @@ public class WzmocnianaElytraManager {
         previousLocations.put(uuid, currentLoc.clone());
     }
 
-    /**
-     * ✅ Obsługa lądowania gracza.
-     */
     private void handleLanding(Player player, ItemStack elytra) {
         if (!WzmocnianaElytra.isWzmocnianaElytra(elytra)) return;
 
         double charge = WzmocnianaElytra.getCharge(elytra);
         if (charge < 100.0) return;
 
-        // ✅ Sprawdź czy gracz jest teraz na ziemi
         if (!player.isOnGround()) return;
 
-        // ✅ WYWOŁAJ PIORUN
         Location landingLoc = player.getLocation().clone();
-        landingLoc.setY(landingLoc.getY() - 0.5); // Blok pod graczem
+        landingLoc.setY(landingLoc.getY() - 0.5);
 
         triggerLightningStrike(player, landingLoc);
     }
@@ -163,14 +132,12 @@ public class WzmocnianaElytraManager {
             task.cancel();
         }
 
-        // ✅ Użyj ActionBarManager zamiast bezpośrednio wysyłać
         plugin.getActionBarManager().removeActionBar(player, "elytra");
     }
 
     private void startActionBarDisplay(Player player) {
         UUID uuid = player.getUniqueId();
 
-        // Jeśli już wyświetla - nie zamawiaj drugiego
         if (flyingPlayers.containsKey(uuid)) return;
 
         BukkitTask task = new BukkitRunnable() {
@@ -192,20 +159,15 @@ public class WzmocnianaElytraManager {
                 double charge = WzmocnianaElytra.getCharge(chestplate);
                 String chargeStr = String.format("%.2f", charge);
 
-                // ✅ Główny action bar elytra
                 String elytraBar = "&bWzmocniana elytra &fzaladowana w &3" + chargeStr + "%";
 
-                // ✅ Użyj ActionBarManager zamiast bezpośrednio wysyłać
                 plugin.getActionBarManager().setActionBar(player, "elytra", elytraBar);
             }
-        }.runTaskTimer(plugin, 0L, UPDATE_INTERVAL); // ✅ Co 10 ticków zamiast co tick
+        }.runTaskTimer(plugin, 0L, UPDATE_INTERVAL);
 
         flyingPlayers.put(uuid, task);
     }
 
-    /**
-     * ✅ Gracz kliknął shift - resetuj ładowanie.
-     */
     public void onShiftClick(Player player) {
         UUID uuid = player.getUniqueId();
 
@@ -214,19 +176,16 @@ public class WzmocnianaElytraManager {
         ItemStack chestplate = player.getInventory().getChestplate();
         if (!WzmocnianaElytra.isWzmocnianaElytra(chestplate)) return;
 
-        // Zwiększ licznik
         int clicks = shiftClicks.getOrDefault(uuid, 0) + 1;
         shiftClicks.put(uuid, clicks);
 
         if (clicks >= SHIFT_CLICKS_NEEDED) {
-            // ✅ Resetuj ładowanie
             WzmocnianaElytra.resetCharge(chestplate);
             playerFlightDistance.put(uuid, 0.0);
             distanceSinceLastUpdate.put(uuid, 0.0);
             previousLocations.put(uuid, player.getLocation().clone());
             shiftClicks.remove(uuid);
 
-            // Wyślij wiadomość
             player.showTitle(Title.title(
                     Component.empty(),
                     LegacyComponentSerializer.legacyAmpersand()
@@ -236,9 +195,6 @@ public class WzmocnianaElytraManager {
         }
     }
 
-    /**
-     * ✅ Gracz wylądował na bloku z 100% elytrą.
-     */
     public void triggerLightningStrike(Player player, Location landingLocation) {
         ItemStack chestplate = player.getInventory().getChestplate();
         if (!WzmocnianaElytra.isWzmocnianaElytra(chestplate)) return;
@@ -248,41 +204,59 @@ public class WzmocnianaElytraManager {
 
         Location center = landingLocation.clone();
 
-        // ✅ PIORUN - visual only
-        center.getWorld().strikeLightningEffect(center);
+        // ✅ NAJPIERW TAG COMBATU - POTEM DAMAGE
+        // (żeby gracz który zginie miał combat tag zanim umrze)
 
-        // ✅ DŹWIĘK
-        center.getWorld().playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER,
-                SoundCategory.PLAYERS, 2.0f, 1.0f);
+        // ✅ 1. TAG COMBATU - strzelec
+        if (plugin.getCombatIntegrationManager().isEnabled()) {
+            plugin.getCombatIntegrationManager().tagPlayer(player, player);
+        }
 
-        // ✅ CZĄSTECZKI
-        center.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, center, 50, 1, 1, 1, 0.5);
-
-        // ✅ DAMAGE - wszyscy w 5x5x5 OPRÓCZ STRZELCA
+        // ✅ 2. TAG COMBATU - wszyscy w obrębie (PRZED damage)
         for (Player nearPlayer : center.getWorld().getNearbyPlayers(center, DAMAGE_RADIUS)) {
             if (nearPlayer == null || !nearPlayer.isOnline()) continue;
-            if (nearPlayer.equals(player)) continue; // ✅ NIE ZADAJ DAMAGE STRZELCOWI
+            if (nearPlayer.equals(player)) continue;
 
-            // Odejmij serca bezpośrednio
-            double newHealth = nearPlayer.getHealth() - DAMAGE;
-            if (newHealth <= 0) {
-                nearPlayer.setHealth(0);
-            } else {
-                nearPlayer.setHealth(newHealth);
-            }
-
-            // ✅ TAG COMBATU - wszyscy w obrębie
             if (plugin.getCombatIntegrationManager().isEnabled()) {
                 plugin.getCombatIntegrationManager().tagPlayer(nearPlayer, player);
             }
         }
 
-        // ✅ TAG COMBATU - strzelec (ale NIE bierze damage)
-        if (plugin.getCombatIntegrationManager().isEnabled()) {
-            plugin.getCombatIntegrationManager().tagPlayer(player, player);
+        // ✅ 3. PIORUN - visual only
+        center.getWorld().strikeLightningEffect(center);
+
+        // ✅ 4. DŹWIĘK
+        center.getWorld().playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER,
+                SoundCategory.PLAYERS, 2.0f, 1.0f);
+
+        // ✅ 5. CZĄSTECZKI
+        center.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, center, 50, 1, 1, 1, 0.5);
+
+        // ✅ 6. DAMAGE - wszyscy w 5x5x5 OPRÓCZ STRZELCA (Z TOTEMEM)
+        for (Player nearPlayer : center.getWorld().getNearbyPlayers(center, DAMAGE_RADIUS)) {
+            if (nearPlayer == null || !nearPlayer.isOnline()) continue;
+            if (nearPlayer.equals(player)) continue;
+
+            double newHealth = nearPlayer.getHealth() - DAMAGE;
+
+            if (newHealth <= 0) {
+                // ✅ Sprawdź totem ułaskawienia
+                ItemStack mainHand = nearPlayer.getInventory().getItemInMainHand();
+                ItemStack offHand = nearPlayer.getInventory().getItemInOffHand();
+
+                if (TotemUlaskawienia.isTotemUlaskawienia(mainHand) ||
+                        TotemUlaskawienia.isTotemUlaskawienia(offHand)) {
+                    // Totem ratuje - ustaw 1 HP
+                    nearPlayer.setHealth(1.0);
+                } else {
+                    nearPlayer.setHealth(0);
+                }
+            } else {
+                nearPlayer.setHealth(newHealth);
+            }
         }
 
-        // ✅ RESETUJ CHARGE
+        // ✅ 7. RESETUJ CHARGE
         WzmocnianaElytra.resetCharge(chestplate);
         playerFlightDistance.remove(player.getUniqueId());
         distanceSinceLastUpdate.remove(player.getUniqueId());
