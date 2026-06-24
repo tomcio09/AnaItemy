@@ -31,6 +31,7 @@ public class EventoweGUI {
         gui.setItem(6, WzmocnianaElytra.create());
         gui.setItem(7, BlokWidmoItem.create());
         gui.setItem(8, SiekieraGrinchaItem.create());
+        gui.setItem(9, HydroTrojzabItem.create());
 
         player.openInventory(gui);
     }
