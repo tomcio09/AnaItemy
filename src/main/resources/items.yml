@@ -313,11 +313,13 @@ combat-integration:
   # Blokada otwierania sakiewki podczas walki
   block-sakiewka-in-combat: true
   
+  # Czy Hydroklatka ma tagować graczy w combat
+  hydroklatka-tag-players: true
+  
   # Action bar - priorytet combat pluginu
   actionbar:
     # Włącz zarządzanie priorytetami action barów
     enabled: true
     
     # Czas (w tickach) po którym nasze action bary wracają
-    # po zniknięciu action bara walki
     resume-delay: 10
