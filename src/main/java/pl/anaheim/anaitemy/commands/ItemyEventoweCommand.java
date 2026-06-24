@@ -13,6 +13,7 @@ import org.bukkit.inventory.ItemStack;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.gui.EventoweGUI;
 import pl.anaheim.anaitemy.items.*;
+import pl.anaheim.anaitemy.managers.BlokWidmoManager;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
 import pl.anaheim.anaitemy.managers.WedkaNielotaManager;
@@ -29,7 +30,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
     private final AnaItemy plugin;
 
     private static final List<String> ITEM_IDS = Arrays.asList(
-            "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka", "elytra"
+            "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka", "elytra", "blokwidmo"
     );
 
     public ItemyEventoweCommand(AnaItemy plugin) {
@@ -91,6 +92,13 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         // /itemyeventowe klatwa zdejmij <nick>
         if (args.length == 3 && args[0].equalsIgnoreCase("klatwa")) {
             handleKlatwaCommand(sender, args[1], args[2]);
+            return true;
+        }
+
+        // /itemyeventowe widmo naloz <nick>
+        // /itemyeventowe widmo zdejmij <nick>
+        if (args.length == 3 && args[0].equalsIgnoreCase("widmo")) {
+            handleWidmoCommand(sender, args[1], args[2]);
             return true;
         }
 
@@ -184,6 +192,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "rozdzka" -> RozdzkailuzjonistyItem.create();
             case "wedka" -> WedkaNielotaItem.create();
             case "elytra" -> WzmocnianaElytra.create();
+            case "blokwidmo" -> BlokWidmoItem.create();
             default -> null;
         };
     }
@@ -196,6 +205,8 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "rozdzka" -> "&5Różdżka Iluzjonisty";
             case "wedka" -> "&5Wędka Nielota";
             case "elytra" -> "&5Wzmocniana Elytra";
+            case "sakiewka" -> "&aSakiewka Dropu";
+            case "blokwidmo" -> "&cBlok Widmo";
             default -> id;
         };
     }
@@ -257,6 +268,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         HydroKlatkaManager hydroManager = plugin.getHydroKlatkaManager();
         RozdzkailuzjonistyManager rozdzkaManager = plugin.getRozdzkailuzjonistyManager();
         WedkaNielotaManager wedkaManager = plugin.getWedkaNielotaManager();
+        BlokWidmoManager blokWidmoManager = plugin.getBlokWidmoManager();
 
         hydroManager.resetCooldown(target);
         target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
@@ -266,6 +278,8 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         rozdzkaManager.resetVanishCooldown(target);
 
         wedkaManager.resetCooldown(target);
+
+        blokWidmoManager.resetCooldown(target);
 
         sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
         target.sendMessage(color("&aTwoje cooldowny zostały zresetowane przez &f" + sender.getName() + "&a!"));
@@ -312,6 +326,44 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    // ==================== WIDMO ====================
+
+    private void handleWidmoCommand(CommandSender sender, String action, String targetName) {
+        Player target = Bukkit.getPlayer(targetName);
+
+        if (target == null) {
+            sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!"));
+            return;
+        }
+
+        BlokWidmoManager widmoManager = plugin.getBlokWidmoManager();
+
+        switch (action.toLowerCase()) {
+
+            case "naloz" -> {
+                widmoManager.activate(target, target.getLocation());
+                sender.sendMessage(color("&aNałożono efekt Bloku Widmo na gracza &f" + target.getName() + "&a!"));
+                plugin.getLogger().info("[AnaItemy] " + sender.getName() +
+                        " nalozyl efekt bloku widmo na gracza " + target.getName());
+            }
+
+            case "zdejmij" -> {
+                if (!widmoManager.isAffected(target)) {
+                    sender.sendMessage(color("&cGracz &f" + target.getName() + " &cnie ma efektu Bloku Widmo!"));
+                    return;
+                }
+                widmoManager.forceRemoveEffect(target);
+                sender.sendMessage(color("&aZdjęto efekt Bloku Widmo z gracza &f" + target.getName() + "&a!"));
+                target.sendMessage(color("&aEfekt Bloku Widmo został z Ciebie zdjęty!"));
+                plugin.getLogger().info("[AnaItemy] " + sender.getName() +
+                        " zdjal efekt bloku widmo z gracza " + target.getName());
+            }
+
+            default -> sender.sendMessage(color(
+                    "&cUżycie: &f/itemyeventowe widmo <naloz|zdejmij> <nick>"));
+        }
+    }
+
     // ==================== HELP ====================
 
     private void sendHelp(CommandSender sender) {
@@ -325,6 +377,8 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(color("&7/itemyeventowe cooldown reset <nick> &8- &fresetuje cooldowny"));
         sender.sendMessage(color("&7/itemyeventowe klatwa naloz <nick> &8- &fnakłada klątwę"));
         sender.sendMessage(color("&7/itemyeventowe klatwa zdejmij <nick> &8- &fzdejmuje klątwę"));
+        sender.sendMessage(color("&7/itemyeventowe widmo naloz <nick> &8- &fnakłada efekt widmo"));
+        sender.sendMessage(color("&7/itemyeventowe widmo zdejmij <nick> &8- &fzdejmuje efekt widmo"));
         sender.sendMessage(color("&7Dostępne ID itemów: &f" + String.join(", ", ITEM_IDS)));
         sender.sendMessage(color("&8&m                                    "));
     }
@@ -340,20 +394,20 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 1) {
             completions.addAll(Arrays.asList(
-                    "reload", "kills", "give", "cooldown", "klatwa"
+                    "reload", "kills", "give", "cooldown", "klatwa", "widmo"
             ));
         } else if (args.length == 2) {
             switch (args[0].toLowerCase()) {
                 case "kills" -> completions.add("<liczba>");
                 case "give" -> completions.addAll(ITEM_IDS);
                 case "cooldown" -> completions.add("reset");
-                case "klatwa" -> completions.addAll(
+                case "klatwa", "widmo" -> completions.addAll(
                         Arrays.asList("naloz", "zdejmij")
                 );
             }
         } else if (args.length == 3) {
             switch (args[0].toLowerCase()) {
-                case "give", "klatwa" -> completions.addAll(
+                case "give", "klatwa", "widmo" -> completions.addAll(
                         Bukkit.getOnlinePlayers().stream()
                                 .map(Player::getName)
                                 .collect(Collectors.toList())
