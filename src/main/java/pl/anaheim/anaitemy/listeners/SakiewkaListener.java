@@ -25,8 +25,10 @@ public class SakiewkaListener implements Listener {
 
     /**
      * ✅ Zbiera itemy po zabiciu gracza do sakiewki.
+     * 
+     * EventPriority.LOWEST = wykonuje się OSTATNI (po TotemListener który ma HIGHEST)
      */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
@@ -34,13 +36,17 @@ public class SakiewkaListener implements Listener {
         // Sprawdź czy zabójcą jest gracz
         if (killer == null) return;
 
-        // ✅ NAJWAŻNIEJSZE - sprawdź czy keepInventory jest aktywne
-        // (totem, region WorldGuard, gamerule, itp.)
+        // ✅ SPRAWDZENIE 1: Czy keepInventory jest aktywne (totem, region, gamerule)
         if (event.getKeepInventory()) {
             return; // Keep inventory aktywne - nie zbieraj itemów
         }
 
-        // ✅ Dodatkowe sprawdzenie - czy ofiara miała Totem Ułaskawienia w ręku/offhand
+        // ✅ SPRAWDZENIE 2: Czy drops są puste (totem już wyczyścił)
+        if (event.getDrops().isEmpty()) {
+            return; // Brak itemów do zebrania
+        }
+
+        // ✅ SPRAWDZENIE 3: Czy ofiara miała Totem Ułaskawienia w ręku/offhand
         ItemStack mainHand = victim.getInventory().getItemInMainHand();
         ItemStack offHand = victim.getInventory().getItemInOffHand();
 
@@ -50,11 +56,11 @@ public class SakiewkaListener implements Listener {
             return;
         }
 
-        // ✅ Sprawdź czy killer ma sakiewkę w ekwipunku
+        // ✅ SPRAWDZENIE 4: Czy killer ma sakiewkę w ekwipunku
         List<ItemStack> sakiewki = findAllSakiewki(killer);
         if (sakiewki.isEmpty()) return;
 
-        // ✅ Sprawdź zablokowane regiony
+        // ✅ SPRAWDZENIE 5: Zablokowane regiony
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getSakiewkaBlockedRegions();
         if (plugin.getWorldGuardManager().isInBlockedRegion(victim.getLocation(), blockedRegions)) {
@@ -62,8 +68,11 @@ public class SakiewkaListener implements Listener {
         }
 
         // ✅ Zbierz wszystkie itemy ofiary (TYLKO z event.getDrops())
-        // NIE zbieraj zbroi ani offhand ręcznie - są już w drops jeśli keepInventory=false
         List<ItemStack> dropsToCollect = new ArrayList<>(event.getDrops());
+
+        if (dropsToCollect.isEmpty()) {
+            return; // Nie ma nic do zebrania
+        }
 
         // ✅ Wypełnij sakiewki po kolei
         List<ItemStack> overflow = dropsToCollect;
@@ -75,6 +84,13 @@ public class SakiewkaListener implements Listener {
         // ✅ Usuń zebrane itemy z dropu (zostaw tylko overflow)
         event.getDrops().clear();
         event.getDrops().addAll(overflow);
+
+        // ✅ DEBUG LOG
+        int collected = dropsToCollect.size() - overflow.size();
+        if (collected > 0) {
+            plugin.getLogger().info("[Sakiewka] " + killer.getName() + 
+                    " zebral " + collected + " itemow po zabiciu " + victim.getName());
+        }
     }
 
     /**
