@@ -1,5 +1,8 @@
 package pl.anaheim.anaitemy.managers;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.title.Title;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.AbstractArrow;
@@ -14,8 +17,10 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
+import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.items.*;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -67,7 +72,6 @@ public class HydroTrojzabManager {
 
                     ItemStack mainHand = player.getInventory().getItemInMainHand();
 
-                    // Jeśli gracz już nie trzyma Hydro Trójzębu albo przestał naciągać - przywróć item
                     if (!HydroTrojzabItem.isHydroTrojzab(mainHand) || !player.isHandRaised()) {
                         restoreGhostArrow(player);
                     }
@@ -122,7 +126,6 @@ public class HydroTrojzabManager {
             return true;
         }
 
-        // Jeśli gracz ma już normalną strzałę - nie trzeba tworzyć ghost arrow
         if (hasAnyUsableArrow(player)) {
             return true;
         }
@@ -235,13 +238,9 @@ public class HydroTrojzabManager {
 
         Material type = item.getType();
 
-        // ✅ Nie ruszaj zaklętych złotych jabłek
         if (type == Material.ENCHANTED_GOLDEN_APPLE) return false;
-
-        // ✅ Nie ruszaj elytry
         if (type == Material.ELYTRA) return false;
 
-        // ✅ Nie ruszaj naszych customowych itemów
         if (TotemUlaskawienia.isTotemUlaskawienia(item)) return false;
         if (Excalibur.isExcalibur(item)) return false;
         if (HydroKlatka.isHydroKlatka(item)) return false;
@@ -290,7 +289,7 @@ public class HydroTrojzabManager {
         ));
     }
 
-    // ==================== USE REGIONS ====================
+    // ==================== REGIONS ====================
 
     public boolean isInBlockedRegion(Location location) {
         return plugin.getWorldGuardManager().isInBlockedRegion(
@@ -307,17 +306,21 @@ public class HydroTrojzabManager {
         Location eye = shooter.getEyeLocation();
         Vector direction = eye.getDirection().normalize();
 
-        Trident trident = shooter.getWorld().spawn(eye.add(direction.clone().multiply(0.6)), Trident.class);
+        Trident trident = shooter.getWorld().spawn(
+                eye.add(direction.clone().multiply(0.6)), Trident.class);
         trident.setShooter(shooter);
         trident.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
         trident.setGravity(true);
-        trident.setMetadata(META_HYDRO_TRIDENT, new FixedMetadataValue(plugin, true));
-        trident.setMetadata(META_HYDRO_TRIDENT_OWNER, new FixedMetadataValue(plugin, shooter.getUniqueId().toString()));
+        trident.setMetadata(META_HYDRO_TRIDENT,
+                new FixedMetadataValue(plugin, true));
+        trident.setMetadata(META_HYDRO_TRIDENT_OWNER,
+                new FixedMetadataValue(plugin, shooter.getUniqueId().toString()));
 
         double velocity = 2.4 + (force * 1.3);
         trident.setVelocity(direction.multiply(velocity));
 
-        shooter.playSound(shooter.getLocation(), Sound.ITEM_TRIDENT_THROW, SoundCategory.PLAYERS, 1.2f, 1.0f);
+        shooter.playSound(shooter.getLocation(),
+                Sound.ITEM_TRIDENT_THROW, SoundCategory.PLAYERS, 1.2f, 1.0f);
 
         setShotCooldown(shooter);
         monitorGroundRemoval(trident);
@@ -360,8 +363,10 @@ public class HydroTrojzabManager {
 
         // ✅ Piorun tylko wizualny
         world.strikeLightningEffect(impact);
-        world.playSound(impact, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.PLAYERS, 2.0f, 1.0f);
+        world.playSound(impact, Sound.ENTITY_LIGHTNING_BOLT_THUNDER,
+                SoundCategory.PLAYERS, 2.0f, 1.0f);
         world.spawnParticle(Particle.ELECTRIC_SPARK, impact, 40, 0.8, 1.0, 0.8, 0.3);
+        // ✅ WATER_SPLASH zamiast SPLASH (1.20.1)
         world.spawnParticle(Particle.WATER_SPLASH, impact, 30, 1.2, 0.6, 1.2, 0.05);
 
         double radius = config.getHydroTrojzabImpactRadius();
@@ -372,7 +377,6 @@ public class HydroTrojzabManager {
         for (Player target : world.getNearbyPlayers(impact, radius, radius, radius)) {
             if (shooter != null && target.getUniqueId().equals(shooter.getUniqueId())) continue;
 
-            // Region targeta decyduje czy dostaje efekt
             if (isInBlockedRegion(target.getLocation())) continue;
 
             // 4s protection
@@ -397,12 +401,14 @@ public class HydroTrojzabManager {
 
             plugin.getItemProtectionManager().applyProtection(target, "hydro-trojzab");
 
+            // Knockback
             Vector knockback = target.getLocation().toVector().subtract(impact.toVector());
             knockback.setY(0);
 
             if (knockback.lengthSquared() <= 0.0001) {
                 if (shooter != null) {
-                    knockback = target.getLocation().toVector().subtract(shooter.getLocation().toVector());
+                    knockback = target.getLocation().toVector()
+                            .subtract(shooter.getLocation().toVector());
                     knockback.setY(0);
                 }
             }
@@ -420,11 +426,9 @@ public class HydroTrojzabManager {
 
     private Player getOwner(Trident trident) {
         if (!trident.hasMetadata(META_HYDRO_TRIDENT_OWNER)) return null;
-
         try {
             String raw = trident.getMetadata(META_HYDRO_TRIDENT_OWNER).get(0).asString();
-            UUID uuid = UUID.fromString(raw);
-            return Bukkit.getPlayer(uuid);
+            return Bukkit.getPlayer(UUID.fromString(raw));
         } catch (Exception e) {
             return null;
         }
@@ -442,8 +446,11 @@ public class HydroTrojzabManager {
         direction.setY(direction.getY() + 0.35);
 
         player.setVelocity(direction);
-        player.getWorld().playSound(player.getLocation(), Sound.ITEM_TRIDENT_RIPTIDE_3, SoundCategory.PLAYERS, 1.3f, 1.0f);
-        player.getWorld().spawnParticle(Particle.SPLASH, player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.2);
+        player.getWorld().playSound(player.getLocation(),
+                Sound.ITEM_TRIDENT_RIPTIDE_3, SoundCategory.PLAYERS, 1.3f, 1.0f);
+        // ✅ WATER_SPLASH zamiast SPLASH
+        player.getWorld().spawnParticle(Particle.WATER_SPLASH,
+                player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.2);
 
         setLaunchCooldown(player);
     }
