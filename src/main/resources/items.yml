@@ -20,7 +20,7 @@ totem-ulaskawienia:
   messages:
     death: '&cGracz &7{victim} &czginął z &eTotemem Ułaskawienia&c!'
   blocked-regions: []
-  
+
   respects-protection: false
   notify-attacker: false
 
@@ -48,7 +48,7 @@ excalibur:
     negative-number: '&cLiczba zabójstw nie może być ujemna!'
     too-fast: '&cZabójstwo nie zostało naliczone, ponieważ już zabiłeś tego gracza!'
   blocked-regions: []
-  
+
   respects-protection: false
   notify-attacker: false
 
@@ -69,47 +69,47 @@ hydro-klatka:
   custom-model-data: 2
   gui-slot: 2
   cooldown: 180
-  
+
   cage:
     radius: 8
     duration: 10
     animation-duration: 60
-  
+
   sounds:
     shoot:
       sound: ITEM_CROSSBOW_SHOOT
       volume: 2.0
       pitch: 1.0
-    
+
     splash:
       sound: ENTITY_GENERIC_SPLASH
       volume: 3.0
       pitch: 1.0
-    
+
     ambient:
       sound: BLOCK_WATER_AMBIENT
       volume: 5.0
       pitch: 1.0
-    
+
     cage-explode:
       sound: ENTITY_GENERIC_EXPLODE
       volume: 1.0
       pitch: 1.0
-    
+
     cage-remove:
       sound: ENTITY_GENERIC_SPLASH
       volume: 1.5
       pitch: 1.2
-    
+
     chunk-blocked:
       sound: BLOCK_GLASS_BREAK
       volume: 1.0
       pitch: 0.5
-  
+
   bossbar:
     title: '&bHydroklatka'
     color: BLUE
-  
+
   blocked-items:
     - ENDER_PEARL
     - EGG
@@ -117,22 +117,22 @@ hydro-klatka:
     - WATER_BUCKET
     - LAVA_BUCKET
     - CHORUS_FRUIT
-  
-  blocked-regions: 
+
+  blocked-regions:
     - spawn
     - endspawn
     - netherspawn
     - netherspawnpvp
-  
+
   messages:
     cooldown: '&cNie możesz używać tego przedmiotu tak szybko!'
     chunk-blocked: '&cNie możesz w tym miejscu stworzyć klatki!'
     blocked-region: ''
     cannot-use-in-cage: '&cNie możesz tego zrobić w Hydro Klatce!'
-  
+
   actionbar:
     cooldown-format: '&fStrzał z &3Hydro klatki &fza: &b{time}'
-  
+
   respects-protection: false
   notify-attacker: false
 
@@ -157,7 +157,7 @@ rozdzka-iluzjonisty:
   gui-slot: 3
   enchants:
     unbreaking: 10
-  
+
   fangs:
     cooldown: 20
     length: 7
@@ -169,7 +169,7 @@ rozdzka-iluzjonisty:
       activated: '&aSzczęki Evokera &7zostały &aaktywowane&7!'
       cooldown-title: '&cUmiejętność w odnowieniu'
       cooldown-subtitle: '&7Do użycia za: &e{seconds}s'
-  
+
   vanish:
     cooldown: 60
     duration: 4
@@ -181,12 +181,12 @@ rozdzka-iluzjonisty:
       activated: '&aZniknięcie &7zostało &aaktywowane&7!'
       cooldown-title: '&cUmiejętność w odnowieniu'
       cooldown-subtitle: '&7Do użycia za: &e{seconds}s'
-  
+
   blocked-regions:
     - spawn
     - endspawn
     - netherspawn
-  
+
   respects-protection: true
   notify-attacker: true
   protection-messages:
@@ -209,37 +209,37 @@ wedka-nielota:
   custom-model-data: 2
   gui-slot: 4
   enchants: []
-  
+
   curse-duration: 12
   cooldown: 30
   bugowanie-fall-speed: 2.0
   bugowanie-reset-duration: 4
-  
+
   blocked-regions:
     - spawn
     - endspawn
-  
+
   messages:
     caught-title: '&c&lZłapany!'
     caught-subtitle: '&7Złapany przez: &e{attacker}'
     catcher-title: '&a&lZłapałeś gracza!'
     catcher-subtitle: '&7Złapany gracz: &e{victim}'
-    
+
     released-title: '&c&lPuścił cię!'
     released-subtitle: '&cPuścił cię gracz!'
     releaser-title: '&c&lPuściłeś gracza!'
     releaser-subtitle: '&cPuściłeś gracza!'
-    
+
     freed-title: '&c&lUwolniony!'
     freed-subtitle: '&7Klątwa została zdjęta!'
-    
+
     cooldown-message: '&cNie możesz użyć wędki tak szybko!'
-    
+
   bossbar:
     title: '&cPosiadasz klątwę! Nie możesz latać przez &e{seconds}s'
     title-waiting: '&cPosiadasz klątwę! Nie możesz latać przez &e<1s'
     color: RED
-  
+
   respects-protection: true
   notify-attacker: true
   protection-messages:
@@ -262,20 +262,20 @@ sakiewka-dropu:
     - ' &8» &eKliknij PRAWYM, aby otworzyć sakiewkę!'
   custom-model-data: 1
   gui-slot: 5
-  
+
   blocked-regions:
     - spawn
     - endspawn
     - netherspawn
-  
+
   blocked-regions-no-payout:
     - spawn
     - endspawn
     - netherspawn
-  
+
   messages:
     combat-blocked: '&cNie możesz otworzyć sakiewki podczas walki!'
-  
+
   respects-protection: false
   notify-attacker: false
 
@@ -297,7 +297,7 @@ wzmocniana-elytra:
   gui-slot: 6
   enchants:
     unbreaking: 10
-  
+
   respects-protection: true
   notify-attacker: false
   protection-messages:
@@ -323,43 +323,35 @@ blok-widmo:
   gui-slot: 7
   enchants:
     unbreaking: 10
-  
-  # Promień działania (bloki)
+
   radius: 20
-  
-  # Czas trwania efektu (sekundy) - 2m40s = 160s
   effect-duration: 160
-  
-  # Ilość HP do zabrania z maksymalnego zdrowia (20 HP = 10 serduszek)
   health-reduction: 20
-  
-  # Minimalna ilość HP jaka może zostać (20 HP = 10 serduszek)
   minimum-health: 20
-  
-  # Cooldown (sekundy)
   cooldown: 180
-  
+
   blocked-regions:
     - spawn
     - endspawn
     - netherspawn
-  
+
   sounds:
     activate: BLOCK_BEACON_ACTIVATE
     deactivate: BLOCK_BEACON_DEACTIVATE
-  
+
   bossbar:
     title: '&cBlok widmo: &fPosiadasz obniżony limit serc przez {time_left}'
     color: PURPLE
-  
+
   messages:
     placed-subtitle: '&cPostawiono blok widmo!'
     affected-title: '&c&lBlok widmo'
     affected-subtitle: '&7coś się dzieje z twoim zdrowiem...'
     cooldown: '&cMusisz poczekać jeszcze {time_left} zanim będziesz mógł użyć tego przedmiotu ponownie!'
-  
+
   respects-protection: false
   notify-attacker: false
+
 # ==========================================
 #         SIEKIERA GRINCHA
 # ==========================================
@@ -379,29 +371,75 @@ siekiera-grincha:
   gui-slot: 8
   enchants:
     unbreaking: 10
-  
-  # Procent AKTUALNEGO zdrowia do zabrania
+
   damage-percent: 30
-  
-  # Cooldown (sekundy)
   cooldown: 60
-  
+
   blocked-regions:
     - spawn
     - endspawn
     - netherspawn
-  
+
   messages:
     attacker-subtitle: '&7Uderzyłeś &f{nick_victim} &7siekierą &agrincha&7!'
     victim-subtitle: '&7Zostałeś uderzony &asiekierą grincha&7!'
     cooldown-subtitle: '&2Siekierę Grincha &7możesz użyć dopiero za &a{seconds_left}&7!'
-  
-  # ✅ System ochrony - siekiera zadaje damage
+
   respects-protection: true
   notify-attacker: true
   protection-messages:
     title: '&c&lNie zadziałało!'
     subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+
+# ==========================================
+#         HYDRO TRÓJZĄB
+# ==========================================
+hydro-trojzab:
+  material: BOW
+  name: '&3&lHydro Trójząb'
+  lore:
+    - ''
+    - ' &8» &7Jest to przedmiot zdobyty podczas'
+    - ' &8» &fwydarzenia wakacyjnego 2025&7!'
+    - ''
+    - ' &8» &7Po rzuceniu trójzębem w miejsce'
+    - ' &8» &7uderzenia &buderza piorun&7, który'
+    - ' &8» &7zadaje obrażenia i odpycha'
+    - ' &8» &7pobliskich przeciwników!'
+    - ''
+    - ' &8» &7Klikając &fSHIFT &7możesz się'
+    - ' &8» &7wystrzelić w dowolnym miejscu!'
+  custom-model-data: 1
+  gui-slot: 9
+  enchants:
+    unbreaking: 10
+
+  shot:
+    cooldown: 60
+    damage: 10.0
+    radius: 4.0
+    knockback-horizontal: 1.2
+    knockback-upward: 0.35
+
+  launch:
+    cooldown: 15
+    power: 3.2
+
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+
+  messages:
+    shot-cooldown-subtitle: '&7Cios pirunem możesz użyć za: &b{seconds_left}s&7!'
+    launch-cooldown-subtitle: '&7Wystrzelenia możesz użyć za: &b{seconds_left}&7!'
+
+  respects-protection: true
+  notify-attacker: false
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+
 # ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
@@ -409,7 +447,7 @@ combat-integration:
   enabled: true
   block-sakiewka-in-combat: true
   hydroklatka-tag-players: true
-  
+
   actionbar:
     enabled: true
     resume-delay: 10
