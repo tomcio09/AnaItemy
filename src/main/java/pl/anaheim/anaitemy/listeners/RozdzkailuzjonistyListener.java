@@ -12,6 +12,7 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitRunnable;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.items.RozdzkailuzjonistyItem;
@@ -24,8 +25,6 @@ public class RozdzkailuzjonistyListener implements Listener {
     public RozdzkailuzjonistyListener(AnaItemy plugin) {
         this.plugin = plugin;
     }
-
-    // ==================== BLOKOWANIE UŻYWANIA MOTYKI ====================
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -61,7 +60,7 @@ public class RozdzkailuzjonistyListener implements Listener {
 
         RozdzkailuzjonistyManager manager = plugin.getRozdzkailuzjonistyManager();
 
-        // Sprawdź czy ta szczęka już zadała damage temu graczowi
+        // ✅ NOWA LOGIKA: Sprawdź czy ta szczęka już zabiła tego gracza
         if (manager.hasFangDamaged(fang, victim.getUniqueId())) {
             event.setCancelled(true);
             return;
@@ -75,12 +74,23 @@ public class RozdzkailuzjonistyListener implements Listener {
             return;
         }
 
-        // Ustaw custom damage
+        // ✅ ANULUJ domyślne damage
+        event.setCancelled(true);
+
+        // ✅ ZASTOSUJ CUSTOM DAMAGE BEZPOŚREDNIO (bez damage events)
         ItemsConfig config = plugin.getItemsConfig();
         double damage = config.getRozdzkailuzjonistyFangsDamage();
-        event.setDamage(damage);
 
-        // Oznacz gracza jako trafionego
+        // Odejmij HP bezpośrednio
+        double newHealth = victim.getHealth() - damage;
+        
+        if (newHealth <= 0) {
+            victim.setHealth(0); // Gracz umiera
+        } else {
+            victim.setHealth(newHealth);
+        }
+
+        // ✅ Oznacz że szczęka trafiła tego gracza
         manager.markFangDamaged(fang, victim.getUniqueId());
 
         // Usuń szczękę po trafieniu
