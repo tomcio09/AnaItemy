@@ -38,8 +38,8 @@ public class SakiewkaGUIListener implements Listener {
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onSakiewkaOpen(PlayerInteractEvent event) {
-        if (event.getAction() != Action.RIGHT_CLICK_AIR && 
-            event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if (event.getAction() != Action.RIGHT_CLICK_AIR &&
+                event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
 
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
@@ -53,12 +53,26 @@ public class SakiewkaGUIListener implements Listener {
             return;
         }
 
+        // ✅ Sprawdź czy gracz jest w walce
+        ItemsConfig config = plugin.getItemsConfig();
+        if (config.isBlockSakiewkaInCombat()) {
+            if (plugin.getCombatIntegrationManager().isInCombat(player)) {
+                String message = config.getSakiewkaCombatBlockedMessage();
+                player.sendMessage(LegacyComponentSerializer.legacyAmpersand()
+                        .deserialize(message));
+
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO,
+                        SoundCategory.PLAYERS, 1.0f, 1.0f);
+                return;
+            }
+        }
+
         // Wiadomość na chacie
         player.sendMessage(LegacyComponentSerializer.legacyAmpersand()
                 .deserialize("&aOtwieranie worka..."));
 
         // Dźwięk
-        player.playSound(player.getLocation(), Sound.BLOCK_SHULKER_BOX_OPEN, 
+        player.playSound(player.getLocation(), Sound.BLOCK_SHULKER_BOX_OPEN,
                 SoundCategory.PLAYERS, 1.0f, 1.0f);
 
         // Otwórz GUI
@@ -69,7 +83,6 @@ public class SakiewkaGUIListener implements Listener {
      * Otwiera GUI sakiewki.
      */
     private void openGUI(Player player, ItemStack sakiewka) {
-        // Zapisz którą sakiewkę otworzył (w razie update)
         openSakiewki.put(player.getUniqueId(), sakiewka);
 
         Component title = LegacyComponentSerializer.legacyAmpersand()
@@ -86,7 +99,6 @@ public class SakiewkaGUIListener implements Listener {
             }
         }
 
-        // ✅ Ostatni rząd (45-53) - kontrolki
         // Slot 49 - Barrier (zamknij)
         gui.setItem(49, createBarrier());
 
@@ -102,11 +114,11 @@ public class SakiewkaGUIListener implements Listener {
     private ItemStack createBarrier() {
         ItemStack barrier = new ItemStack(Material.BARRIER);
         ItemMeta meta = barrier.getItemMeta();
-        
+
         meta.displayName(LegacyComponentSerializer.legacyAmpersand()
                 .deserialize("&cZamknij")
                 .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-        
+
         barrier.setItemMeta(meta);
         return barrier;
     }
@@ -117,7 +129,7 @@ public class SakiewkaGUIListener implements Listener {
     private ItemStack createPayoutButton() {
         ItemStack button = new ItemStack(Material.LIME_DYE);
         ItemMeta meta = button.getItemMeta();
-        
+
         meta.displayName(LegacyComponentSerializer.legacyAmpersand()
                 .deserialize("&aWypłać wszystko")
                 .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
@@ -130,7 +142,7 @@ public class SakiewkaGUIListener implements Listener {
                 .deserialize(" &8» &7przedmioty z sakiewki")
                 .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
         meta.lore(lore);
-        
+
         button.setItemMeta(meta);
         return button;
     }
@@ -147,28 +159,28 @@ public class SakiewkaGUIListener implements Listener {
 
         if (!plainTitle.equals("Sakiewka dropu")) return;
 
-        event.setCancelled(true); // Zablokuj wszystkie akcje domyślne
+        event.setCancelled(true);
 
         int slot = event.getRawSlot();
         ItemStack clicked = event.getCurrentItem();
 
         if (clicked == null || clicked.getType().isAir()) return;
 
-        // ✅ Slot 49 - Zamknij
+        // Slot 49 - Zamknij
         if (slot == 49 && clicked.getType() == Material.BARRIER) {
             player.closeInventory();
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK,
                     SoundCategory.PLAYERS, 1.0f, 1.0f);
             return;
         }
 
-        // ✅ Slot 50 - Wypłać wszystko
+        // Slot 50 - Wypłać wszystko
         if (slot == 50 && clicked.getType() == Material.LIME_DYE) {
             handlePayoutAll(player);
             return;
         }
 
-        // ✅ Sloty 0-44 - Wypłacanie pojedynczego itemu
+        // Sloty 0-44 - Wypłacanie pojedynczego itemu
         if (slot >= 0 && slot < 45) {
             handlePayoutSingle(player, slot, clicked);
         }
@@ -178,20 +190,19 @@ public class SakiewkaGUIListener implements Listener {
      * Wypłaca pojedynczy item z sakiewki.
      */
     private void handlePayoutSingle(Player player, int slot, ItemStack item) {
-        // Sprawdź czy gracz ma miejsce w eq
         if (player.getInventory().firstEmpty() == -1) {
             player.closeInventory();
             player.sendMessage(LegacyComponentSerializer.legacyAmpersand()
                     .deserialize("&cNie posiadasz miejsca w ekwipunku"));
-            
+
             player.showTitle(Title.title(
                     Component.empty(),
                     LegacyComponentSerializer.legacyAmpersand()
                             .deserialize("&cBrak miejsca w ekwipunku!"),
                     Title.Times.times(Duration.ofMillis(250), Duration.ofMillis(2000), Duration.ofMillis(250))
             ));
-            
-            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 
+
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO,
                     SoundCategory.PLAYERS, 1.0f, 1.0f);
             return;
         }
@@ -199,18 +210,14 @@ public class SakiewkaGUIListener implements Listener {
         ItemStack sakiewka = openSakiewki.get(player.getUniqueId());
         if (sakiewka == null) return;
 
-        // Usuń item z sakiewki
         ItemStack removed = SakiewkaData.removeItem(sakiewka, slot);
         if (removed == null) return;
 
-        // Dodaj do eq gracza
         player.getInventory().addItem(removed);
-        
-        // Dźwięk
-        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 
+
+        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP,
                 SoundCategory.PLAYERS, 1.0f, 1.0f);
 
-        // Odśwież GUI (usuń item ze slotu)
         player.getOpenInventory().getTopInventory().setItem(slot, null);
     }
 
@@ -221,7 +228,7 @@ public class SakiewkaGUIListener implements Listener {
         ItemStack sakiewka = openSakiewki.get(player.getUniqueId());
         if (sakiewka == null) return;
 
-        // ✅ Sprawdź zablokowane regiony (nie można wypłacać wszystkiego na spawnie)
+        // ✅ Sprawdź zablokowane regiony
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getSakiewkaBlockedRegionsNoPayout();
         if (plugin.getWorldGuardManager().isInBlockedRegion(player.getLocation(), blockedRegions)) {
@@ -230,16 +237,13 @@ public class SakiewkaGUIListener implements Listener {
             return;
         }
 
-        // Pobierz wszystkie itemy
         List<ItemStack> items = SakiewkaData.removeAllItems(sakiewka);
-        
-        // Zamknij GUI
+
         player.closeInventory();
 
-        // Wiadomości
         player.sendMessage(LegacyComponentSerializer.legacyAmpersand()
                 .deserialize("&aWypłacanie przedmiotów..."));
-        
+
         player.showTitle(Title.title(
                 Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand()
@@ -247,19 +251,15 @@ public class SakiewkaGUIListener implements Listener {
                 Title.Times.times(Duration.ofMillis(250), Duration.ofMillis(2000), Duration.ofMillis(250))
         ));
 
-        // Dźwięk
-        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 
+        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP,
                 SoundCategory.PLAYERS, 1.0f, 1.5f);
 
-        // Wypłać pod nogi (do eq lub na ziemię)
         Location dropLocation = player.getLocation();
-        for (ItemStack item : items) {
-            if (item == null || item.getType().isAir()) continue;
-            
-            // Spróbuj dodać do eq
-            HashMap<Integer, ItemStack> overflow = player.getInventory().addItem(item);
-            
-            // Jeśli się nie zmieściło - wyrzuć pod nogi
+        for (ItemStack dropItem : items) {
+            if (dropItem == null || dropItem.getType().isAir()) continue;
+
+            HashMap<Integer, ItemStack> overflow = player.getInventory().addItem(dropItem);
+
             if (!overflow.isEmpty()) {
                 for (ItemStack leftover : overflow.values()) {
                     player.getWorld().dropItemNaturally(dropLocation, leftover);
