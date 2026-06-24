@@ -12,7 +12,6 @@ import pl.anaheim.anaitemy.managers.CombatIntegrationManager;
 
 /**
  * ✅ Listener który co sekundę sprawdza czy gracz jest w walce.
- * Jeśli tak - oznacza combat jako aktywny w ActionBarManager.
  */
 public class CombatActionBarListener implements Listener {
 
@@ -24,7 +23,7 @@ public class CombatActionBarListener implements Listener {
     }
 
     /**
-     * ✅ Co sekundę sprawdzaj combat status każdego gracza.
+     * ✅ Co 1 sekundę sprawdzaj combat status każdego gracza (nie co 0.5s - mniej obciążenia).
      */
     private void startCombatCheckTask() {
         new BukkitRunnable() {
@@ -42,7 +41,7 @@ public class CombatActionBarListener implements Listener {
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 10L); // Co 10 ticków (0.5s)
+        }.runTaskTimer(plugin, 0L, 20L); // ✅ ZMIENIONO: Co 20 ticków (1s) zamiast 10
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
