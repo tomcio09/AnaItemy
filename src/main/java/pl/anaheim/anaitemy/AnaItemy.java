@@ -18,6 +18,9 @@ public class AnaItemy extends JavaPlugin {
     private ItemsConfig itemsConfig;
     private WorldGuardManager worldGuardManager;
 
+    // ✅ Przechowuj referencję do TotemListener
+    private TotemListener totemListener;
+
     @Override
     public void onEnable() {
         instance = this;
@@ -42,8 +45,11 @@ public class AnaItemy extends JavaPlugin {
         getCommand("itemyeventowe").setExecutor(cmd);
         getCommand("itemyeventowe").setTabCompleter(cmd);
 
+        // ✅ Utwórz TotemListener i zapisz referencję
+        totemListener = new TotemListener(this);
+
         // Listenery
-        getServer().getPluginManager().registerEvents(new TotemListener(this), this);
+        getServer().getPluginManager().registerEvents(totemListener, this);
         getServer().getPluginManager().registerEvents(new ExcaliburListener(this), this);
         getServer().getPluginManager().registerEvents(new GUIListener(this), this);
         getServer().getPluginManager().registerEvents(new HydroKlatkaListener(this), this);
@@ -55,7 +61,7 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SakiewkaListener(this), this);
         getServer().getPluginManager().registerEvents(new SakiewkaGUIListener(this), this);
         getServer().getPluginManager().registerEvents(new SakiewkaPortalListener(this), this);
-        getServer().getPluginManager().registerEvents(new SakiewkaUUIDListener(this), this); // ✅ NOWY
+        getServer().getPluginManager().registerEvents(new SakiewkaUUIDListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
@@ -80,4 +86,7 @@ public class AnaItemy extends JavaPlugin {
     public WedkaNielotaManager getWedkaNielotaManager() { return wedkaNielotaManager; }
     public ItemsConfig getItemsConfig() { return itemsConfig; }
     public WorldGuardManager getWorldGuardManager() { return worldGuardManager; }
+
+    // ✅ Getter dla TotemListener
+    public TotemListener getTotemListener() { return totemListener; }
 }
