@@ -16,6 +16,7 @@ public class AnaItemy extends JavaPlugin {
     private BlokWidmoManager blokWidmoManager;
     private SiekieraGrinchaManager siekieraGrinchaManager;
     private HydroTrojzabManager hydroTrojzabManager;
+    private CudownaLatarniaManager cudownaLatarniaManager;
     private ItemsConfig itemsConfig;
     private WorldGuardManager worldGuardManager;
     private CombatIntegrationManager combatIntegrationManager;
@@ -27,11 +28,9 @@ public class AnaItemy extends JavaPlugin {
     public void onEnable() {
         instance = this;
 
-        // Konfiguracje
         saveDefaultConfig();
         itemsConfig = new ItemsConfig(this);
 
-        // Inicjalizacja managerów
         worldGuardManager = new WorldGuardManager(this);
         combatIntegrationManager = new CombatIntegrationManager(this);
         actionBarManager = new ActionBarManager(this);
@@ -43,20 +42,18 @@ public class AnaItemy extends JavaPlugin {
         blokWidmoManager = new BlokWidmoManager(this);
         siekieraGrinchaManager = new SiekieraGrinchaManager(this);
         hydroTrojzabManager = new HydroTrojzabManager(this);
+        cudownaLatarniaManager = new CudownaLatarniaManager(this);
 
-        // Informacja o Citizens
         if (!getServer().getPluginManager().isPluginEnabled("Citizens")) {
             getLogger().warning("Citizens nie znaleziono - Różdżka Iluzjonisty działa bez NPC!");
         }
 
-        // Komendy
         ItemyEventoweCommand cmd = new ItemyEventoweCommand(this);
         getCommand("itemyeventowe").setExecutor(cmd);
         getCommand("itemyeventowe").setTabCompleter(cmd);
 
         totemListener = new TotemListener(this);
 
-        // Listenery
         getServer().getPluginManager().registerEvents(totemListener, this);
         getServer().getPluginManager().registerEvents(new ExcaliburListener(this), this);
         getServer().getPluginManager().registerEvents(new GUIListener(this), this);
@@ -75,6 +72,7 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new BlokWidmoListener(this), this);
         getServer().getPluginManager().registerEvents(new SiekieraGrinchaListener(this), this);
         getServer().getPluginManager().registerEvents(new HydroTrojzabListener(this), this);
+        getServer().getPluginManager().registerEvents(new CudownaLatarniaListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
@@ -88,6 +86,7 @@ public class AnaItemy extends JavaPlugin {
         if (blokWidmoManager != null) blokWidmoManager.cleanup();
         if (siekieraGrinchaManager != null) siekieraGrinchaManager.cleanup();
         if (hydroTrojzabManager != null) hydroTrojzabManager.cleanup();
+        if (cudownaLatarniaManager != null) cudownaLatarniaManager.cleanup();
         if (actionBarManager != null) actionBarManager.cleanup();
         if (itemProtectionManager != null) itemProtectionManager.cleanup();
         getLogger().info("AnaItemy zostal wylaczony!");
@@ -101,6 +100,7 @@ public class AnaItemy extends JavaPlugin {
     public BlokWidmoManager getBlokWidmoManager() { return blokWidmoManager; }
     public SiekieraGrinchaManager getSiekieraGrinchaManager() { return siekieraGrinchaManager; }
     public HydroTrojzabManager getHydroTrojzabManager() { return hydroTrojzabManager; }
+    public CudownaLatarniaManager getCudownaLatarniaManager() { return cudownaLatarniaManager; }
     public ItemsConfig getItemsConfig() { return itemsConfig; }
     public WorldGuardManager getWorldGuardManager() { return worldGuardManager; }
     public TotemListener getTotemListener() { return totemListener; }
