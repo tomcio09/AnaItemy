@@ -13,22 +13,22 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * ✅ Centralny manager action barów.
- * 
- * Gdy combat action bar jest aktywny, nasze action bary są całkowicie wstrzymane.
+ * Combat plugin ma najwyższy priorytet - nasze bary są całkowicie wstrzymane podczas walki.
  */
 public class ActionBarManager {
 
     private final AnaItemy plugin;
 
-    // Gracze którzy aktualnie są w walce (ich action bar z combat pluginu ma priorytet)
-    private final Map<UUID, Long> combatActionBarActive = new ConcurrentHashMap<>();
+    // Gracze w walce (timestamp ostatniego wykrycia combatu)
+    private final Map<UUID, Long> combatActiveUntil = new ConcurrentHashMap<>();
+
+    // Gracze u których już wyczyściliśmy nasz action bar (żeby nie spamować empty)
+    private final Set<UUID> combatSuppressed = ConcurrentHashMap.newKeySet();
 
     // Nasze aktywne action bary (gracz -> źródło -> tekst)
     private final Map<UUID, Map<String, String>> pendingActionBars = new ConcurrentHashMap<>();
 
-    // Czas opóźnienia po walce (w ms)
     private long resumeDelayMs;
-
     private BukkitTask tickTask;
 
     public ActionBarManager(AnaItemy plugin) {
@@ -37,9 +37,6 @@ public class ActionBarManager {
         startTickTask();
     }
 
-    /**
-     * ✅ Task który co 1 sekundę aktualizuje action bary (nie co 0.5s - mniej migania).
-     */
     private void startTickTask() {
         tickTask = new BukkitRunnable() {
             @Override
@@ -47,23 +44,30 @@ public class ActionBarManager {
                 long now = System.currentTimeMillis();
 
                 // Cleanup wygasłych combat tagów
-                combatActionBarActive.entrySet().removeIf(entry ->
-                        now - entry.getValue() > resumeDelayMs);
+                combatActiveUntil.entrySet().removeIf(entry -> now >= entry.getValue());
 
-                // Wyświetl nasze action bary dla graczy nie w walce
                 for (Map.Entry<UUID, Map<String, String>> entry : pendingActionBars.entrySet()) {
                     UUID playerId = entry.getKey();
-
-                    // Jeśli gracz jest w walce - NIE WYSYŁAJ (całkowicie wstrzymane)
-                    if (isCombatActive(playerId)) {
-                        continue;
-                    }
-
                     Player player = Bukkit.getPlayer(playerId);
                     if (player == null || !player.isOnline()) {
                         pendingActionBars.remove(playerId);
+                        combatSuppressed.remove(playerId);
                         continue;
                     }
+
+                    boolean inCombat = isCombatActive(playerId);
+
+                    if (inCombat) {
+                        // ✅ Combat aktywny - wyczyść nasz bar RAZ i wstrzymaj wysyłanie
+                        if (!combatSuppressed.contains(playerId)) {
+                            player.sendActionBar(Component.empty());
+                            combatSuppressed.add(playerId);
+                        }
+                        continue; // Nie wysyłaj naszych barów
+                    }
+
+                    // ✅ Combat nieaktywny - przywróć nasze bary
+                    combatSuppressed.remove(playerId);
 
                     Map<String, String> bars = entry.getValue();
                     if (!bars.isEmpty()) {
@@ -73,23 +77,19 @@ public class ActionBarManager {
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 20L); // ✅ ZMIENIONO: Co 20 ticków (1 sekunda) zamiast 10
+        }.runTaskTimer(plugin, 0L, 10L); // Co 0.5s
     }
 
     /**
-     * ✅ Oznacz że combat plugin wysłał action bar do gracza.
+     * ✅ Oznacz że combat jest aktywny dla gracza.
      */
     public void markCombatActive(Player player) {
-        combatActionBarActive.put(player.getUniqueId(), System.currentTimeMillis());
+        combatActiveUntil.put(player.getUniqueId(), System.currentTimeMillis() + resumeDelayMs);
     }
 
-    /**
-     * Sprawdza czy combat action bar jest aktywny.
-     */
     public boolean isCombatActive(UUID playerId) {
-        Long lastCombat = combatActionBarActive.get(playerId);
-        if (lastCombat == null) return false;
-        return System.currentTimeMillis() - lastCombat <= resumeDelayMs;
+        Long until = combatActiveUntil.get(playerId);
+        return until != null && System.currentTimeMillis() < until;
     }
 
     public boolean isCombatActive(Player player) {
@@ -97,7 +97,7 @@ public class ActionBarManager {
     }
 
     /**
-     * ✅ Rejestruje nasz action bar do wyświetlenia.
+     * ✅ Rejestruje nasz action bar.
      */
     public void setActionBar(Player player, String source, String message) {
         pendingActionBars.computeIfAbsent(player.getUniqueId(), k -> new LinkedHashMap<>())
@@ -113,7 +113,6 @@ public class ActionBarManager {
             bars.remove(source);
             if (bars.isEmpty()) {
                 pendingActionBars.remove(player.getUniqueId());
-                // ✅ TYLKO jeśli nie ma combat bara - wyczyść
                 if (!isCombatActive(player)) {
                     player.sendActionBar(Component.empty());
                 }
@@ -121,14 +120,10 @@ public class ActionBarManager {
         }
     }
 
-    public boolean hasActionBar(Player player, String source) {
-        Map<String, String> bars = pendingActionBars.get(player.getUniqueId());
-        return bars != null && bars.containsKey(source);
-    }
-
     public void clearAll(Player player) {
         pendingActionBars.remove(player.getUniqueId());
-        combatActionBarActive.remove(player.getUniqueId());
+        combatActiveUntil.remove(player.getUniqueId());
+        combatSuppressed.remove(player.getUniqueId());
         player.sendActionBar(Component.empty());
     }
 
@@ -137,10 +132,9 @@ public class ActionBarManager {
     }
 
     public void cleanup() {
-        if (tickTask != null) {
-            tickTask.cancel();
-        }
+        if (tickTask != null) tickTask.cancel();
         pendingActionBars.clear();
-        combatActionBarActive.clear();
+        combatActiveUntil.clear();
+        combatSuppressed.clear();
     }
 }
