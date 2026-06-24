@@ -30,7 +30,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
     private final AnaItemy plugin;
 
     private static final List<String> ITEM_IDS = Arrays.asList(
-            "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka", "elytra", "blokwidmo"
+            "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka", "elytra", "blokwidmo", "siekiera"
     );
 
     public ItemyEventoweCommand(AnaItemy plugin) {
@@ -193,6 +193,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "wedka" -> WedkaNielotaItem.create();
             case "elytra" -> WzmocnianaElytra.create();
             case "blokwidmo" -> BlokWidmoItem.create();
+            case "siekiera" -> SiekieraGrinchaItem.create();
             default -> null;
         };
     }
@@ -207,6 +208,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "elytra" -> "&5Wzmocniana Elytra";
             case "sakiewka" -> "&aSakiewka Dropu";
             case "blokwidmo" -> "&cBlok Widmo";
+            case "siekiera" -> "&2Siekiera Grincha";
             default -> id;
         };
     }
@@ -269,6 +271,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         RozdzkailuzjonistyManager rozdzkaManager = plugin.getRozdzkailuzjonistyManager();
         WedkaNielotaManager wedkaManager = plugin.getWedkaNielotaManager();
         BlokWidmoManager blokWidmoManager = plugin.getBlokWidmoManager();
+        SiekieraGrinchaManager siekieraManager = plugin.getSiekieraGrinchaManager();
 
         hydroManager.resetCooldown(target);
         target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
@@ -278,14 +281,16 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         rozdzkaManager.resetVanishCooldown(target);
 
         wedkaManager.resetCooldown(target);
-
+        siekieraManager.resetCooldown(target);
         blokWidmoManager.resetCooldown(target);
 
         sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
         target.sendMessage(color("&aTwoje cooldowny zostały zresetowane przez &f" + sender.getName() + "&a!"));
+        
 
         plugin.getLogger().info("[AnaItemy] " + sender.getName() +
                 " zresetowal cooldowny gracza " + target.getName());
+        
     }
 
     // ==================== KLATWA ====================
