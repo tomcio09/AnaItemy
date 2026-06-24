@@ -61,6 +61,7 @@ excalibur:
     not-holding: '&cMusisz trzymać Excalibur w ręku!'
     invalid-number: '&cPodaj poprawną liczbę!'
     negative-number: '&cLiczba zabójstw nie może być ujemna!'
+    too-fast: '&cZabójstwo nie zostało naliczone, ponieważ już zabiłeś tego gracza!'
   # Zablokowane regiony WorldGuard (kille nie liczą się w tych regionach)
   blocked-regions: []
 
