@@ -26,6 +26,9 @@ public class TotemListener implements Listener {
     private final AnaItemy plugin;
     private final Set<UUID> usedTotem = new HashSet<>();
 
+    // ✅ Publiczny set - SakiewkaListener sprawdza czy gracz użył totemu
+    private final Set<UUID> totemProtectedPlayers = new HashSet<>();
+
     public TotemListener(AnaItemy plugin) {
         this.plugin = plugin;
     }
@@ -45,27 +48,22 @@ public class TotemListener implements Listener {
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getTotemBlockedRegions();
 
-        // ✅ Sprawdź czy gracz jest w zablokowanym regionie
         boolean inBlockedRegion = plugin.getWorldGuardManager().isInBlockedRegion(
-                player.getLocation(), 
+                player.getLocation(),
                 blockedRegions
         );
 
         if (inBlockedRegion) {
-            /**
-             * ✅ TOTEM W ZABLOKOWANYM REGIONIE:
-             * - Totem NIE zostaje zużyty (gracz zostaje z nim w ręku)
-             * - Gracz się odradza normalnie (keep inventory + exp)
-             * - Totem można używać wielokrotnie w zablokowanym regionie
-             */
-            // NIE usuwamy totemu z inventory
             usedTotem.add(player.getUniqueId());
+            // ✅ Oznacz gracza jako chronionego totemem
+            totemProtectedPlayers.add(player.getUniqueId());
             return;
         }
 
-        // ✅ TOTEM POZA ZABLOKOWANYM REGIONEM - jednorazowe użycie
         player.getInventory().setItem(event.getHand(), null);
         usedTotem.add(player.getUniqueId());
+        // ✅ Oznacz gracza jako chronionego totemem
+        totemProtectedPlayers.add(player.getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -97,8 +95,25 @@ public class TotemListener implements Listener {
 
                 double maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
                 player.setHealth(maxHealth);
+
+                // ✅ Usuń ochronę po odrodzeniu
+                totemProtectedPlayers.remove(player.getUniqueId());
             });
         });
+    }
+
+    /**
+     * ✅ Sprawdza czy gracz jest chroniony przez totem (używane przez SakiewkaListener).
+     */
+    public boolean isTotemProtected(UUID playerUUID) {
+        return totemProtectedPlayers.contains(playerUUID);
+    }
+
+    /**
+     * ✅ Ręczne usunięcie ochrony (na wszelki wypadek).
+     */
+    public void removeProtection(UUID playerUUID) {
+        totemProtectedPlayers.remove(playerUUID);
     }
 
     private Component color(String text) {
