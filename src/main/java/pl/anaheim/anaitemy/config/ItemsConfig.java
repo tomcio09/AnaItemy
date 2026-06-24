@@ -649,4 +649,48 @@ public class ItemsConfig {
         return config.getString("blok-widmo.messages.cooldown",
                 "&cMusisz poczekać jeszcze {time_left} zanim będziesz mógł użyć tego przedmiotu ponownie!");
     }
+        // ==================== SIEKIERA GRINCHA ====================
+
+    public String getSiekieraGrinchaName() {
+        return config.getString("siekiera-grincha.name", "&2&lSiekiera Grincha");
+    }
+
+    public List<String> getSiekieraGrinchaLore() {
+        return config.getStringList("siekiera-grincha.lore");
+    }
+
+    public int getSiekieraGrinchaCustomModelData() {
+        return config.getInt("siekiera-grincha.custom-model-data", 1);
+    }
+
+    public int getSiekieraGrinchaGuiSlot() {
+        return config.getInt("siekiera-grincha.gui-slot", 8);
+    }
+
+    public double getSiekieraGrinchaDamagePercent() {
+        return config.getDouble("siekiera-grincha.damage-percent", 30.0);
+    }
+
+    public long getSiekieraGrinchaCooldown() {
+        return config.getLong("siekiera-grincha.cooldown", 60);
+    }
+
+    public List<String> getSiekieraGrinchaBlockedRegions() {
+        return config.getStringList("siekiera-grincha.blocked-regions");
+    }
+
+    public String getSiekieraGrinchaAttackerSubtitle() {
+        return config.getString("siekiera-grincha.messages.attacker-subtitle",
+                "&7Uderzyłeś &f{nick_victim} &7siekierą &agrincha&7!");
+    }
+
+    public String getSiekieraGrinchaVictimSubtitle() {
+        return config.getString("siekiera-grincha.messages.victim-subtitle",
+                "&7Zostałeś uderzony &asiekierą grincha&7!");
+    }
+
+    public String getSiekieraGrinchaCooldownSubtitle() {
+        return config.getString("siekiera-grincha.messages.cooldown-subtitle",
+                "&2Siekierę Grincha &7możesz użyć dopiero za &a{seconds_left}&7!");
+    }
 }
