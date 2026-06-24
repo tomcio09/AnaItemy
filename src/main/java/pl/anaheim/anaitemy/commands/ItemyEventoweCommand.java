@@ -18,7 +18,6 @@ import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
 import pl.anaheim.anaitemy.managers.WedkaNielotaManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import pl.anaheim.anaitemy.items.SakiewkaDropu;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,7 +29,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
     private final AnaItemy plugin;
 
     private static final List<String> ITEM_IDS = Arrays.asList(
-            "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka"
+            "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka", "elytra"
     );
 
     public ItemyEventoweCommand(AnaItemy plugin) {
@@ -90,7 +89,6 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
         // /itemyeventowe klatwa naloz <nick>
         // /itemyeventowe klatwa zdejmij <nick>
-        // /itemyeventowe klatwa uderzenie <nick>
         if (args.length == 3 && args[0].equalsIgnoreCase("klatwa")) {
             handleKlatwaCommand(sender, args[1], args[2]);
             return true;
@@ -130,22 +128,21 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        // ✅ SPRAWDŹ CZY TO SAKIEWKA - jeśli tak, generuj każdą osobno
+        // ✅ SPRAWDZENIE CZY TO SAKIEWKA - jeśli tak, generuj każdą osobno
         if (itemId.equalsIgnoreCase("sakiewka")) {
             int freeSlots = countFreeSlots(target);
-            
+
             if (freeSlots < amount) {
                 sender.sendMessage(color("&cGracz &4" + target.getName() + " &cma pełny ekwipunek!"));
                 sender.sendMessage(color("&7Potrzebne: &f" + amount + " &7slotów, dostępne: &f" + freeSlots));
                 return;
             }
-            
-            // Generuj każdą sakiewkę osobno (unikalne UUID)
+
             for (int i = 0; i < amount; i++) {
                 ItemStack newSakiewka = SakiewkaDropu.create();
                 target.getInventory().addItem(newSakiewka);
             }
-        
+
             sender.sendMessage(color("&aDano &f" + amount + "x &7["
                     + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
             target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7["
@@ -153,30 +150,30 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-    // Dla innych itemów - normalna logika
-    ItemStack item = createItemById(itemId.toLowerCase());
-    if (item == null) {
-        sender.sendMessage(color("&cNieznany item: &f" + itemId));
-        sender.sendMessage(color("&7Dostępne: &f" + String.join(", ", ITEM_IDS)));
-        return;
+        // Dla innych itemów - normalna logika
+        ItemStack item = createItemById(itemId.toLowerCase());
+        if (item == null) {
+            sender.sendMessage(color("&cNieznany item: &f" + itemId));
+            sender.sendMessage(color("&7Dostępne: &f" + String.join(", ", ITEM_IDS)));
+            return;
+        }
+
+        int freeSlots = countFreeSlots(target);
+        int neededSlots = (int) Math.ceil((double) amount / item.getMaxStackSize());
+
+        if (freeSlots < neededSlots) {
+            sender.sendMessage(color("&cGracz &4" + target.getName() + " &cma pełny ekwipunek!"));
+            return;
+        }
+
+        item.setAmount(amount);
+        target.getInventory().addItem(item);
+
+        sender.sendMessage(color("&aDano &f" + amount + "x &7["
+                + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
+        target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7["
+                + getItemDisplayName(itemId) + "&7]&a!"));
     }
-
-    int freeSlots = countFreeSlots(target);
-    int neededSlots = (int) Math.ceil((double) amount / item.getMaxStackSize());
-
-    if (freeSlots < neededSlots) {
-        sender.sendMessage(color("&cGracz &4" + target.getName() + " &cma pełny ekwipunek!"));
-        return;
-    }
-
-    item.setAmount(amount);
-    target.getInventory().addItem(item);
-
-    sender.sendMessage(color("&aDano &f" + amount + "x &7["
-            + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
-    target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7["
-            + getItemDisplayName(itemId) + "&7]&a!"));
-}
 
     private ItemStack createItemById(String id) {
         int maxKills = plugin.getItemsConfig().getExcaliburMaxKills();
@@ -186,7 +183,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "hydroklatka" -> HydroKlatka.create();
             case "rozdzka" -> RozdzkailuzjonistyItem.create();
             case "wedka" -> WedkaNielotaItem.create();
-            case "sakiewka" -> SakiewkaDropu.create();
+            case "elytra" -> WzmocnianaElytra.create();
             default -> null;
         };
     }
@@ -198,7 +195,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "hydroklatka" -> "&3Wyrzutnia Hydro Klatki";
             case "rozdzka" -> "&5Różdżka Iluzjonisty";
             case "wedka" -> "&5Wędka Nielota";
-            case "sakiewka" -> "&aSakiewka Dropu";
+            case "elytra" -> "&5Wzmocniana Elytra";
             default -> id;
         };
     }
@@ -310,20 +307,8 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
                         " zdjalj klatwe z gracza " + target.getName());
             }
 
-            case "uderzenie" -> {
-                // ✅ Symuluje uderzenie mieczem (resetuje bugowanie) - do testów
-                if (!wedkaManager.hasCurse(target)) {
-                    sender.sendMessage(color("&cGracz &f" + target.getName() + " &cnie ma klątwy!"));
-                    return;
-                }
-                wedkaManager.resetBugowanie(target);
-                sender.sendMessage(color("&aSymulowano uderzenie mieczem na graczu &f"
-                        + target.getName() + "&a!"));
-                target.sendMessage(color("&c[TEST] Uderzenie mieczem - bugowanie zresetowane!"));
-            }
-
             default -> sender.sendMessage(color(
-                    "&cUżycie: &f/itemyeventowe klatwa <naloz|zdejmij|uderzenie> <nick>"));
+                    "&cUżycie: &f/itemyeventowe klatwa <naloz|zdejmij> <nick>"));
         }
     }
 
@@ -340,7 +325,6 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(color("&7/itemyeventowe cooldown reset <nick> &8- &fresetuje cooldowny"));
         sender.sendMessage(color("&7/itemyeventowe klatwa naloz <nick> &8- &fnakłada klątwę"));
         sender.sendMessage(color("&7/itemyeventowe klatwa zdejmij <nick> &8- &fzdejmuje klątwę"));
-        sender.sendMessage(color("&7/itemyeventowe klatwa uderzenie <nick> &8- &fsymuluje uderzenie"));
         sender.sendMessage(color("&7Dostępne ID itemów: &f" + String.join(", ", ITEM_IDS)));
         sender.sendMessage(color("&8&m                                    "));
     }
@@ -364,7 +348,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
                 case "give" -> completions.addAll(ITEM_IDS);
                 case "cooldown" -> completions.add("reset");
                 case "klatwa" -> completions.addAll(
-                        Arrays.asList("naloz", "zdejmij", "uderzenie")
+                        Arrays.asList("naloz", "zdejmij")
                 );
             }
         } else if (args.length == 3) {
