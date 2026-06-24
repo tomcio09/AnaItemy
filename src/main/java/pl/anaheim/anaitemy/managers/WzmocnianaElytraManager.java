@@ -230,6 +230,12 @@ public class WzmocnianaElytraManager {
             if (nearPlayer == null || !nearPlayer.isOnline()) continue;
             if (nearPlayer.equals(player)) continue;
 
+            // ✅ SPRAWDŹ OCHRONĘ PRZED ELYTRĄ
+            if (plugin.getItemProtectionManager().isProtected(nearPlayer, "wzmocniana-elytra")) {
+                // Nie pokazujemy wiadomości atakującemu (notify-attacker: false)
+                continue;
+            }
+
             double newHealth = nearPlayer.getHealth() - DAMAGE;
 
             if (newHealth <= 0) {
@@ -237,6 +243,9 @@ public class WzmocnianaElytraManager {
             } else {
                 nearPlayer.setHealth(newHealth);
             }
+
+            // ✅ NAŁÓŻ OCHRONĘ PO ZADANIU DAMAGE
+            plugin.getItemProtectionManager().applyProtection(nearPlayer, "wzmocniana-elytra");
         }
 
         // ✅ 7. RESETUJ CHARGE
