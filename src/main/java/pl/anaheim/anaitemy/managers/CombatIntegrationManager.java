@@ -9,7 +9,6 @@ import java.util.UUID;
 /**
  * ✅ Manager integracji z pluginem walki (Antylogout).
  * Używa REFLEKSJI - nie wymaga JARa w compile time.
- * Jeśli Antylogout nie jest na serwerze - wszystkie metody zwracają false/null.
  */
 public class CombatIntegrationManager {
 
@@ -23,6 +22,7 @@ public class CombatIntegrationManager {
     private Method getKillerOfMethod;
     private Method isPlayerTaggedMethod;
     private Method isRestartingMethod;
+    private Method tagPlayerMethod; // ✅ NOWA METODA
 
     public CombatIntegrationManager(AnaItemy plugin) {
         this.plugin = plugin;
@@ -58,17 +58,27 @@ public class CombatIntegrationManager {
             isPlayerTaggedMethod = apiClass.getMethod("isPlayerTagged", Player.class);
             isRestartingMethod = apiClass.getMethod("isRestarting");
 
+            // ✅ Nowa metoda do tagowania graczy
+            try {
+                tagPlayerMethod = apiClass.getMethod("tagPlayer", Player.class, Player.class);
+                plugin.getLogger().info("[CombatIntegration] Metoda tagPlayer() znaleziona!");
+            } catch (NoSuchMethodException e) {
+                plugin.getLogger().warning("[CombatIntegration] Metoda tagPlayer(Player, Player) nie znaleziona - tagowanie w Hydroklatce wylaczone!");
+                tagPlayerMethod = null;
+            }
+
             plugin.getLogger().info("[CombatIntegration] Refleksja zainicjalizowana pomyslnie!");
             return true;
 
         } catch (ClassNotFoundException e) {
-            plugin.getLogger().warning("[CombatIntegration] Klasa AntylogoutAPI nie znaleziona: " + e.getMessage());
+            plugin.getLogger().warning("[CombatIntegration] Klasa AntylogoutAPI nie znaleziona!");
             return false;
         } catch (NoSuchMethodException e) {
             plugin.getLogger().warning("[CombatIntegration] Metoda API nie znaleziona: " + e.getMessage());
             return false;
         } catch (Exception e) {
             plugin.getLogger().warning("[CombatIntegration] Blad inicjalizacji refleksji: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }
@@ -77,13 +87,21 @@ public class CombatIntegrationManager {
      * Sprawdza czy gracz jest aktualnie w walce.
      */
     public boolean isInCombat(Player player) {
-        if (!antylogoutEnabled) return false;
+        if (!antylogoutEnabled || player == null) return false;
 
         try {
             Object result = isPlayerTaggedMethod.invoke(null, player);
-            return result instanceof Boolean && (Boolean) result;
+            boolean inCombat = result instanceof Boolean && (Boolean) result;
+
+            // ✅ DEBUG LOG
+            if (inCombat) {
+                plugin.getLogger().info("[CombatIntegration] Gracz " + player.getName() + " jest w walce!");
+            }
+
+            return inCombat;
         } catch (Exception e) {
-            plugin.getLogger().warning("[CombatIntegration] Blad sprawdzania combat: " + e.getMessage());
+            plugin.getLogger().warning("[CombatIntegration] Blad sprawdzania combat dla " + player.getName() + ": " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }
@@ -147,7 +165,38 @@ public class CombatIntegrationManager {
         }
     }
 
+    /**
+     * ✅ NOWA METODA: Taguje gracza (rozpoczyna combat tag).
+     * 
+     * @param victim Gracz który dostaje tag
+     * @param attacker Gracz który atakuje (lub null jeśli Hydroklatka)
+     * @return true jeśli tagowanie się powiodło
+     */
+    public boolean tagPlayer(Player victim, Player attacker) {
+        if (!antylogoutEnabled || victim == null) return false;
+
+        // Jeśli metoda nie istnieje w API - skip
+        if (tagPlayerMethod == null) {
+            return false;
+        }
+
+        try {
+            tagPlayerMethod.invoke(null, victim, attacker);
+            plugin.getLogger().info("[CombatIntegration] Ztagowano gracza " + victim.getName() +
+                    (attacker != null ? " przez " + attacker.getName() : " przez Hydroklatke"));
+            return true;
+        } catch (Exception e) {
+            plugin.getLogger().warning("[CombatIntegration] Blad tagowania gracza " + victim.getName() + ": " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     public boolean isEnabled() {
         return antylogoutEnabled;
+    }
+
+    public boolean hasTagPlayerMethod() {
+        return tagPlayerMethod != null;
     }
 }
