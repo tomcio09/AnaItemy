@@ -3,9 +3,7 @@ package pl.anaheim.anaitemy.managers;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
@@ -13,14 +11,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
-import pl.anaheim.anaitemy.config.ItemsConfig;
-import pl.anaheim.anaitemy.items.TotemUlaskawienia;
 import pl.anaheim.anaitemy.items.WzmocnianaElytra;
 
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -232,7 +226,8 @@ public class WzmocnianaElytraManager {
         // ✅ 5. CZĄSTECZKI
         center.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, center, 50, 1, 1, 1, 0.5);
 
-        // ✅ 6. DAMAGE - wszyscy w 5x5x5 OPRÓCZ STRZELCA (Z TOTEMEM)
+        // ✅ 6. DAMAGE - wszyscy w 5x5x5 OPRÓCZ STRZELCA
+        // Totem Ułaskawienia jest teraz obsługiwany globalnie w PlayerDeathEvent.
         for (Player nearPlayer : center.getWorld().getNearbyPlayers(center, DAMAGE_RADIUS)) {
             if (nearPlayer == null || !nearPlayer.isOnline()) continue;
             if (nearPlayer.equals(player)) continue;
@@ -240,17 +235,7 @@ public class WzmocnianaElytraManager {
             double newHealth = nearPlayer.getHealth() - DAMAGE;
 
             if (newHealth <= 0) {
-                // ✅ Sprawdź totem ułaskawienia
-                ItemStack mainHand = nearPlayer.getInventory().getItemInMainHand();
-                ItemStack offHand = nearPlayer.getInventory().getItemInOffHand();
-
-                if (TotemUlaskawienia.isTotemUlaskawienia(mainHand) ||
-                        TotemUlaskawienia.isTotemUlaskawienia(offHand)) {
-                    // Totem ratuje - ustaw 1 HP
-                    nearPlayer.setHealth(1.0);
-                } else {
-                    nearPlayer.setHealth(0);
-                }
+                nearPlayer.setHealth(0.0);
             } else {
                 nearPlayer.setHealth(newHealth);
             }
