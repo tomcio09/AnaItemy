@@ -6,11 +6,8 @@
 #         TOTEM UŁASKAWIENIA
 # ==========================================
 totem-ulaskawienia:
-  # Materiał itemu
   material: TOTEM_OF_UNDYING
-  # Nazwa itemu (obsługuje kody kolorów &)
   name: '&5&lTotem Ułaskawienia'
-  # Opis itemu
   lore:
     - ''
     - ' &8» &7Jest to przedmiot z:'
@@ -18,52 +15,44 @@ totem-ulaskawienia:
     - ''
     - ' &8» &7Trzymając go po śmierci &dnie'
     - ' &8» &dstracisz &7swoich przedmiotów'
-  # Custom Model Data
   custom-model-data: 1
-  # Slot w GUI (0-53)
   gui-slot: 0
-  # Wiadomość globalna po użyciu totemu
   messages:
     death: '&cGracz &7{victim} &czginął z &eTotemem Ułaskawienia&c!'
-  # Zablokowane regiony WorldGuard (totem nie działa w tych regionach)
   blocked-regions: []
+  
+  # System ochrony - totem nie zadaje damage więc nie uczestniczy
+  respects-protection: false
+  notify-attacker: false
 
 # ==========================================
 #         EXCALIBUR
 # ==========================================
 excalibur:
-  # Materiał itemu
   material: NETHERITE_SWORD
-  # Nazwa itemu
   name: '&e&lExcalibur'
-  # Custom Model Data
   custom-model-data: 5
-  # Slot w GUI (0-53)
   gui-slot: 1
-  # Enchanty
   enchants:
     sharpness: 6
     fire-aspect: 2
     unbreaking: 3
-  # Atrybut prędkości ataku (domyślny miecz netheritowy to -2.4)
   attack-speed: -1.6
-  # Bazowe obrażenia (przy 0 killach)
   base-damage: 11.5
-  # Maksymalne obrażenia (przy max killach)
   max-damage: 12.0
-  # Maksymalna liczba zabójstw do osiągnięcia max obrażeń
   max-kills: 100
-  # Długość paska postępu (znaki)
   bar-length: 18
-  # Wiadomości
   messages:
     kills-set: '&aUstawiono zabójstwa Excalibura na: &f{kills}'
     not-holding: '&cMusisz trzymać Excalibur w ręku!'
     invalid-number: '&cPodaj poprawną liczbę!'
     negative-number: '&cLiczba zabójstw nie może być ujemna!'
     too-fast: '&cZabójstwo nie zostało naliczone, ponieważ już zabiłeś tego gracza!'
-  # Zablokowane regiony WorldGuard (kille nie liczą się w tych regionach)
   blocked-regions: []
+  
+  # System ochrony - excalibur to normalny miecz więc nie uczestniczy
+  respects-protection: false
+  notify-attacker: false
 
 # ==========================================
 #         HYDRO KLATKA
@@ -94,16 +83,11 @@ hydro-klatka:
       volume: 2.0
       pitch: 1.0
     
-    # ✅ USUNIĘTO custom sound - dodano splash + ambient
-    
-    # Dźwięk natychmiast po wybuchu
     splash:
       sound: ENTITY_GENERIC_SPLASH
       volume: 3.0
       pitch: 1.0
     
-    # Dźwięk pod koniec animacji (głośny)
-    # ✅ BLOCK_WATER_AMBIENT zamiast AMBIENT_UNDERWATER_LOOP
     ambient:
       sound: BLOCK_WATER_AMBIENT
       volume: 5.0
@@ -149,17 +133,18 @@ hydro-klatka:
     cannot-use-in-cage: '&cNie możesz tego zrobić w Hydro Klatce!'
   
   actionbar:
-    cooldown-format: '&fStrzał z &3Hydro klatki &fza: &b{time}s'
+    cooldown-format: '&fStrzał z &3Hydro klatki &fza: &b{time}'
+  
+  # System ochrony - hydroklatka nie zadaje damage więc nie uczestniczy
+  respects-protection: false
+  notify-attacker: false
 
 # ==========================================
 #         RÓŻDŻKA ILUZJONISTY
 # ==========================================
 rozdzka-iluzjonisty:
-  # Materiał itemu
   material: GOLDEN_HOE
-  # Nazwa itemu
   name: '&5&lRóżdżka Iluzjonisty'
-  # Opis itemu
   lore:
     - ''
     - ' &8» &7Jest to przedmiot zdobyty podczas'
@@ -171,57 +156,47 @@ rozdzka-iluzjonisty:
     - ' &8» &7PPM: &dznikasz &7na &e4s &7i tworzysz'
     - ' &8» &dklona &7biegnącego do przodu.'
     - ''
-  # Custom Model Data
   custom-model-data: 1
-  # Slot w GUI (0-53)
   gui-slot: 3
-  # Enchanty
   enchants:
     unbreaking: 10
   
-  # === SZCZĘKI EVOKERA (LPM) ===
   fangs:
-    # Cooldown (sekundy)
     cooldown: 20
-    # Długość każdego paska szczęk (bloki)
     length: 7
-    # Szerokość formacji (pasków)
     width: 3
-    # Odstęp między paskami (bloki)
     spacing: 1.2
-    # Damage pierwszej szczęki która trafi (połówki serc)
     damage: 12
-    # Szybkość lotu szczęk (bloków/tick)
     speed: 0.3
-    # Wiadomości
     messages:
       activated: '&aSzczęki Evokera &7zostały &aaktywowane&7!'
       cooldown-title: '&cUmiejętność w odnowieniu'
       cooldown-subtitle: '&7Do użycia za: &e{seconds}s'
   
-  # === ZNIKNIĘCIE (PPM) ===
   vanish:
-    # Cooldown (sekundy)
     cooldown: 60
-    # Czas trwania zniknięcia (sekundy)
     duration: 4
-    # Szybkość ruchu NPC
     npc-speed: 3.0
-    # Dźwięki
     sounds:
       activate: ENTITY_ENDERMAN_AMBIENT
       deactivate: ENTITY_ENDERMAN_TELEPORT
-    # Wiadomości
     messages:
       activated: '&aZniknięcie &7zostało &aaktywowane&7!'
       cooldown-title: '&cUmiejętność w odnowieniu'
       cooldown-subtitle: '&7Do użycia za: &e{seconds}s'
   
-  # Zablokowane regiony WorldGuard
   blocked-regions:
     - spawn
     - endspawn
     - netherspawn
+  
+  # ✅ System ochrony - różdżka zadaje damage
+  respects-protection: true
+  notify-attacker: false
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+
 # ==========================================
 #         WĘDKA NIELOTA
 # ==========================================
@@ -241,10 +216,7 @@ wedka-nielota:
   
   curse-duration: 12
   cooldown: 30
-  
-  # ✅ Zwiększono prędkość bugowania z 2.0 na 3.5 bloków/s
   bugowanie-fall-speed: 2.0
-  
   bugowanie-reset-duration: 4
   
   blocked-regions:
@@ -271,6 +243,14 @@ wedka-nielota:
     title: '&cPosiadasz klątwę! Nie możesz latać przez &e{seconds}s'
     title-waiting: '&cPosiadasz klątwę! Nie możesz latać przez &e<1s'
     color: RED
+  
+  # ✅ System ochrony - wędka "atakuje" gracza
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+
 # ==========================================
 #         SAKIEWKA DROPU
 # ==========================================
@@ -288,13 +268,11 @@ sakiewka-dropu:
   custom-model-data: 1
   gui-slot: 5
   
-  # Regiony gdzie nie można zbierać itemów do sakiewki
   blocked-regions:
     - spawn
     - endspawn
     - netherspawn
   
-  # Regiony gdzie nie można wypłacić wszystkich itemów przyciskiem
   blocked-regions-no-payout:
     - spawn
     - endspawn
@@ -302,24 +280,45 @@ sakiewka-dropu:
   
   messages:
     combat-blocked: '&cNie możesz otworzyć sakiewki podczas walki!'
+  
+  # System ochrony - sakiewka nie zadaje damage
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         WZMOCNIANA ELYTRA
+# ==========================================
+wzmocniana-elytra:
+  material: ELYTRA
+  name: '&5&lWzmocniana elytra'
+  lore:
+    - ''
+    - ' &8» &7Jest to przedmiot zdobyty podczas'
+    - ' &8» &fWielkanocnego Wydarzenia 2025&7!'
+    - ''
+    - ' &8» &7Po naładowaniu elytry do &f100% &7zyskujesz'
+    - ' &8» &cpotężną moc&7, która przy uderzeniu w ziemię'
+    - ' &8» &7uwolni się, oddziałując na pobliskich graczy!'
+  custom-model-data: 1
+  gui-slot: 6
+  enchants:
+    unbreaking: 10
+  
+  # ✅ System ochrony - elytra zadaje damage
+  respects-protection: true
+  notify-attacker: false
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
 
 # ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
-  # Włącz/wyłącz integrację z pluginem walki
   enabled: true
-  
-  # Blokada otwierania sakiewki podczas walki
   block-sakiewka-in-combat: true
-  
-  # Czy Hydroklatka ma tagować graczy w combat
   hydroklatka-tag-players: true
   
-  # Action bar - priorytet combat pluginu
   actionbar:
-    # Włącz zarządzanie priorytetami action barów
     enabled: true
-    
-    # Czas (w tickach) po którym nasze action bary wracają
-    resume-delay: 10
+    resume-delay: 20
