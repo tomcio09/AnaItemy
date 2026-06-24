@@ -9,6 +9,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -73,6 +74,27 @@ public class BlokWidmoListener implements Listener {
     }
 
     /**
+     * ✅ KLUCZOWE: Przy śmierci gracza - zdejmij efekt bloku widmo NATYCHMIAST.
+     * 
+     * Priorytet LOWEST = uruchamia się PIERWSZY, ZANIM inne pluginy (serca, kostiumy)
+     * przetworzą śmierć. Dzięki temu plugin na serca widzi prawdziwy max health
+     * gracza i może poprawnie zabrać serce.
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        BlokWidmoManager manager = plugin.getBlokWidmoManager();
+
+        if (manager.isAffected(player)) {
+            // ✅ Przywróć max health ZANIM inne pluginy przetworzą śmierć
+            manager.forceRemoveEffect(player);
+            
+            plugin.getLogger().info("[BlokWidmo] Zdjęto efekt z gracza " + player.getName() + 
+                    " z powodu śmierci (przed innymi pluginami)");
+        }
+    }
+
+    /**
      * ✅ Przy wylogowaniu - usuń efekt bloku widmo.
      */
     @EventHandler(priority = EventPriority.MONITOR)
@@ -87,6 +109,7 @@ public class BlokWidmoListener implements Listener {
 
     /**
      * ✅ Przy zalogowaniu - upewnij się że nie ma resztek efektu.
+     * Czyści modifier który mógł zostać (np. crash serwera).
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
@@ -97,6 +120,10 @@ public class BlokWidmoListener implements Listener {
         if (manager.isAffected(player)) {
             manager.forceRemoveEffect(player);
         }
+        
+        // ✅ Dodatkowo wyczyść modifier nawet jeśli nie ma danych w mapie
+        // (zabezpieczenie przed crashem serwera)
+        manager.cleanupStaleModifier(player);
     }
 
     private String formatTime(long totalSeconds) {
