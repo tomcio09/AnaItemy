@@ -15,6 +15,7 @@ import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.WzmocnianaElytra;
 
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -151,7 +152,8 @@ public class WzmocnianaElytraManager {
                 }
 
                 double charge = WzmocnianaElytra.getCharge(chestplate);
-                String chargeStr = String.format("%.2f", charge);
+                // ✅ Locale.US wymusza kropkę zamiast przecinka
+                String chargeStr = String.format(Locale.US, "%.2f", charge);
 
                 String elytraBar = "&bWzmocniana elytra &fzaladowana w &3" + chargeStr + "%";
 
@@ -198,9 +200,6 @@ public class WzmocnianaElytraManager {
 
         Location center = landingLocation.clone();
 
-        // ✅ NAJPIERW TAG COMBATU - POTEM DAMAGE
-        // (żeby gracz który zginie miał combat tag zanim umrze)
-
         // ✅ 1. TAG COMBATU - strzelec
         if (plugin.getCombatIntegrationManager().isEnabled()) {
             plugin.getCombatIntegrationManager().tagPlayer(player, player);
@@ -226,8 +225,7 @@ public class WzmocnianaElytraManager {
         // ✅ 5. CZĄSTECZKI
         center.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, center, 50, 1, 1, 1, 0.5);
 
-        // ✅ 6. DAMAGE - wszyscy w 5x5x5 OPRÓCZ STRZELCA
-        // Totem Ułaskawienia jest teraz obsługiwany globalnie w PlayerDeathEvent.
+        // ✅ 6. DAMAGE - Totem obsługiwany globalnie w PlayerDeathEvent
         for (Player nearPlayer : center.getWorld().getNearbyPlayers(center, DAMAGE_RADIUS)) {
             if (nearPlayer == null || !nearPlayer.isOnline()) continue;
             if (nearPlayer.equals(player)) continue;
