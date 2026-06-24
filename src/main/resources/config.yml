@@ -1,5 +1,15 @@
 # AnaItemy - Konfiguracja
 
+# ==========================================
+#         SYSTEM OCHRONY PRZED EVENTÓWKAMI
+# ==========================================
+item-protection:
+  # Włącz/wyłącz globalny system ochrony
+  enabled: true
+  
+  # Czas ochrony w sekundach (domyślnie 4s)
+  duration: 4
+
 excalibur:
   # Ilość zabójstw potrzebna do pełnego naładowania miecza
   max-kills: 100
