@@ -409,7 +409,7 @@ hydro-trojzab:
     - ''
     - ' &8» &7Klikając &fSHIFT &7możesz się'
     - ' &8» &7wystrzelić w dowolnym miejscu!'
-  custom-model-data: 1
+  custom-model-data: 104141741
   gui-slot: 9
   enchants:
     unbreaking: 10
