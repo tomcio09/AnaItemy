@@ -299,3 +299,25 @@ sakiewka-dropu:
     - spawn
     - endspawn
     - netherspawn
+  
+  messages:
+    combat-blocked: '&cNie możesz otworzyć sakiewki podczas walki!'
+
+# ==========================================
+#         COMBAT INTEGRATION
+# ==========================================
+combat-integration:
+  # Włącz/wyłącz integrację z pluginem walki
+  enabled: true
+  
+  # Blokada otwierania sakiewki podczas walki
+  block-sakiewka-in-combat: true
+  
+  # Action bar - priorytet combat pluginu
+  actionbar:
+    # Włącz zarządzanie priorytetami action barów
+    enabled: true
+    
+    # Czas (w tickach) po którym nasze action bary wracają
+    # po zniknięciu action bara walki
+    resume-delay: 10
