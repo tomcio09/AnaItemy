@@ -360,7 +360,48 @@ blok-widmo:
   
   respects-protection: false
   notify-attacker: false
-
+# ==========================================
+#         SIEKIERA GRINCHA
+# ==========================================
+siekiera-grincha:
+  material: GOLDEN_AXE
+  name: '&2&lSiekiera Grincha'
+  lore:
+    - ''
+    - ' &8» &7Jest to przedmiot z:'
+    - ' &8» &feventu świątecznego (2025)'
+    - ''
+    - ' &8» &7Po &auderzeniu &7strzela &fpiorun'
+    - ' &8» &7w przeciwnika zabierając mu &c30%'
+    - ' &8» &7jego życia! &fUmiejętność &7działa'
+    - ' &8» &7raz na 1 minutę.'
+  custom-model-data: 1
+  gui-slot: 8
+  enchants:
+    unbreaking: 10
+  
+  # Procent AKTUALNEGO zdrowia do zabrania
+  damage-percent: 30
+  
+  # Cooldown (sekundy)
+  cooldown: 60
+  
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+  
+  messages:
+    attacker-subtitle: '&7Uderzyłeś &f{nick_victim} &7siekierą &agrincha&7!'
+    victim-subtitle: '&7Zostałeś uderzony &asiekierą grincha&7!'
+    cooldown-subtitle: '&2Siekierę Grincha &7możesz użyć dopiero za &a{seconds_left}&7!'
+  
+  # ✅ System ochrony - siekiera zadaje damage
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
 # ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
