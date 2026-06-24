@@ -4,10 +4,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import pl.anaheim.anaitemy.commands.ItemyEventoweCommand;
 import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.listeners.*;
-import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
-import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
-import pl.anaheim.anaitemy.managers.WedkaNielotaManager;
-import pl.anaheim.anaitemy.managers.WorldGuardManager;
+import pl.anaheim.anaitemy.managers.*;
 
 public class AnaItemy extends JavaPlugin {
 
@@ -17,8 +14,8 @@ public class AnaItemy extends JavaPlugin {
     private WedkaNielotaManager wedkaNielotaManager;
     private ItemsConfig itemsConfig;
     private WorldGuardManager worldGuardManager;
-
-    // ✅ Przechowuj referencję do TotemListener
+    private CombatIntegrationManager combatIntegrationManager;
+    private ActionBarManager actionBarManager;
     private TotemListener totemListener;
 
     @Override
@@ -31,6 +28,8 @@ public class AnaItemy extends JavaPlugin {
 
         // Inicjalizacja managerów
         worldGuardManager = new WorldGuardManager(this);
+        combatIntegrationManager = new CombatIntegrationManager(this);
+        actionBarManager = new ActionBarManager(this);
         hydroKlatkaManager = new HydroKlatkaManager(this);
         rozdzkailuzjonistyManager = new RozdzkailuzjonistyManager(this);
         wedkaNielotaManager = new WedkaNielotaManager(this);
@@ -62,21 +61,17 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SakiewkaGUIListener(this), this);
         getServer().getPluginManager().registerEvents(new SakiewkaPortalListener(this), this);
         getServer().getPluginManager().registerEvents(new SakiewkaUUIDListener(this), this);
+        getServer().getPluginManager().registerEvents(new CombatActionBarListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
 
     @Override
     public void onDisable() {
-        if (hydroKlatkaManager != null) {
-            hydroKlatkaManager.cleanup();
-        }
-        if (rozdzkailuzjonistyManager != null) {
-            rozdzkailuzjonistyManager.cleanup();
-        }
-        if (wedkaNielotaManager != null) {
-            wedkaNielotaManager.cleanup();
-        }
+        if (hydroKlatkaManager != null) hydroKlatkaManager.cleanup();
+        if (rozdzkailuzjonistyManager != null) rozdzkailuzjonistyManager.cleanup();
+        if (wedkaNielotaManager != null) wedkaNielotaManager.cleanup();
+        if (actionBarManager != null) actionBarManager.cleanup();
         getLogger().info("AnaItemy zostal wylaczony!");
     }
 
@@ -86,7 +81,7 @@ public class AnaItemy extends JavaPlugin {
     public WedkaNielotaManager getWedkaNielotaManager() { return wedkaNielotaManager; }
     public ItemsConfig getItemsConfig() { return itemsConfig; }
     public WorldGuardManager getWorldGuardManager() { return worldGuardManager; }
-
-    // ✅ Getter dla TotemListener
     public TotemListener getTotemListener() { return totemListener; }
+    public CombatIntegrationManager getCombatIntegrationManager() { return combatIntegrationManager; }
+    public ActionBarManager getActionBarManager() { return actionBarManager; }
 }
