@@ -306,18 +306,24 @@ public class HydroTrojzabManager {
         Location eye = shooter.getEyeLocation();
         Vector direction = eye.getDirection().normalize();
 
-        Trident trident = shooter.getWorld().spawn(
-                eye.add(direction.clone().multiply(0.6)), Trident.class);
-        trident.setShooter(shooter);
-        trident.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
-        trident.setGravity(true);
-        trident.setMetadata(META_HYDRO_TRIDENT,
-                new FixedMetadataValue(plugin, true));
-        trident.setMetadata(META_HYDRO_TRIDENT_OWNER,
-                new FixedMetadataValue(plugin, shooter.getUniqueId().toString()));
+        // ✅ Spawn trident trochę przed graczem
+        Location spawnLoc = eye.clone().add(direction.clone().multiply(1.0));
 
-        double velocity = 2.4 + (force * 1.3);
-        trident.setVelocity(direction.multiply(velocity));
+        Trident trident = shooter.getWorld().spawn(spawnLoc, Trident.class, t -> {
+            t.setShooter(shooter);
+            t.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
+            t.setGravity(true);
+            t.setMetadata(META_HYDRO_TRIDENT,
+                    new FixedMetadataValue(plugin, true));
+            t.setMetadata(META_HYDRO_TRIDENT_OWNER,
+                    new FixedMetadataValue(plugin, shooter.getUniqueId().toString()));
+
+            // ✅ Velocity identyczny jak strzała z łuku
+            // force = 0.0-1.0 (jak bardzo naciągnięty łuk)
+            // Vanilla strzała z pełnego naciągu leci z prędkością ~3.0
+            double speed = force * 3.0;
+            t.setVelocity(direction.multiply(speed));
+        });
 
         shooter.playSound(shooter.getLocation(),
                 Sound.ITEM_TRIDENT_THROW, SoundCategory.PLAYERS, 1.2f, 1.0f);
