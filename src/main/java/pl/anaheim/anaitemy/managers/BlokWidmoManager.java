@@ -140,8 +140,8 @@ public class BlokWidmoManager {
                 )
         ));
 
-        // ✅ 3. Particle effect
-        location.getWorld().spawnParticle(Particle.WITCH, location, 100, 2, 2, 2, 0.1);
+        // ✅ 3. Particle effect - używamy SPELL_WITCH zamiast WITCH
+        location.getWorld().spawnParticle(Particle.SPELL_WITCH, location, 100, 2, 2, 2, 0.1);
         location.getWorld().spawnParticle(Particle.SMOKE_LARGE, location, 50, 1, 1, 1, 0.05);
 
         // ✅ 4. Cooldown
