@@ -14,7 +14,7 @@ import pl.anaheim.anaitemy.AnaItemy;
  * // Przed dodaniem serc graczowi:
  * if (BlokWidmoAPI.isAffected(player)) {
  *     player.sendMessage("§cNie możesz dodać serc podczas działania Bloku Widmo!");
- *     player.sendMessage("§7Efekt wygasa za: §e" + BlokWidmoAPI.getRemainingSeconds(player) + "s");
+ *     player.sendMessage("§7Efekt wygasa za: §e" + BlokWidmoAPI.getFormattedTimeLeft(player));
  *     return;
  * }
  * 
@@ -24,7 +24,31 @@ import pl.anaheim.anaitemy.AnaItemy;
  *     event.setCancelled(true);
  *     return;
  * }
+ * 
+ * // Przy śmierci gracza - NIE MUSISZ nic robić!
+ * // AnaItemy automatycznie zdejmuje efekt PRZED innymi pluginami (priority LOWEST).
+ * // Plugin na serca zobaczy prawdziwy max health gracza.
  * </pre>
+ * 
+ * === WAŻNE: KOMPATYBILNOŚĆ Z PLUGINEM NA SERCA ===
+ * 
+ * Blok Widmo działa na zasadzie AttributeModifier na GENERIC_MAX_HEALTH.
+ * Przy śmierci gracza, AnaItemy AUTOMATYCZNIE zdejmuje modifier
+ * z priorytetem LOWEST (czyli PRZED pluginem na serca).
+ * 
+ * Dzięki temu:
+ * 1. Gracz umiera z efektem bloku widmo
+ * 2. AnaItemy zdejmuje modifier (max health wraca do normy)
+ * 3. Plugin na serca przetwarza śmierć i widzi prawdziwy max health
+ * 4. Plugin na serca zabiera serce normalnie
+ * 
+ * === WAŻNE: KOMPATYBILNOŚĆ Z KOSTIUMAMI ===
+ * 
+ * Jeśli kostium zabiera podwójną ilość serc:
+ * - Blok widmo NIE ingeruje w tę mechanikę
+ * - Blok widmo TYLKO obniża max health o stałą wartość
+ * - Przy śmierci modifier jest zdejmowany ZANIM kostium/serca zadziałają
+ * - Nie ma konfliktu
  */
 public class BlokWidmoAPI {
 
@@ -33,8 +57,12 @@ public class BlokWidmoAPI {
      * @return true jeśli plugin jest załadowany
      */
     public static boolean isAvailable() {
-        return AnaItemy.getInstance() != null
-                && AnaItemy.getInstance().getBlokWidmoManager() != null;
+        try {
+            return AnaItemy.getInstance() != null
+                    && AnaItemy.getInstance().getBlokWidmoManager() != null;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**
