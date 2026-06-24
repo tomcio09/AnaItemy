@@ -17,14 +17,12 @@ import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.items.TotemUlaskawienia;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 public class TotemListener implements Listener {
 
     private final AnaItemy plugin;
-    private final Set<UUID> usedTotem = new HashSet<>();
 
     // ✅ Publiczny set - SakiewkaListener sprawdza czy gracz użył totemu
     private final Set<UUID> totemProtectedPlayers = new HashSet<>();
@@ -33,6 +31,10 @@ public class TotemListener implements Listener {
         this.plugin = plugin;
     }
 
+    /**
+     * ✅ Blokujemy vanilla resurrect dla customowego totemu,
+     * bo nasz totem ma zachować ekwipunek po śmierci, a nie ratować życie.
+     */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onResurrect(EntityResurrectEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
@@ -44,41 +46,44 @@ public class TotemListener implements Listener {
         if (!TotemUlaskawienia.isTotemUlaskawienia(item)) return;
 
         event.setCancelled(true);
-
-        ItemsConfig config = plugin.getItemsConfig();
-        List<String> blockedRegions = config.getTotemBlockedRegions();
-
-        boolean inBlockedRegion = plugin.getWorldGuardManager().isInBlockedRegion(
-                player.getLocation(),
-                blockedRegions
-        );
-
-        if (inBlockedRegion) {
-            usedTotem.add(player.getUniqueId());
-            // ✅ Oznacz gracza jako chronionego totemem
-            totemProtectedPlayers.add(player.getUniqueId());
-            return;
-        }
-
-        player.getInventory().setItem(event.getHand(), null);
-        usedTotem.add(player.getUniqueId());
-        // ✅ Oznacz gracza jako chronionego totemem
-        totemProtectedPlayers.add(player.getUniqueId());
     }
 
+    /**
+     * ✅ Uniwersalna obsługa totemu:
+     * działa na KAŻDY rodzaj śmierci:
+     * - vanilla damage
+     * - /kill
+     * - setHealth(0)
+     * - śmierć z innych pluginów
+     * - custom kill z Elytry / Różdżki
+     */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
 
-        if (!usedTotem.contains(player.getUniqueId())) return;
-        usedTotem.remove(player.getUniqueId());
+        if (!hasTotemInHand(player)) return;
+
+        ItemsConfig config = plugin.getItemsConfig();
+        boolean inBlockedRegion = plugin.getWorldGuardManager().isInBlockedRegion(
+                player.getLocation(),
+                config.getTotemBlockedRegions()
+        );
+
+        // ✅ Zachowujemy poprzednie zachowanie:
+        // poza blocked regionem totem jest konsumowany,
+        // w blocked regionie nie konsumujemy go.
+        if (!inBlockedRegion) {
+            consumeOneTotem(player);
+        }
+
+        UUID playerId = player.getUniqueId();
+        totemProtectedPlayers.add(playerId);
 
         event.setKeepInventory(true);
         event.setKeepLevel(true);
         event.getDrops().clear();
         event.setDroppedExp(0);
 
-        ItemsConfig config = plugin.getItemsConfig();
         String message = config.getTotemDeathMessage()
                 .replace("{victim}", player.getName());
 
@@ -88,18 +93,47 @@ public class TotemListener implements Listener {
         }
 
         Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!player.isOnline()) {
+                totemProtectedPlayers.remove(playerId);
+                return;
+            }
+
             player.spigot().respawn();
 
             Bukkit.getScheduler().runTask(plugin, () -> {
+                totemProtectedPlayers.remove(playerId);
+
                 if (!player.isOnline()) return;
 
-                double maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
-                player.setHealth(maxHealth);
+                var maxHealthAttribute = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+                double maxHealth = maxHealthAttribute != null
+                        ? maxHealthAttribute.getValue()
+                        : 20.0;
 
-                // ✅ Usuń ochronę po odrodzeniu
-                totemProtectedPlayers.remove(player.getUniqueId());
+                player.setHealth(maxHealth);
             });
         });
+    }
+
+    private boolean hasTotemInHand(Player player) {
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+
+        return TotemUlaskawienia.isTotemUlaskawienia(mainHand)
+                || TotemUlaskawienia.isTotemUlaskawienia(offHand);
+    }
+
+    private void consumeOneTotem(Player player) {
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+        if (TotemUlaskawienia.isTotemUlaskawienia(offHand)) {
+            player.getInventory().setItemInOffHand(null);
+            return;
+        }
+
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        if (TotemUlaskawienia.isTotemUlaskawienia(mainHand)) {
+            player.getInventory().setItemInMainHand(null);
+        }
     }
 
     /**
