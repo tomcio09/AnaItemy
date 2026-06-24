@@ -132,6 +132,7 @@ public class ItemsConfig {
     public List<String> getExcaliburBlockedRegions() {
         return config.getStringList("excalibur.blocked-regions");
     }
+
     public String getExcaliburMessageTooFast() {
         return config.getString("excalibur.messages.too-fast",
                 "&cNie możesz zliczyć zabójstwa &f{victim} &c- poczekaj &f{time}s&c!");
@@ -290,7 +291,6 @@ public class ItemsConfig {
         return config.getInt("rozdzka-iluzjonisty.enchants.unbreaking", 10);
     }
 
-    // FANGS (LPM)
     public long getRozdzkailuzjonistyFangsCooldown() {
         return config.getLong("rozdzka-iluzjonisty.fangs.cooldown", 20);
     }
@@ -330,7 +330,6 @@ public class ItemsConfig {
                 "&7Do użycia za: &e{seconds}s");
     }
 
-    // VANISH (PPM)
     public long getRozdzkailuzjonistyVanishCooldown() {
         return config.getLong("rozdzka-iluzjonisty.vanish.cooldown", 60);
     }
@@ -369,7 +368,8 @@ public class ItemsConfig {
     public List<String> getRozdzkailuzjonistyBlockedRegions() {
         return config.getStringList("rozdzka-iluzjonisty.blocked-regions");
     }
-        // ==================== WĘDKA NIELOTA ====================
+
+    // ==================== WĘDKA NIELOTA ====================
 
     public String getWedkaNielotaName() {
         return config.getString("wedka-nielota.name", "&5&lWędka nielota");
@@ -411,7 +411,6 @@ public class ItemsConfig {
         return config.getStringList("wedka-nielota.blocked-regions");
     }
 
-    // Messages
     public String getWedkaNielotaCaughtTitle() {
         return config.getString("wedka-nielota.messages.caught-title", "&c&lZłapany!");
     }
@@ -456,7 +455,6 @@ public class ItemsConfig {
         return config.getString("wedka-nielota.messages.cooldown-message", "&cNie możesz użyć wędki tak szybko!");
     }
 
-    // BossBar
     public String getWedkaNielotaBossBarTitle() {
         return config.getString("wedka-nielota.bossbar.title", "&cPosiadasz klątwę! Nie możesz latać przez &e{seconds}s");
     }
@@ -468,7 +466,8 @@ public class ItemsConfig {
     public String getWedkaNielotaBossBarColor() {
         return config.getString("wedka-nielota.bossbar.color", "RED");
     }
-        // ✅ NOWE DŹWIĘKI HYDRO KLATKI
+
+    // ==================== HYDRO KLATKA SOUNDS (DODATKOWE) ====================
 
     public String getHydroKlatkaSplashSound() {
         return config.getString("hydro-klatka.sounds.splash.sound", "ENTITY_GENERIC_SPLASH");
@@ -483,7 +482,7 @@ public class ItemsConfig {
     }
 
     public String getHydroKlatkaAmbientSound() {
-        return config.getString("hydro-klatka.sounds.ambient.sound", "AMBIENT_UNDERWATER_LOOP");
+        return config.getString("hydro-klatka.sounds.ambient.sound", "BLOCK_WATER_AMBIENT");
     }
 
     public float getHydroKlatkaAmbientVolume() {
@@ -493,6 +492,7 @@ public class ItemsConfig {
     public float getHydroKlatkaAmbientPitch() {
         return (float) config.getDouble("hydro-klatka.sounds.ambient.pitch", 1.0);
     }
+
     // ==================== SAKIEWKA DROPU ====================
 
     public String getSakiewkaDropuName() {
@@ -510,7 +510,7 @@ public class ItemsConfig {
     public int getSakiewkaDropuGuiSlot() {
         return config.getInt("sakiewka-dropu.gui-slot", 5);
     }
-    
+
     public List<String> getSakiewkaBlockedRegions() {
         return config.getStringList("sakiewka-dropu.blocked-regions");
     }
@@ -518,6 +518,7 @@ public class ItemsConfig {
     public List<String> getSakiewkaBlockedRegionsNoPayout() {
         return config.getStringList("sakiewka-dropu.blocked-regions-no-payout");
     }
+
     // ==================== COMBAT INTEGRATION ====================
 
     public boolean isCombatIntegrationEnabled() {
@@ -544,6 +545,7 @@ public class ItemsConfig {
         return config.getString("sakiewka-dropu.messages.combat-blocked",
                 "&cNie możesz otworzyć sakiewki podczas walki!");
     }
+
     // ==================== ITEM PROTECTION ====================
 
     public boolean isItemProtectionEnabled() {
@@ -557,7 +559,7 @@ public class ItemsConfig {
     public boolean doesItemRespectProtection(String itemId) {
         return config.getBoolean(itemId + ".respects-protection", false);
     }
-    
+
     public boolean shouldNotifyAttacker(String itemId) {
         return config.getBoolean(itemId + ".notify-attacker", false);
     }
@@ -568,6 +570,83 @@ public class ItemsConfig {
 
     public String getProtectionSubtitle(String itemId) {
         return config.getString(itemId + ".protection-messages.subtitle",
-                "&7Spróbuj za: &e{seconds_left}s&7!");
+                "&7Spróbuj ponownie za: &e{seconds_left}s&7!");
+    }
+
+    // ==================== BLOK WIDMO ====================
+
+    public String getBlokWidmoName() {
+        return config.getString("blok-widmo.name", "&c&lBlok widmo");
+    }
+
+    public List<String> getBlokWidmoLore() {
+        return config.getStringList("blok-widmo.lore");
+    }
+
+    public int getBlokWidmoCustomModelData() {
+        return config.getInt("blok-widmo.custom-model-data", 0);
+    }
+
+    public int getBlokWidmoGuiSlot() {
+        return config.getInt("blok-widmo.gui-slot", 7);
+    }
+
+    public int getBlokWidmoRadius() {
+        return config.getInt("blok-widmo.radius", 20);
+    }
+
+    public int getBlokWidmoEffectDuration() {
+        return config.getInt("blok-widmo.effect-duration", 160);
+    }
+
+    public double getBlokWidmoHealthReduction() {
+        return config.getDouble("blok-widmo.health-reduction", 20);
+    }
+
+    public double getBlokWidmoMinimumHealth() {
+        return config.getDouble("blok-widmo.minimum-health", 20);
+    }
+
+    public long getBlokWidmoCooldown() {
+        return config.getLong("blok-widmo.cooldown", 180);
+    }
+
+    public List<String> getBlokWidmoBlockedRegions() {
+        return config.getStringList("blok-widmo.blocked-regions");
+    }
+
+    public String getBlokWidmoActivateSound() {
+        return config.getString("blok-widmo.sounds.activate", "BLOCK_BEACON_ACTIVATE");
+    }
+
+    public String getBlokWidmoDeactivateSound() {
+        return config.getString("blok-widmo.sounds.deactivate", "BLOCK_BEACON_DEACTIVATE");
+    }
+
+    public String getBlokWidmoBossBarTitle() {
+        return config.getString("blok-widmo.bossbar.title",
+                "&cBlok widmo: &fPosiadasz obniżony limit serc przez {time_left}");
+    }
+
+    public String getBlokWidmoBossBarColor() {
+        return config.getString("blok-widmo.bossbar.color", "PURPLE");
+    }
+
+    public String getBlokWidmoPlacedSubtitle() {
+        return config.getString("blok-widmo.messages.placed-subtitle", "&cPostawiono blok widmo!");
+    }
+
+    public String getBlokWidmoAffectedTitle() {
+        return config.getString("blok-widmo.messages.affected-title", "&c&lBlok widmo");
+    }
+
+    public String getBlokWidmoAffectedSubtitle() {
+        return config.getString("blok-widmo.messages.affected-subtitle",
+                "&7coś się dzieje z twoim zdrowiem...");
+    }
+
+    public String getBlokWidmoCooldownMessage() {
+        return config.getString("blok-widmo.messages.cooldown",
+                "&cMusisz poczekać jeszcze {time_left} zanim będziesz mógł użyć tego przedmiotu ponownie!");
     }
 }
