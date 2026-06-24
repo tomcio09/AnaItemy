@@ -86,7 +86,20 @@ public class WedkaNielotaListener implements Listener {
             return;
         }
 
-        // ✅ NAŁÓŻ KLĄTWĘ NATYCHMIAST przy trafieniu w gracza
+        // ✅ SPRAWDŹ OCHRONĘ PRZED WĘDKĄ
+        if (plugin.getItemProtectionManager().isProtected(victim, "wedka-nielota")) {
+            int secondsLeft = plugin.getItemProtectionManager()
+                    .getRemainingSeconds(victim, "wedka-nielota");
+            
+            plugin.getItemProtectionManager()
+                    .notifyAttacker(fisher, "wedka-nielota", secondsLeft);
+            
+            return;
+        }
+
+        // ✅ NAŁÓŻ OCHRONĘ OD RAZU (od momentu złapania, nie od puszczenia!)
+        plugin.getItemProtectionManager().applyProtection(victim, "wedka-nielota");
+
         manager.applyCurse(victim, fisher);
 
         plugin.getLogger().info("[WedkaDebug] ZŁAPANO GRACZA: " + victim.getName()
