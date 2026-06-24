@@ -649,7 +649,8 @@ public class ItemsConfig {
         return config.getString("blok-widmo.messages.cooldown",
                 "&cMusisz poczekać jeszcze {time_left} zanim będziesz mógł użyć tego przedmiotu ponownie!");
     }
-        // ==================== SIEKIERA GRINCHA ====================
+
+    // ==================== SIEKIERA GRINCHA ====================
 
     public String getSiekieraGrinchaName() {
         return config.getString("siekiera-grincha.name", "&2&lSiekiera Grincha");
@@ -692,5 +693,65 @@ public class ItemsConfig {
     public String getSiekieraGrinchaCooldownSubtitle() {
         return config.getString("siekiera-grincha.messages.cooldown-subtitle",
                 "&2Siekierę Grincha &7możesz użyć dopiero za &a{seconds_left}&7!");
+    }
+
+    // ==================== HYDRO TRÓJZĄB ====================
+
+    public String getHydroTrojzabName() {
+        return config.getString("hydro-trojzab.name", "&3&lHydro Trójząb");
+    }
+
+    public List<String> getHydroTrojzabLore() {
+        return config.getStringList("hydro-trojzab.lore");
+    }
+
+    public int getHydroTrojzabCustomModelData() {
+        return config.getInt("hydro-trojzab.custom-model-data", 1);
+    }
+
+    public int getHydroTrojzabGuiSlot() {
+        return config.getInt("hydro-trojzab.gui-slot", 9);
+    }
+
+    public long getHydroTrojzabShotCooldown() {
+        return config.getLong("hydro-trojzab.shot.cooldown", 60);
+    }
+
+    public long getHydroTrojzabLaunchCooldown() {
+        return config.getLong("hydro-trojzab.launch.cooldown", 15);
+    }
+
+    public double getHydroTrojzabImpactDamage() {
+        return config.getDouble("hydro-trojzab.shot.damage", 10.0);
+    }
+
+    public double getHydroTrojzabImpactRadius() {
+        return config.getDouble("hydro-trojzab.shot.radius", 4.0);
+    }
+
+    public double getHydroTrojzabKnockbackHorizontal() {
+        return config.getDouble("hydro-trojzab.shot.knockback-horizontal", 1.2);
+    }
+
+    public double getHydroTrojzabKnockbackUpward() {
+        return config.getDouble("hydro-trojzab.shot.knockback-upward", 0.35);
+    }
+
+    public double getHydroTrojzabLaunchPower() {
+        return config.getDouble("hydro-trojzab.launch.power", 3.2);
+    }
+
+    public List<String> getHydroTrojzabBlockedRegions() {
+        return config.getStringList("hydro-trojzab.blocked-regions");
+    }
+
+    public String getHydroTrojzabShotCooldownSubtitle() {
+        return config.getString("hydro-trojzab.messages.shot-cooldown-subtitle",
+                "&7Cios pirunem możesz użyć za: &b{seconds_left}s&7!");
+    }
+
+    public String getHydroTrojzabLaunchCooldownSubtitle() {
+        return config.getString("hydro-trojzab.messages.launch-cooldown-subtitle",
+                "&7Wystrzelenia możesz użyć za: &b{seconds_left}&7!");
     }
 }
