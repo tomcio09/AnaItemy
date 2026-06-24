@@ -114,6 +114,22 @@ public class HydroKlatkaManager {
                 + (location.getBlockZ() >> 4);
     }
 
+    // ==================== FORMAT CZASU ====================
+
+    /**
+     * ✅ Formatuje sekundy do czytelnego formatu:
+     * - poniżej 60s: "45s"
+     * - 60s i więcej: "2m03s"
+     */
+    private String formatTime(long totalSeconds) {
+        if (totalSeconds < 60) {
+            return totalSeconds + "s";
+        }
+        long minutes = totalSeconds / 60;
+        long seconds = totalSeconds % 60;
+        return minutes + "m" + String.format("%02d", seconds) + "s";
+    }
+
     // ==================== COOLDOWN DISPLAY (ACTION BAR) ====================
 
     public void startCooldownDisplay(Player player) {
@@ -138,10 +154,10 @@ public class HydroKlatkaManager {
                 }
 
                 ItemsConfig config = plugin.getItemsConfig();
+                // ✅ Użyj formatTime zamiast surowych sekund
                 String message = config.getHydroKlatkaActionBarFormat()
-                        .replace("{time}", String.valueOf(remaining));
+                        .replace("{time}", formatTime(remaining));
 
-                // ✅ Użyj ActionBarManager zamiast bezpośredniego wysyłania
                 plugin.getActionBarManager().setActionBar(player, "hydroklatka", message);
             }
         }.runTaskTimer(plugin, 0L, 20L);
@@ -163,7 +179,7 @@ public class HydroKlatkaManager {
         ItemsConfig config = plugin.getItemsConfig();
         long remaining = getPlayerCooldownRemaining(player);
         String message = config.getHydroKlatkaMessageCooldown()
-                .replace("{time}", String.valueOf(remaining));
+                .replace("{time}", formatTime(remaining));
         sendMessage(player, message);
     }
 
@@ -203,7 +219,6 @@ public class HydroKlatkaManager {
                 if (!isInBlockedRegion(player.getLocation())) {
                     klatka.addTrappedPlayer(player.getUniqueId());
 
-                    // ✅ Taguj gracza w combat (jeśli włączone w configu)
                     if (config.isHydroKlatkaTagPlayers() &&
                             plugin.getCombatIntegrationManager().isEnabled() &&
                             plugin.getCombatIntegrationManager().hasTagPlayerMethod()) {
