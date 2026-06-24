@@ -17,6 +17,7 @@ import java.util.List;
 public class HydroTrojzabItem {
 
     public static final String ITEM_NAME_STRIPPED = "Hydro Trójząb";
+    public static final int CUSTOM_MODEL_DATA = 104141741;
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
@@ -50,10 +51,7 @@ public class HydroTrojzabItem {
         }
         meta.lore(loreComponents);
 
-        // ✅ Założyłem CMD = 1 dla łuku.
-        // Jeśli resourcepack ma inne override, zmień w items.yml
-        meta.setCustomModelData(1);
-
+        meta.setCustomModelData(CUSTOM_MODEL_DATA);
         meta.addEnchant(Enchantment.DURABILITY, 10, true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
 
@@ -65,7 +63,7 @@ public class HydroTrojzabItem {
         if (item == null || item.getType() != Material.BOW) return false;
         if (!item.hasItemMeta()) return false;
         if (!item.getItemMeta().hasCustomModelData()) return false;
-        if (item.getItemMeta().getCustomModelData() != 1) return false;
+        if (item.getItemMeta().getCustomModelData() != CUSTOM_MODEL_DATA) return false;
         if (item.getItemMeta().displayName() == null) return false;
 
         String plainName = PlainTextComponentSerializer.plainText()
