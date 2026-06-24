@@ -10,15 +10,16 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.gui.EventoweGUI;
 import pl.anaheim.anaitemy.items.*;
 import pl.anaheim.anaitemy.managers.BlokWidmoManager;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
+import pl.anaheim.anaitemy.managers.SiekieraGrinchaManager;
 import pl.anaheim.anaitemy.managers.WedkaNielotaManager;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -136,7 +137,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        // ✅ SPRAWDZENIE CZY TO SAKIEWKA - jeśli tak, generuj każdą osobno
+        // Sakiewki generujemy osobno, każda unikalna
         if (itemId.equalsIgnoreCase("sakiewka")) {
             int freeSlots = countFreeSlots(target);
 
@@ -151,14 +152,11 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
                 target.getInventory().addItem(newSakiewka);
             }
 
-            sender.sendMessage(color("&aDano &f" + amount + "x &7["
-                    + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
-            target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7["
-                    + getItemDisplayName(itemId) + "&7]&a!"));
+            sender.sendMessage(color("&aDano &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
+            target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7]&a!"));
             return;
         }
 
-        // Dla innych itemów - normalna logika
         ItemStack item = createItemById(itemId.toLowerCase());
         if (item == null) {
             sender.sendMessage(color("&cNieznany item: &f" + itemId));
@@ -177,10 +175,8 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         item.setAmount(amount);
         target.getInventory().addItem(item);
 
-        sender.sendMessage(color("&aDano &f" + amount + "x &7["
-                + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
-        target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7["
-                + getItemDisplayName(itemId) + "&7]&a!"));
+        sender.sendMessage(color("&aDano &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
+        target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7]&a!"));
     }
 
     private ItemStack createItemById(String id) {
@@ -205,8 +201,8 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "hydroklatka" -> "&3Wyrzutnia Hydro Klatki";
             case "rozdzka" -> "&5Różdżka Iluzjonisty";
             case "wedka" -> "&5Wędka Nielota";
-            case "elytra" -> "&5Wzmocniana Elytra";
             case "sakiewka" -> "&aSakiewka Dropu";
+            case "elytra" -> "&5Wzmocniana Elytra";
             case "blokwidmo" -> "&cBlok Widmo";
             case "siekiera" -> "&2Siekiera Grincha";
             default -> id;
@@ -271,7 +267,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         RozdzkailuzjonistyManager rozdzkaManager = plugin.getRozdzkailuzjonistyManager();
         WedkaNielotaManager wedkaManager = plugin.getWedkaNielotaManager();
         BlokWidmoManager blokWidmoManager = plugin.getBlokWidmoManager();
-        SiekieraGrinchaManager siekieraManager = plugin.getSiekieraGrinchaManager();
+        SiekieraGrinchaManager siekieraGrinchaManager = plugin.getSiekieraGrinchaManager();
 
         hydroManager.resetCooldown(target);
         target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
@@ -281,16 +277,14 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         rozdzkaManager.resetVanishCooldown(target);
 
         wedkaManager.resetCooldown(target);
-        siekieraManager.resetCooldown(target);
         blokWidmoManager.resetCooldown(target);
+        siekieraGrinchaManager.resetCooldown(target);
 
         sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
         target.sendMessage(color("&aTwoje cooldowny zostały zresetowane przez &f" + sender.getName() + "&a!"));
-        
 
         plugin.getLogger().info("[AnaItemy] " + sender.getName() +
                 " zresetowal cooldowny gracza " + target.getName());
-        
     }
 
     // ==================== KLATWA ====================
