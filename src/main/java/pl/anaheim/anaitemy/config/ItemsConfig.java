@@ -518,7 +518,7 @@ public class ItemsConfig {
     public List<String> getSakiewkaBlockedRegionsNoPayout() {
         return config.getStringList("sakiewka-dropu.blocked-regions-no-payout");
     }
-        // ==================== COMBAT INTEGRATION ====================
+    // ==================== COMBAT INTEGRATION ====================
 
     public boolean isCombatIntegrationEnabled() {
         return config.getBoolean("combat-integration.enabled", true);
@@ -526,6 +526,10 @@ public class ItemsConfig {
 
     public boolean isBlockSakiewkaInCombat() {
         return config.getBoolean("combat-integration.block-sakiewka-in-combat", true);
+    }
+
+    public boolean isHydroKlatkaTagPlayers() {
+        return config.getBoolean("combat-integration.hydroklatka-tag-players", true);
     }
 
     public boolean isActionBarIntegrationEnabled() {
