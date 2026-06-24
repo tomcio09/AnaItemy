@@ -21,7 +21,6 @@ totem-ulaskawienia:
     death: '&cGracz &7{victim} &czginął z &eTotemem Ułaskawienia&c!'
   blocked-regions: []
   
-  # System ochrony - totem nie zadaje damage więc nie uczestniczy
   respects-protection: false
   notify-attacker: false
 
@@ -50,7 +49,6 @@ excalibur:
     too-fast: '&cZabójstwo nie zostało naliczone, ponieważ już zabiłeś tego gracza!'
   blocked-regions: []
   
-  # System ochrony - excalibur to normalny miecz więc nie uczestniczy
   respects-protection: false
   notify-attacker: false
 
@@ -135,7 +133,6 @@ hydro-klatka:
   actionbar:
     cooldown-format: '&fStrzał z &3Hydro klatki &fza: &b{time}'
   
-  # System ochrony - hydroklatka nie zadaje damage więc nie uczestniczy
   respects-protection: false
   notify-attacker: false
 
@@ -190,9 +187,8 @@ rozdzka-iluzjonisty:
     - endspawn
     - netherspawn
   
-  # ✅ System ochrony - różdżka zadaje damage
   respects-protection: true
-  notify-attacker: false
+  notify-attacker: true
   protection-messages:
     title: '&c&lNie zadziałało!'
     subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
@@ -244,7 +240,6 @@ wedka-nielota:
     title-waiting: '&cPosiadasz klątwę! Nie możesz latać przez &e<1s'
     color: RED
   
-  # ✅ System ochrony - wędka "atakuje" gracza
   respects-protection: true
   notify-attacker: true
   protection-messages:
@@ -281,7 +276,6 @@ sakiewka-dropu:
   messages:
     combat-blocked: '&cNie możesz otworzyć sakiewki podczas walki!'
   
-  # System ochrony - sakiewka nie zadaje damage
   respects-protection: false
   notify-attacker: false
 
@@ -304,12 +298,68 @@ wzmocniana-elytra:
   enchants:
     unbreaking: 10
   
-  # ✅ System ochrony - elytra zadaje damage
   respects-protection: true
   notify-attacker: false
   protection-messages:
     title: '&c&lNie zadziałało!'
     subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+
+# ==========================================
+#         BLOK WIDMO
+# ==========================================
+blok-widmo:
+  material: STRUCTURE_BLOCK
+  name: '&c&lBlok widmo'
+  lore:
+    - ''
+    - ' &8» &7Jest to przedmiot zdobyty podczas'
+    - ' &8» &fDnia Dziecka 2025&7!'
+    - ''
+    - ' &8» &7Po postawieniu na ziemi,'
+    - ' &8» &7uwalnia &eenergię&7, która obniża'
+    - ' &8» &fmaksymalny limit &7serc pobliskim'
+    - ' &8» &7graczom na określony czas...'
+  custom-model-data: 0
+  gui-slot: 7
+  enchants:
+    unbreaking: 10
+  
+  # Promień działania (bloki)
+  radius: 20
+  
+  # Czas trwania efektu (sekundy) - 2m40s = 160s
+  effect-duration: 160
+  
+  # Ilość HP do zabrania z maksymalnego zdrowia (20 HP = 10 serduszek)
+  health-reduction: 20
+  
+  # Minimalna ilość HP jaka może zostać (20 HP = 10 serduszek)
+  minimum-health: 20
+  
+  # Cooldown (sekundy)
+  cooldown: 180
+  
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+  
+  sounds:
+    activate: BLOCK_BEACON_ACTIVATE
+    deactivate: BLOCK_BEACON_DEACTIVATE
+  
+  bossbar:
+    title: '&cBlok widmo: &fPosiadasz obniżony limit serc przez {time_left}'
+    color: PURPLE
+  
+  messages:
+    placed-subtitle: '&cPostawiono blok widmo!'
+    affected-title: '&c&lBlok widmo'
+    affected-subtitle: '&7coś się dzieje z twoim zdrowiem...'
+    cooldown: '&cMusisz poczekać jeszcze {time_left} zanim będziesz mógł użyć tego przedmiotu ponownie!'
+  
+  respects-protection: false
+  notify-attacker: false
 
 # ==========================================
 #         COMBAT INTEGRATION
@@ -321,4 +371,4 @@ combat-integration:
   
   actionbar:
     enabled: true
-    resume-delay: 20
+    resume-delay: 10
