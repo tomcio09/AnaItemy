@@ -28,6 +28,9 @@ public class RozdzkailuzjonistyManager {
     private final Map<UUID, Long> vanishCooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, VanishData> activeVanishes = new ConcurrentHashMap<>();
     private final Map<EvokerFangs, Set<UUID>> fangsDamagedPlayers = new ConcurrentHashMap<>();
+    
+    // ✅ NOWA MAPA - śledzenie właściciela szczęk
+    private final Map<EvokerFangs, UUID> fangsOwners = new ConcurrentHashMap<>();
 
     public RozdzkailuzjonistyManager(AnaItemy plugin) {
         this.plugin = plugin;
@@ -124,12 +127,11 @@ public class RozdzkailuzjonistyManager {
         direction.setY(0);
         direction.normalize();
 
-        // ✅ SZERZEJ - 2 bloki odstępu między szczękami
         Vector perpendicular = new Vector(-direction.getZ(), 0, direction.getX()).normalize();
-        double centerOffset = (width - 1) * 2.0 / 2.0; // Stała szerokość 2 bloki
+        double centerOffset = (width - 1) * 2.0 / 2.0;
 
         for (int w = 0; w < width; w++) {
-            double offset = (w * 2.0) - centerOffset; // Każda szczęka co 2 bloki
+            double offset = (w * 2.0) - centerOffset;
             Vector sideways = perpendicular.clone().multiply(offset);
             Location stripStart = start.clone().add(sideways);
             new FangStrip(stripStart, direction, length, speed, player).start();
@@ -150,7 +152,6 @@ public class RozdzkailuzjonistyManager {
             return;
         }
 
-        // ✅ Sprawdź czy Citizens jest dostępny
         boolean citizensEnabled = plugin.getServer().getPluginManager().isPluginEnabled("Citizens");
 
         setVanishCooldown(player);
@@ -174,7 +175,6 @@ public class RozdzkailuzjonistyManager {
                     config.getRozdzkailuzjonistyVanishSoundActivate());
         }
 
-        // ✅ Jeśli Citizens NIE jest dostępny - tylko ukryj gracza (bez NPC)
         if (!citizensEnabled) {
             startVanishWithoutNPC(player);
         } else {
@@ -182,14 +182,10 @@ public class RozdzkailuzjonistyManager {
         }
     }
 
-    /**
-     * ✅ VANISH BEZ NPC (jeśli Citizens nie jest załadowany)
-     */
     private void startVanishWithoutNPC(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
         int duration = config.getRozdzkailuzjonistyVanishDuration();
 
-        // Ukryj gracza
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (!online.equals(player)) {
                 online.hidePlayer(plugin, player);
@@ -201,7 +197,6 @@ public class RozdzkailuzjonistyManager {
         );
         activeVanishes.put(player.getUniqueId(), data);
 
-        // Timer zakończenia
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -212,9 +207,6 @@ public class RozdzkailuzjonistyManager {
         }.runTaskLater(plugin, duration * 20L);
     }
 
-    /**
-     * ✅ VANISH Z NPC (Citizens załadowany)
-     */
     private void startVanish(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
         int duration = config.getRozdzkailuzjonistyVanishDuration();
@@ -257,9 +249,6 @@ public class RozdzkailuzjonistyManager {
         );
         activeVanishes.put(player.getUniqueId(), data);
 
-        // ✅ ZWIĘKSZONA PRĘDKOŚĆ - 7-10 bloków/sekundę
-        // npcSpeed z configu = bloki/sekundę
-        // Podzielone przez 20 (ticki) = velocity na tick
         Vector direction = isGliding
                 ? player.getVelocity().clone().normalize().multiply(npcSpeed / 20.0)
                 : player.getLocation().getDirection().normalize().setY(0).normalize().multiply(npcSpeed / 20.0);
@@ -295,7 +284,6 @@ public class RozdzkailuzjonistyManager {
                 Location current = npc.getEntity().getLocation();
 
                 if (wasGliding) {
-                    // ✅ Spadanie z elytrą - zwiększona prędkość
                     Location next = current.clone().add(direction);
                     
                     Location ground = findGroundBelow(next, 2);
@@ -310,7 +298,6 @@ public class RozdzkailuzjonistyManager {
                     npc.getEntity().teleport(next);
 
                 } else {
-                    // ✅ Chodzenie - zwiększona prędkość (7-10 bloków/s)
                     Location nextHorizontal = current.clone().add(direction.getX(), 0, direction.getZ());
                     Location nextGround = findGroundForMovement(current, nextHorizontal);
 
@@ -493,8 +480,19 @@ public class RozdzkailuzjonistyManager {
         return damaged != null && damaged.contains(playerId);
     }
 
+    // ✅ NOWA METODA - ustawia właściciela szczęk
+    public void setFangOwner(EvokerFangs fang, Player owner) {
+        fangsOwners.put(fang, owner.getUniqueId());
+    }
+
+    // ✅ NOWA METODA - pobiera właściciela szczęk
+    public UUID getFangOwner(EvokerFangs fang) {
+        return fangsOwners.get(fang);
+    }
+
     public void cleanupFang(EvokerFangs fang) {
         fangsDamagedPlayers.remove(fang);
+        fangsOwners.remove(fang); // ✅ Usuń również śledzenie właściciela
     }
 
     public boolean canFangDamageInRegion(Location location) {
@@ -502,13 +500,11 @@ public class RozdzkailuzjonistyManager {
     }
 
     public void cleanup() {
-        // ✅ Cleanup wszystkich aktywnych vanishów
         for (UUID playerId : new HashSet<>(activeVanishes.keySet())) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
                 endVanish(player, true);
             } else {
-                // ✅ Gracz offline - usuń NPC jeśli istnieje
                 VanishData data = activeVanishes.remove(playerId);
                 if (data != null && data.getNpc() != null && data.getNpc().isSpawned()) {
                     data.getNpc().destroy();
@@ -519,6 +515,7 @@ public class RozdzkailuzjonistyManager {
         fangsCooldowns.clear();
         vanishCooldowns.clear();
         fangsDamagedPlayers.clear();
+        fangsOwners.clear(); // ✅ Wyczyść również mapę właścicieli
     }
 
     // ==================== INNER CLASSES ====================
@@ -544,7 +541,6 @@ public class RozdzkailuzjonistyManager {
 
                 @Override
                 public void run() {
-                    // ✅ Rzadsze spawny - co 1.5 bloka zamiast co blok
                     if (distance >= length) {
                         cancel();
                         return;
@@ -558,7 +554,9 @@ public class RozdzkailuzjonistyManager {
                     }
 
                     EvokerFangs fang = spawnLoc.getWorld().spawn(spawnLoc, EvokerFangs.class);
-                    fang.setOwner(owner);
+                    
+                    // ✅ USTAW WŁAŚCICIELA SZCZĘK
+                    setFangOwner(fang, owner);
 
                     distance++;
                 }
