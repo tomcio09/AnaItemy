@@ -12,6 +12,7 @@ public class AnaItemy extends JavaPlugin {
     private HydroKlatkaManager hydroKlatkaManager;
     private RozdzkailuzjonistyManager rozdzkailuzjonistyManager;
     private WedkaNielotaManager wedkaNielotaManager;
+    private WzmocnianaElytraManager wzmocnianaElytraManager;
     private ItemsConfig itemsConfig;
     private WorldGuardManager worldGuardManager;
     private CombatIntegrationManager combatIntegrationManager;
@@ -33,6 +34,7 @@ public class AnaItemy extends JavaPlugin {
         hydroKlatkaManager = new HydroKlatkaManager(this);
         rozdzkailuzjonistyManager = new RozdzkailuzjonistyManager(this);
         wedkaNielotaManager = new WedkaNielotaManager(this);
+        wzmocnianaElytraManager = new WzmocnianaElytraManager(this);
 
         // Informacja o Citizens
         if (!getServer().getPluginManager().isPluginEnabled("Citizens")) {
@@ -44,7 +46,6 @@ public class AnaItemy extends JavaPlugin {
         getCommand("itemyeventowe").setExecutor(cmd);
         getCommand("itemyeventowe").setTabCompleter(cmd);
 
-        // ✅ Utwórz TotemListener i zapisz referencję
         totemListener = new TotemListener(this);
 
         // Listenery
@@ -62,6 +63,7 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SakiewkaPortalListener(this), this);
         getServer().getPluginManager().registerEvents(new SakiewkaUUIDListener(this), this);
         getServer().getPluginManager().registerEvents(new CombatActionBarListener(this), this);
+        getServer().getPluginManager().registerEvents(new WzmocnianaElytraListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
@@ -71,6 +73,7 @@ public class AnaItemy extends JavaPlugin {
         if (hydroKlatkaManager != null) hydroKlatkaManager.cleanup();
         if (rozdzkailuzjonistyManager != null) rozdzkailuzjonistyManager.cleanup();
         if (wedkaNielotaManager != null) wedkaNielotaManager.cleanup();
+        if (wzmocnianaElytraManager != null) wzmocnianaElytraManager.cleanup();
         if (actionBarManager != null) actionBarManager.cleanup();
         getLogger().info("AnaItemy zostal wylaczony!");
     }
@@ -79,6 +82,7 @@ public class AnaItemy extends JavaPlugin {
     public HydroKlatkaManager getHydroKlatkaManager() { return hydroKlatkaManager; }
     public RozdzkailuzjonistyManager getRozdzkailuzjonistyManager() { return rozdzkailuzjonistyManager; }
     public WedkaNielotaManager getWedkaNielotaManager() { return wedkaNielotaManager; }
+    public WzmocnianaElytraManager getWzmocnianaElytraManager() { return wzmocnianaElytraManager; }
     public ItemsConfig getItemsConfig() { return itemsConfig; }
     public WorldGuardManager getWorldGuardManager() { return worldGuardManager; }
     public TotemListener getTotemListener() { return totemListener; }
