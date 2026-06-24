@@ -126,12 +126,16 @@ public class HydroKlatkaManager {
             public void run() {
                 if (!player.isOnline()) {
                     cancel();
+                    cooldownTasks.remove(player.getUniqueId());
+                    plugin.getActionBarManager().removeActionBar(player, "hydroklatka");
                     return;
                 }
 
                 long remaining = getPlayerCooldownRemaining(player);
                 if (remaining <= 0) {
                     cancel();
+                    cooldownTasks.remove(player.getUniqueId());
+                    plugin.getActionBarManager().removeActionBar(player, "hydroklatka");
                     return;
                 }
 
@@ -139,12 +143,11 @@ public class HydroKlatkaManager {
                 String message = config.getHydroKlatkaActionBarFormat()
                         .replace("{time}", String.valueOf(remaining));
 
-                player.sendActionBar(
-                        LegacyComponentSerializer.legacyAmpersand().deserialize(message)
-                );
+                // ✅ Użyj ActionBarManager zamiast bezpośredniego wysyłania
+                plugin.getActionBarManager().setActionBar(player, "hydroklatka", message);
             }
         }.runTaskTimer(plugin, 0L, 20L);
-
+    
         cooldownTasks.put(player.getUniqueId(), task);
     }
 
@@ -153,7 +156,7 @@ public class HydroKlatkaManager {
         if (task != null) {
             task.cancel();
         }
-        player.sendActionBar(net.kyori.adventure.text.Component.empty());
+        plugin.getActionBarManager().removeActionBar(player, "hydroklatka");
     }
 
     // ==================== MESSAGES ====================
