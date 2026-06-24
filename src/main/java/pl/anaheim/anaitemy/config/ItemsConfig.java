@@ -568,6 +568,6 @@ public class ItemsConfig {
 
     public String getProtectionSubtitle(String itemId) {
         return config.getString(itemId + ".protection-messages.subtitle",
-                "&7Spróbuj ponownie za: &e{seconds_left}s&7!");
+                "&7Spróbuj za: &e{seconds_left}s&7!");
     }
 }
