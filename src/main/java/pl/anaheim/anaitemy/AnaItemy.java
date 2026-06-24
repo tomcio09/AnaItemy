@@ -17,6 +17,7 @@ public class AnaItemy extends JavaPlugin {
     private WorldGuardManager worldGuardManager;
     private CombatIntegrationManager combatIntegrationManager;
     private ActionBarManager actionBarManager;
+    private ItemProtectionManager itemProtectionManager;
     private TotemListener totemListener;
 
     @Override
@@ -31,6 +32,7 @@ public class AnaItemy extends JavaPlugin {
         worldGuardManager = new WorldGuardManager(this);
         combatIntegrationManager = new CombatIntegrationManager(this);
         actionBarManager = new ActionBarManager(this);
+        itemProtectionManager = new ItemProtectionManager(this);
         hydroKlatkaManager = new HydroKlatkaManager(this);
         rozdzkailuzjonistyManager = new RozdzkailuzjonistyManager(this);
         wedkaNielotaManager = new WedkaNielotaManager(this);
@@ -75,6 +77,7 @@ public class AnaItemy extends JavaPlugin {
         if (wedkaNielotaManager != null) wedkaNielotaManager.cleanup();
         if (wzmocnianaElytraManager != null) wzmocnianaElytraManager.cleanup();
         if (actionBarManager != null) actionBarManager.cleanup();
+        if (itemProtectionManager != null) itemProtectionManager.cleanup();
         getLogger().info("AnaItemy zostal wylaczony!");
     }
 
@@ -88,4 +91,5 @@ public class AnaItemy extends JavaPlugin {
     public TotemListener getTotemListener() { return totemListener; }
     public CombatIntegrationManager getCombatIntegrationManager() { return combatIntegrationManager; }
     public ActionBarManager getActionBarManager() { return actionBarManager; }
+    public ItemProtectionManager getItemProtectionManager() { return itemProtectionManager; }
 }
