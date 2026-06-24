@@ -17,6 +17,7 @@ import pl.anaheim.anaitemy.gui.EventoweGUI;
 import pl.anaheim.anaitemy.items.*;
 import pl.anaheim.anaitemy.managers.BlokWidmoManager;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
+import pl.anaheim.anaitemy.managers.HydroTrojzabManager;
 import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
 import pl.anaheim.anaitemy.managers.SiekieraGrinchaManager;
 import pl.anaheim.anaitemy.managers.WedkaNielotaManager;
@@ -31,7 +32,8 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
     private final AnaItemy plugin;
 
     private static final List<String> ITEM_IDS = Arrays.asList(
-            "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka", "elytra", "blokwidmo", "siekiera"
+            "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka",
+            "elytra", "blokwidmo", "siekiera", "hydrotrident"
     );
 
     public ItemyEventoweCommand(AnaItemy plugin) {
@@ -49,7 +51,6 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // /itemyeventowe
         if (args.length == 0) {
             if (!(sender instanceof Player player)) {
                 sender.sendMessage("Ta komenda jest tylko dla graczy!");
@@ -59,13 +60,11 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // /itemyeventowe reload
         if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
             handleReload(sender);
             return true;
         }
 
-        // /itemyeventowe kills <liczba>
         if (args.length == 2 && args[0].equalsIgnoreCase("kills")) {
             if (!(sender instanceof Player player)) {
                 sender.sendMessage("Ta komenda jest tylko dla graczy!");
@@ -75,13 +74,11 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // /itemyeventowe give <id> <nick> <ilość>
         if (args.length == 4 && args[0].equalsIgnoreCase("give")) {
             handleGiveCommand(sender, args[1], args[2], args[3]);
             return true;
         }
 
-        // /itemyeventowe cooldown reset <nick>
         if (args.length == 3
                 && args[0].equalsIgnoreCase("cooldown")
                 && args[1].equalsIgnoreCase("reset")) {
@@ -89,15 +86,11 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // /itemyeventowe klatwa naloz <nick>
-        // /itemyeventowe klatwa zdejmij <nick>
         if (args.length == 3 && args[0].equalsIgnoreCase("klatwa")) {
             handleKlatwaCommand(sender, args[1], args[2]);
             return true;
         }
 
-        // /itemyeventowe widmo naloz <nick>
-        // /itemyeventowe widmo zdejmij <nick>
         if (args.length == 3 && args[0].equalsIgnoreCase("widmo")) {
             handleWidmoCommand(sender, args[1], args[2]);
             return true;
@@ -137,7 +130,6 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        // Sakiewki generujemy osobno, każda unikalna
         if (itemId.equalsIgnoreCase("sakiewka")) {
             int freeSlots = countFreeSlots(target);
 
@@ -190,6 +182,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "elytra" -> WzmocnianaElytra.create();
             case "blokwidmo" -> BlokWidmoItem.create();
             case "siekiera" -> SiekieraGrinchaItem.create();
+            case "hydrotrident", "hydrotrojzab" -> HydroTrojzabItem.create();
             default -> null;
         };
     }
@@ -205,6 +198,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "elytra" -> "&5Wzmocniana Elytra";
             case "blokwidmo" -> "&cBlok Widmo";
             case "siekiera" -> "&2Siekiera Grincha";
+            case "hydrotrident", "hydrotrojzab" -> "&3Hydro Trójząb";
             default -> id;
         };
     }
@@ -268,6 +262,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         WedkaNielotaManager wedkaManager = plugin.getWedkaNielotaManager();
         BlokWidmoManager blokWidmoManager = plugin.getBlokWidmoManager();
         SiekieraGrinchaManager siekieraGrinchaManager = plugin.getSiekieraGrinchaManager();
+        HydroTrojzabManager hydroTrojzabManager = plugin.getHydroTrojzabManager();
 
         hydroManager.resetCooldown(target);
         target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
@@ -279,6 +274,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         wedkaManager.resetCooldown(target);
         blokWidmoManager.resetCooldown(target);
         siekieraGrinchaManager.resetCooldown(target);
+        hydroTrojzabManager.resetCooldowns(target);
 
         sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
         target.sendMessage(color("&aTwoje cooldowny zostały zresetowane przez &f" + sender.getName() + "&a!"));
