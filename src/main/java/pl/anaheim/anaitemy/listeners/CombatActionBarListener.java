@@ -5,9 +5,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.scheduler.BukkitRunnable;
 import pl.anaheim.anaitemy.AnaItemy;
-import pl.anaheim.anaitemy.managers.CombatIntegrationManager;
 
 /**
  * ✅ Listener który monitoruje stan walki - ActionBarManager się tym zajmuje teraz.
@@ -23,5 +21,8 @@ public class CombatActionBarListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
         plugin.getActionBarManager().clearAll(event.getPlayer());
+        
+        // ✅ Usuń ochronę przy wylogowaniu
+        plugin.getItemProtectionManager().removeProtection(event.getPlayer());
     }
 }
