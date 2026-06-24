@@ -439,7 +439,59 @@ hydro-trojzab:
   protection-messages:
     title: '&c&lNie zadziałało!'
     subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+# ==========================================
+#         CUDOWNA LATARNIA
+# ==========================================
+cudowna-latarnia:
+  material: BEACON
+  name: '&d&lCudowna Latarnia'
+  lore:
+    - ''
+    - ' &8» &7Przedmiot z &7świątecznego wydarzenia 2025&7!'
+    - ''
+    - ' &8» &7Po postawieniu otrzymujesz:'
+    - ' &8» &dRegenerację V &8(20s)'
+    - ' &8» &eAbsorpcję VI &8(10s)'
+    - ' &8» &cSiłę II &8(10s)'
+    - ''
+    - ' &8» &7Fontanna pozostaje aktywna przez &f30 sekund&7.'
+    - ' &8» &7Efekty działają w zasięgu &f30 kratek&7.'
+    - ' &8» &7Zniszczenie fontanny usuwa efekty.'
+  custom-model-data: 0
+  gui-slot: 10
+  enchants:
+    unbreaking: 10
 
+  duration: 30
+  cooldown: 180
+  chunk-cooldown: 60
+
+  effects:
+    regeneration:
+      level: 5
+      duration: 20
+    absorption:
+      level: 6
+      duration: 10
+    strength:
+      level: 2
+      duration: 10
+
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+
+  messages:
+    activated-subtitle: '&5Cudowna Latarnia! &7Aktywowana na &d30 sekund&7!'
+    destroyed-subtitle: '&7Zniszczyłeś &5legendarną fontannę&7!'
+
+  bossbar:
+    title: '&5Cudowna Latarnia aktywna! &7(&d{seconds_left}s&7)'
+    color: PURPLE
+
+  respects-protection: false
+  notify-attacker: false
 # ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
