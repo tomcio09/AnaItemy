@@ -754,4 +754,72 @@ public class ItemsConfig {
         return config.getString("hydro-trojzab.messages.launch-cooldown-subtitle",
                 "&7Wystrzelenia możesz użyć za: &b{seconds_left}&7!");
     }
+        // ==================== CUDOWNA LATARNIA ====================
+
+    public String getCudownaLatarniaName() {
+        return config.getString("cudowna-latarnia.name", "&d&lCudowna Latarnia");
+    }
+
+    public int getCudownaLatarniaGuiSlot() {
+        return config.getInt("cudowna-latarnia.gui-slot", 10);
+    }
+
+    public int getCudownaLatarniaDuration() {
+        return config.getInt("cudowna-latarnia.duration", 30);
+    }
+
+    public long getCudownaLatarniaCooldown() {
+        return config.getLong("cudowna-latarnia.cooldown", 180);
+    }
+
+    public long getCudownaLatarniaChunkCooldown() {
+        return config.getLong("cudowna-latarnia.chunk-cooldown", 60);
+    }
+
+    public int getCudownaLatarniaRegenDuration() {
+        return config.getInt("cudowna-latarnia.effects.regeneration.duration", 20);
+    }
+
+    public int getCudownaLatarniaRegenLevel() {
+        return config.getInt("cudowna-latarnia.effects.regeneration.level", 5);
+    }
+
+    public int getCudownaLatarniaAbsorptionDuration() {
+        return config.getInt("cudowna-latarnia.effects.absorption.duration", 10);
+    }
+
+    public int getCudownaLatarniaAbsorptionLevel() {
+        return config.getInt("cudowna-latarnia.effects.absorption.level", 6);
+    }
+
+    public int getCudownaLatarniaStrengthDuration() {
+        return config.getInt("cudowna-latarnia.effects.strength.duration", 10);
+    }
+
+    public int getCudownaLatarniaStrengthLevel() {
+        return config.getInt("cudowna-latarnia.effects.strength.level", 2);
+    }
+
+    public List<String> getCudownaLatarniaBlockedRegions() {
+        return config.getStringList("cudowna-latarnia.blocked-regions");
+    }
+
+    public String getCudownaLatarniaActivatedSubtitle() {
+        return config.getString("cudowna-latarnia.messages.activated-subtitle",
+                "&5Cudowna Latarnia! &7Aktywowana na &d30 sekund&7!");
+    }
+
+    public String getCudownaLatarniaDestroyedSubtitle() {
+        return config.getString("cudowna-latarnia.messages.destroyed-subtitle",
+                "&7Zniszczyłeś &5legendarną fontannę&7!");
+    }
+
+    public String getCudownaLatarniaBossBarTitle() {
+        return config.getString("cudowna-latarnia.bossbar.title",
+                "&5Cudowna Latarnia aktywna! &7(&d{seconds_left}s&7)");
+    }
+
+    public String getCudownaLatarniaBossBarColor() {
+        return config.getString("cudowna-latarnia.bossbar.color", "PURPLE");
+    }
 }
