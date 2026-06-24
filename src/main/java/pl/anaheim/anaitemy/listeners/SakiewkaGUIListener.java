@@ -55,14 +55,27 @@ public class SakiewkaGUIListener implements Listener {
 
         // ✅ Sprawdź czy gracz jest w walce
         ItemsConfig config = plugin.getItemsConfig();
+
+        // ✅ DEBUG LOG
+        plugin.getLogger().info("[Sakiewka] Gracz " + player.getName() + " probuje otworzyc sakiewke");
+        plugin.getLogger().info("[Sakiewka] Config block-in-combat: " + config.isBlockSakiewkaInCombat());
+        plugin.getLogger().info("[Sakiewka] Combat integration enabled: " + plugin.getCombatIntegrationManager().isEnabled());
+
         if (config.isBlockSakiewkaInCombat()) {
-            if (plugin.getCombatIntegrationManager().isInCombat(player)) {
+            boolean inCombat = plugin.getCombatIntegrationManager().isInCombat(player);
+
+            // ✅ DEBUG LOG
+            plugin.getLogger().info("[Sakiewka] Is in combat: " + inCombat);
+
+            if (inCombat) {
                 String message = config.getSakiewkaCombatBlockedMessage();
                 player.sendMessage(LegacyComponentSerializer.legacyAmpersand()
                         .deserialize(message));
 
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO,
                         SoundCategory.PLAYERS, 1.0f, 1.0f);
+
+                plugin.getLogger().info("[Sakiewka] ZABLOKOWANO otwieranie sakiewki dla " + player.getName());
                 return;
             }
         }
