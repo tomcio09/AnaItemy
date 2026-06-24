@@ -12,9 +12,11 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * ✅ Uproszczony manager action barów.
- * Podczas combatu - kompletnie czyszczamy nasze bary i NIE wysyłamy nic.
- * Po combatu - wznowienie naszych barów.
+ * ✅ Centralny manager action barów.
+ * 
+ * Wszystkie action bary pluginu przechodzą przez ten manager.
+ * Podczas combatu - nie wysyłamy niczego (Antylogout ma pełną kontrolę).
+ * Gdy jest kilka naszych barów (elytra + hydroklatka) - łączymy je w jeden.
  */
 public class ActionBarManager {
 
@@ -23,7 +25,7 @@ public class ActionBarManager {
     // Nasze aktywne action bary (gracz -> źródło -> tekst)
     private final Map<UUID, Map<String, String>> pendingActionBars = new ConcurrentHashMap<>();
 
-    // Gracze którzy byli w combatie - nie pokazujemy naszych barów
+    // Gracze którzy są w combatie
     private final Set<UUID> inCombat = ConcurrentHashMap.newKeySet();
 
     private BukkitTask tickTask;
@@ -34,7 +36,8 @@ public class ActionBarManager {
     }
 
     /**
-     * ✅ Co sekundę sprawdzaj combat i wysyłaj nasze action bary TYLKO gdy nie ma combatu.
+     * ✅ Co sekundę sprawdzaj combat i wysyłaj nasze action bary.
+     * Jeśli jest kilka barów - łącz je w jeden z separatorem " &8| ".
      */
     private void startTickTask() {
         tickTask = new BukkitRunnable() {
@@ -55,27 +58,35 @@ public class ActionBarManager {
                     boolean playerInCombat = combat.isInCombat(player);
 
                     if (playerInCombat) {
-                        // ✅ GRACZ W COMBATIE - Nie wysyłamy NICZEGO (Antylogout ma pełną kontrolę)
+                        // ✅ GRACZ W COMBATIE - Nie wysyłamy NICZEGO
                         inCombat.add(playerId);
                         continue;
                     }
 
-                    // ✅ GRACZ NIE W COMBATIE - Wysyłaj nasze action bary
+                    // ✅ GRACZ WYSZEDŁ Z COMBATU
                     if (inCombat.contains(playerId)) {
-                        // Dopiero co wyszedł z combatu - wyczyść action bar
-                        player.sendActionBar(Component.empty());
                         inCombat.remove(playerId);
                     }
 
+                    // ✅ POŁĄCZ WSZYSTKIE BARY W JEDEN
                     Map<String, String> bars = entry.getValue();
-                    if (!bars.isEmpty()) {
-                        String firstBar = bars.values().iterator().next();
-                        player.sendActionBar(LegacyComponentSerializer.legacyAmpersand()
-                                .deserialize(firstBar));
+                    if (bars.isEmpty()) continue;
+
+                    StringBuilder combined = new StringBuilder();
+                    boolean first = true;
+                    for (String barText : bars.values()) {
+                        if (!first) {
+                            combined.append(" &8| ");
+                        }
+                        combined.append(barText);
+                        first = false;
                     }
+
+                    player.sendActionBar(LegacyComponentSerializer.legacyAmpersand()
+                            .deserialize(combined.toString()));
                 }
             }
-        }.runTaskTimer(plugin, 0L, 20L); // Co 1 sekundę
+        }.runTaskTimer(plugin, 0L, 10L); // ✅ Co 10 ticków (0.5s)
     }
 
     /**
@@ -95,7 +106,6 @@ public class ActionBarManager {
             bars.remove(source);
             if (bars.isEmpty()) {
                 pendingActionBars.remove(player.getUniqueId());
-                // Wyczyść tylko jeśli nie ma combatu
                 if (!plugin.getCombatIntegrationManager().isInCombat(player)) {
                     player.sendActionBar(Component.empty());
                 }
