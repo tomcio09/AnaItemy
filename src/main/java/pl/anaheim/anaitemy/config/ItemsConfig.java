@@ -544,4 +544,30 @@ public class ItemsConfig {
         return config.getString("sakiewka-dropu.messages.combat-blocked",
                 "&cNie możesz otworzyć sakiewki podczas walki!");
     }
+    // ==================== ITEM PROTECTION ====================
+
+    public boolean isItemProtectionEnabled() {
+        return plugin.getConfig().getBoolean("item-protection.enabled", true);
+    }
+
+    public int getItemProtectionDuration() {
+        return plugin.getConfig().getInt("item-protection.duration", 4);
+    }
+
+    public boolean doesItemRespectProtection(String itemId) {
+        return config.getBoolean(itemId + ".respects-protection", false);
+    }
+    
+    public boolean shouldNotifyAttacker(String itemId) {
+        return config.getBoolean(itemId + ".notify-attacker", false);
+    }
+
+    public String getProtectionTitle(String itemId) {
+        return config.getString(itemId + ".protection-messages.title", "&c&lNie zadziałało!");
+    }
+
+    public String getProtectionSubtitle(String itemId) {
+        return config.getString(itemId + ".protection-messages.subtitle",
+                "&7Spróbuj ponownie za: &e{seconds_left}s&7!");
+    }
 }
