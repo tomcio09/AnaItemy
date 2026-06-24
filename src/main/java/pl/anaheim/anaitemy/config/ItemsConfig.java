@@ -518,4 +518,26 @@ public class ItemsConfig {
     public List<String> getSakiewkaBlockedRegionsNoPayout() {
         return config.getStringList("sakiewka-dropu.blocked-regions-no-payout");
     }
+        // ==================== COMBAT INTEGRATION ====================
+
+    public boolean isCombatIntegrationEnabled() {
+        return config.getBoolean("combat-integration.enabled", true);
+    }
+
+    public boolean isBlockSakiewkaInCombat() {
+        return config.getBoolean("combat-integration.block-sakiewka-in-combat", true);
+    }
+
+    public boolean isActionBarIntegrationEnabled() {
+        return config.getBoolean("combat-integration.actionbar.enabled", true);
+    }
+
+    public int getActionBarResumeDelay() {
+        return config.getInt("combat-integration.actionbar.resume-delay", 40);
+    }
+
+    public String getSakiewkaCombatBlockedMessage() {
+        return config.getString("sakiewka-dropu.messages.combat-blocked",
+                "&cNie możesz otworzyć sakiewki podczas walki!");
+    }
 }
