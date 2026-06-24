@@ -1,5 +1,6 @@
 package pl.anaheim.anaitemy.listeners;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -10,10 +11,12 @@ import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.items.SakiewkaDropu;
 import pl.anaheim.anaitemy.items.TotemUlaskawienia;
+import pl.anaheim.anaitemy.managers.CombatIntegrationManager;
 import pl.anaheim.anaitemy.utils.SakiewkaData;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class SakiewkaListener implements Listener {
 
@@ -28,9 +31,6 @@ public class SakiewkaListener implements Listener {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
 
-        // Sprawdź czy zabójcą jest gracz
-        if (killer == null) return;
-
         // ✅ SPRAWDZENIE 1: Czy keepInventory jest aktywne
         if (event.getKeepInventory()) {
             return;
@@ -42,7 +42,6 @@ public class SakiewkaListener implements Listener {
         }
 
         // ✅ SPRAWDZENIE 3: Czy ofiara miała Totem Ułaskawienia w ręku/offhand
-        // (dodatkowe zabezpieczenie na wypadek innych totemów)
         ItemStack mainHand = victim.getInventory().getItemInMainHand();
         ItemStack offHand = victim.getInventory().getItemInOffHand();
 
@@ -56,18 +55,39 @@ public class SakiewkaListener implements Listener {
             return;
         }
 
-        // ✅ SPRAWDZENIE 5: Czy killer ma sakiewkę w ekwipunku
-        List<ItemStack> sakiewki = findAllSakiewki(killer);
+        // ✅ SPRAWDZENIE 5: Czy gracz uciekł z walki (wylogował się)
+        CombatIntegrationManager combat = plugin.getCombatIntegrationManager();
+        if (combat.wasLogoutDeath(victim.getUniqueId())) {
+            // Gracz UCIEKŁ - itemy NIE trafiają do sakiewki, wypadają normalnie
+            return;
+        }
+
+        // ✅ SPRAWDZENIE 6: Ustal killera (z combat pluginu lub z eventu)
+        Player realKiller = killer;
+
+        if (realKiller == null && combat.isEnabled()) {
+            // Śmierć w walce bez bezpośredniego killera (void, dripstone itp.)
+            UUID killerUUID = combat.getKillerOf(victim.getUniqueId());
+            if (killerUUID != null) {
+                realKiller = Bukkit.getPlayer(killerUUID);
+            }
+        }
+
+        // Sprawdź czy mamy killera
+        if (realKiller == null) return;
+
+        // ✅ SPRAWDZENIE 7: Czy killer ma sakiewkę w ekwipunku
+        List<ItemStack> sakiewki = findAllSakiewki(realKiller);
         if (sakiewki.isEmpty()) return;
 
-        // ✅ SPRAWDZENIE 6: Zablokowane regiony
+        // ✅ SPRAWDZENIE 8: Zablokowane regiony
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getSakiewkaBlockedRegions();
         if (plugin.getWorldGuardManager().isInBlockedRegion(victim.getLocation(), blockedRegions)) {
             return;
         }
 
-        // ✅ Zbierz wszystkie itemy ofiary (TYLKO z event.getDrops())
+        // ✅ Zbierz wszystkie itemy ofiary
         List<ItemStack> dropsToCollect = new ArrayList<>(event.getDrops());
 
         if (dropsToCollect.isEmpty()) return;
@@ -86,14 +106,11 @@ public class SakiewkaListener implements Listener {
         // ✅ DEBUG LOG
         int collected = dropsToCollect.size() - overflow.size();
         if (collected > 0) {
-            plugin.getLogger().info("[Sakiewka] " + killer.getName() +
+            plugin.getLogger().info("[Sakiewka] " + realKiller.getName() +
                     " zebral " + collected + " itemow po zabiciu " + victim.getName());
         }
     }
 
-    /**
-     * Znajduje wszystkie sakiewki w ekwipunku gracza (w kolejności slotów).
-     */
     private List<ItemStack> findAllSakiewki(Player player) {
         List<ItemStack> sakiewki = new ArrayList<>();
 
