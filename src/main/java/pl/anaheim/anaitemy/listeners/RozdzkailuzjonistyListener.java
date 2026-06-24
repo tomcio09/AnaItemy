@@ -12,10 +12,10 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.items.RozdzkailuzjonistyItem;
+import pl.anaheim.anaitemy.items.TotemUlaskawienia;
 import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
 
 public class RozdzkailuzjonistyListener implements Listener {
@@ -36,22 +36,18 @@ public class RozdzkailuzjonistyListener implements Listener {
 
         Action action = event.getAction();
 
-        // LPM (LEFT CLICK) - Szczęki Evokera
         if (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK) {
             event.setCancelled(true);
             manager.activateFangs(player);
             return;
         }
 
-        // PPM (RIGHT CLICK) - Zniknięcie
         if (action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK) {
             event.setCancelled(true);
             manager.activateVanish(player);
             return;
         }
     }
-
-    // ==================== FANGS DAMAGE ====================
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onFangDamage(EntityDamageByEntityEvent event) {
@@ -60,13 +56,11 @@ public class RozdzkailuzjonistyListener implements Listener {
 
         RozdzkailuzjonistyManager manager = plugin.getRozdzkailuzjonistyManager();
 
-        // ✅ NOWA LOGIKA: Sprawdź czy ta szczęka już zabiła tego gracza
         if (manager.hasFangDamaged(fang, victim.getUniqueId())) {
             event.setCancelled(true);
             return;
         }
 
-        // Sprawdź czy lokalizacja jest w zablokowanym regionie
         if (!manager.canFangDamageInRegion(victim.getLocation())) {
             event.setCancelled(true);
             fang.remove();
@@ -77,28 +71,34 @@ public class RozdzkailuzjonistyListener implements Listener {
         // ✅ ANULUJ domyślne damage
         event.setCancelled(true);
 
-        // ✅ ZASTOSUJ CUSTOM DAMAGE BEZPOŚREDNIO (bez damage events)
+        // ✅ SPRAWDŹ TOTEM UŁASKAWIENIA
         ItemsConfig config = plugin.getItemsConfig();
         double damage = config.getRozdzkailuzjonistyFangsDamage();
 
-        // Odejmij HP bezpośrednio
         double newHealth = victim.getHealth() - damage;
-        
+
         if (newHealth <= 0) {
-            victim.setHealth(0); // Gracz umiera
+            // ✅ Gracz by umarł - sprawdź totem
+            ItemStack mainHand = victim.getInventory().getItemInMainHand();
+            ItemStack offHand = victim.getInventory().getItemInOffHand();
+
+            if (TotemUlaskawienia.isTotemUlaskawienia(mainHand) ||
+                    TotemUlaskawienia.isTotemUlaskawienia(offHand)) {
+                // ✅ Totem go ratuje - ustaw 1 HP zamiast zabijać
+                victim.setHealth(1.0);
+                // Totem zostanie zużyty normalnie przez TotemListener przy śmierci
+                // Ale tutaj gracz przeżywa z 1 HP
+            } else {
+                victim.setHealth(0);
+            }
         } else {
             victim.setHealth(newHealth);
         }
 
-        // ✅ Oznacz że szczęka trafiła tego gracza
         manager.markFangDamaged(fang, victim.getUniqueId());
-
-        // Usuń szczękę po trafieniu
         fang.remove();
         manager.cleanupFang(fang);
     }
-
-    // ==================== VANISH - ZAKOŃCZENIE PRZY ATAKU ====================
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDamage(EntityDamageByEntityEvent event) {
@@ -106,7 +106,6 @@ public class RozdzkailuzjonistyListener implements Listener {
 
         RozdzkailuzjonistyManager manager = plugin.getRozdzkailuzjonistyManager();
 
-        // Jeśli gracz jest w zniknięciu i atakuje - zakończ zniknięcie
         if (manager.isVanished(attacker)) {
             manager.endVanish(attacker, true);
         }
@@ -117,7 +116,6 @@ public class RozdzkailuzjonistyListener implements Listener {
         Player player = event.getPlayer();
         RozdzkailuzjonistyManager manager = plugin.getRozdzkailuzjonistyManager();
 
-        // Jeśli gracz jest w zniknięciu i interactuje z entity - zakończ zniknięcie
         if (manager.isVanished(player)) {
             manager.endVanish(player, true);
         }
