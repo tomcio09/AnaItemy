@@ -65,6 +65,24 @@ public class RozdzkailuzjonistyListener implements Listener {
             return;
         }
 
+        // ✅ SPRAWDŹ OCHRONĘ PRZED RÓŻDŻKĄ
+        if (fang.getShooter() instanceof Player attacker) {
+            if (plugin.getItemProtectionManager().isProtected(victim, "rozdzka-iluzjonisty")) {
+                event.setCancelled(true);
+                
+                int secondsLeft = plugin.getItemProtectionManager()
+                        .getRemainingSeconds(victim, "rozdzka-iluzjonisty");
+                
+                plugin.getItemProtectionManager()
+                        .notifyAttacker(attacker, "rozdzka-iluzjonisty", secondsLeft);
+                
+                manager.markFangDamaged(fang, victim.getUniqueId());
+                fang.remove();
+                manager.cleanupFang(fang);
+                return;
+            }
+        }
+
         // ✅ ANULUJ domyślne damage
         event.setCancelled(true);
 
@@ -80,6 +98,9 @@ public class RozdzkailuzjonistyListener implements Listener {
         } else {
             victim.setHealth(newHealth);
         }
+
+        // ✅ NAŁÓŻ OCHRONĘ PO ZADANIU DAMAGE
+        plugin.getItemProtectionManager().applyProtection(victim, "rozdzka-iluzjonisty");
 
         manager.markFangDamaged(fang, victim.getUniqueId());
         fang.remove();
