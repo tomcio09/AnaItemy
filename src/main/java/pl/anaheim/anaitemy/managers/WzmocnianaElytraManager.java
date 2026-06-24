@@ -37,6 +37,9 @@ public class WzmocnianaElytraManager {
     // Shift clicks (UUID -> liczba kliknięć)
     private final Map<UUID, Integer> shiftClicks = new ConcurrentHashMap<>();
 
+    // Poprzednia pozycja gracza (do liczenia dystansu)
+    private final Map<UUID, Location> previousLocations = new ConcurrentHashMap<>();
+
     private static final double DISTANCE_PER_1_PERCENT = 5.0; // 500 bloków = 100%
     private static final int MAX_CHARGE = 100;
     private static final int DAMAGE_RADIUS = 5;
@@ -49,7 +52,7 @@ public class WzmocnianaElytraManager {
     }
 
     /**
-     * ✅ Monitoruj lot graczy z elytrą.
+     * ✅ Monitoruj lot graczy z elytrą - CO TICK!
      */
     private void startFlightMonitor() {
         new BukkitRunnable() {
@@ -58,9 +61,9 @@ public class WzmocnianaElytraManager {
                 for (Player player : plugin.getServer().getOnlinePlayers()) {
                     ItemStack chestplate = player.getInventory().getChestplate();
 
-                    // Gracz leci z wzmocnianą elytrą
+                    // ✅ Gracz leci z wzmocnianą elytrą
                     if (player.isGliding() && WzmocnianaElytra.isWzmocnianaElytra(chestplate)) {
-                        startFlying(player, chestplate);
+                        updateFlying(player, chestplate);
                     } else {
                         // Gracz przestał lecieć lub zdje elytrę
                         stopFlying(player);
@@ -70,33 +73,43 @@ public class WzmocnianaElytraManager {
         }.runTaskTimer(plugin, 0L, 1L); // Co tick
     }
 
-    private void startFlying(Player player, ItemStack elytra) {
+    /**
+     * ✅ Aktualizuj lot gracza - liczenie dystansu.
+     */
+    private void updateFlying(Player player, ItemStack elytra) {
         UUID uuid = player.getUniqueId();
+        Location currentLoc = player.getLocation();
 
-        // Jeśli już leci - aktualizuj dystans
-        if (playerFlightDistance.containsKey(uuid)) {
-            Vector vel = player.getVelocity();
-            double distance = Math.sqrt(vel.getX() * vel.getX() + vel.getZ() * vel.getZ() + vel.getY() * vel.getY());
-            playerFlightDistance.put(uuid, playerFlightDistance.get(uuid) + distance);
-        } else {
-            // Nowy lot - resetuj procent i dystans
+        // ✅ PIERWSZY LOT - resetuj wszystko
+        if (!playerFlightDistance.containsKey(uuid)) {
             WzmocnianaElytra.resetCharge(elytra);
             playerFlightDistance.put(uuid, 0.0);
+            previousLocations.put(uuid, currentLoc.clone());
             startActionBarDisplay(player);
+            return;
         }
 
-        // Załaduj elytrę
-        double totalDistance = playerFlightDistance.get(uuid);
-        double charge = Math.min(100.0, (totalDistance / DISTANCE_PER_1_PERCENT) * 100.0);
-        WzmocnianaElytra.setCharge(elytra, charge);
+        // ✅ DODAJ DYSTANS - liczba przeletanych bloków
+        Location prevLoc = previousLocations.get(uuid);
+        if (prevLoc != null) {
+            double distance = currentLoc.distance(prevLoc);
+            double totalDistance = playerFlightDistance.get(uuid) + distance;
+            playerFlightDistance.put(uuid, totalDistance);
 
-        // Resetuj shift clicks
-        shiftClicks.remove(uuid);
+            // ✅ ZAŁADUJ ELYTRĘ
+            double charge = Math.min(100.0, (totalDistance / DISTANCE_PER_1_PERCENT) * 100.0);
+            WzmocnianaElytra.setCharge(elytra, charge);
+
+            plugin.getLogger().info("[DEBUG] Gracz: " + player.getName() + " | Dystans: " + String.format("%.2f", totalDistance) + " | Charge: " + String.format("%.2f", charge) + "%");
+        }
+
+        previousLocations.put(uuid, currentLoc.clone());
     }
 
     private void stopFlying(Player player) {
         UUID uuid = player.getUniqueId();
         playerFlightDistance.remove(uuid);
+        previousLocations.remove(uuid);
         shiftClicks.remove(uuid);
 
         BukkitTask task = flyingPlayers.remove(uuid);
@@ -153,7 +166,7 @@ public class WzmocnianaElytraManager {
                             .deserialize(elytraBar));
                 }
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, 1L); // Co tick
 
         flyingPlayers.put(uuid, task);
     }
@@ -177,6 +190,7 @@ public class WzmocnianaElytraManager {
             // ✅ Resetuj ładowanie
             WzmocnianaElytra.resetCharge(chestplate);
             playerFlightDistance.put(uuid, 0.0);
+            previousLocations.put(uuid, player.getLocation().clone());
             shiftClicks.remove(uuid);
 
             // Wyślij wiadomość
@@ -199,8 +213,8 @@ public class WzmocnianaElytraManager {
         double charge = WzmocnianaElytra.getCharge(chestplate);
         if (charge < 100.0) return;
 
-        Location center = player.getLocation();
-        center.setY(player.getLocation().getY() - 1); // Gdzie gracz uderzył
+        Location center = player.getLocation().clone();
+        center.setY(center.getY() - 1); // Gdzie gracz uderzył
 
         // ✅ PIORUN - visual only
         center.getWorld().strikeLightningEffect(center);
@@ -238,6 +252,7 @@ public class WzmocnianaElytraManager {
         // ✅ RESETUJ CHARGE
         WzmocnianaElytra.resetCharge(chestplate);
         playerFlightDistance.remove(player.getUniqueId());
+        previousLocations.remove(player.getUniqueId());
     }
 
     public void cleanup() {
@@ -246,6 +261,7 @@ public class WzmocnianaElytraManager {
         }
         flyingPlayers.clear();
         playerFlightDistance.clear();
+        previousLocations.clear();
         shiftClicks.clear();
     }
 }
