@@ -14,6 +14,7 @@ public class AnaItemy extends JavaPlugin {
     private WedkaNielotaManager wedkaNielotaManager;
     private WzmocnianaElytraManager wzmocnianaElytraManager;
     private BlokWidmoManager blokWidmoManager;
+    private SiekieraGrinchaManager siekieraGrinchaManager;
     private ItemsConfig itemsConfig;
     private WorldGuardManager worldGuardManager;
     private CombatIntegrationManager combatIntegrationManager;
@@ -39,6 +40,7 @@ public class AnaItemy extends JavaPlugin {
         wedkaNielotaManager = new WedkaNielotaManager(this);
         wzmocnianaElytraManager = new WzmocnianaElytraManager(this);
         blokWidmoManager = new BlokWidmoManager(this);
+        siekieraGrinchaManager = new SiekieraGrinchaManager(this);
 
         // Informacja o Citizens
         if (!getServer().getPluginManager().isPluginEnabled("Citizens")) {
@@ -69,6 +71,7 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CombatActionBarListener(this), this);
         getServer().getPluginManager().registerEvents(new WzmocnianaElytraListener(this), this);
         getServer().getPluginManager().registerEvents(new BlokWidmoListener(this), this);
+        getServer().getPluginManager().registerEvents(new SiekieraGrinchaListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
@@ -80,6 +83,7 @@ public class AnaItemy extends JavaPlugin {
         if (wedkaNielotaManager != null) wedkaNielotaManager.cleanup();
         if (wzmocnianaElytraManager != null) wzmocnianaElytraManager.cleanup();
         if (blokWidmoManager != null) blokWidmoManager.cleanup();
+        if (siekieraGrinchaManager != null) siekieraGrinchaManager.cleanup();
         if (actionBarManager != null) actionBarManager.cleanup();
         if (itemProtectionManager != null) itemProtectionManager.cleanup();
         getLogger().info("AnaItemy zostal wylaczony!");
@@ -91,6 +95,7 @@ public class AnaItemy extends JavaPlugin {
     public WedkaNielotaManager getWedkaNielotaManager() { return wedkaNielotaManager; }
     public WzmocnianaElytraManager getWzmocnianaElytraManager() { return wzmocnianaElytraManager; }
     public BlokWidmoManager getBlokWidmoManager() { return blokWidmoManager; }
+    public SiekieraGrinchaManager getSiekieraGrinchaManager() { return siekieraGrinchaManager; }
     public ItemsConfig getItemsConfig() { return itemsConfig; }
     public WorldGuardManager getWorldGuardManager() { return worldGuardManager; }
     public TotemListener getTotemListener() { return totemListener; }
