@@ -40,11 +40,16 @@ public class WzmocnianaElytraManager {
     // Poprzednia pozycja gracza (do liczenia dystansu)
     private final Map<UUID, Location> previousLocations = new ConcurrentHashMap<>();
 
-    private static final double DISTANCE_PER_1_PERCENT = 5.0; // 500 bloków = 100%
+    // ✅ Dystans od ostatniej aktualizacji (co 10 ticków)
+    private final Map<UUID, Double> distanceSinceLastUpdate = new ConcurrentHashMap<>();
+
+    // ✅ 500 bloków = 100% (było 5.0, powinno być 500.0)
+    private static final double TOTAL_BLOCKS_FOR_100_PERCENT = 500.0;
     private static final int MAX_CHARGE = 100;
     private static final int DAMAGE_RADIUS = 5;
     private static final int DAMAGE = 20; // 10 serc
-    private static final int SHIFT_CLICKS_NEEDED = 1; // do configu
+    private static final int SHIFT_CLICKS_NEEDED = 1;
+    private static final int UPDATE_INTERVAL = 10; // ✅ Aktualizacja co 10 ticków
 
     public WzmocnianaElytraManager(AnaItemy plugin) {
         this.plugin = plugin;
@@ -56,14 +61,18 @@ public class WzmocnianaElytraManager {
      */
     private void startFlightMonitor() {
         new BukkitRunnable() {
+            int tickCounter = 0;
+
             @Override
             public void run() {
+                tickCounter++;
+
                 for (Player player : plugin.getServer().getOnlinePlayers()) {
                     ItemStack chestplate = player.getInventory().getChestplate();
 
                     // ✅ Gracz leci z wzmocnianą elytrą
                     if (player.isGliding() && WzmocnianaElytra.isWzmocnianaElytra(chestplate)) {
-                        updateFlying(player, chestplate);
+                        updateFlying(player, chestplate, tickCounter);
                     } else {
                         // Gracz przestał lecieć lub zdje elytrę
                         stopFlying(player);
@@ -76,7 +85,7 @@ public class WzmocnianaElytraManager {
     /**
      * ✅ Aktualizuj lot gracza - liczenie dystansu.
      */
-    private void updateFlying(Player player, ItemStack elytra) {
+    private void updateFlying(Player player, ItemStack elytra, int tickCounter) {
         UUID uuid = player.getUniqueId();
         Location currentLoc = player.getLocation();
 
@@ -84,23 +93,33 @@ public class WzmocnianaElytraManager {
         if (!playerFlightDistance.containsKey(uuid)) {
             WzmocnianaElytra.resetCharge(elytra);
             playerFlightDistance.put(uuid, 0.0);
+            distanceSinceLastUpdate.put(uuid, 0.0);
             previousLocations.put(uuid, currentLoc.clone());
             startActionBarDisplay(player);
             return;
         }
 
-        // ✅ DODAJ DYSTANS - liczba przeletanych bloków
+        // ✅ DODAJ DYSTANS - liczba przeletanych bloków (3D distance)
         Location prevLoc = previousLocations.get(uuid);
-        if (prevLoc != null) {
+        if (prevLoc != null && prevLoc.getWorld().equals(currentLoc.getWorld())) {
             double distance = currentLoc.distance(prevLoc);
-            double totalDistance = playerFlightDistance.get(uuid) + distance;
-            playerFlightDistance.put(uuid, totalDistance);
+            double accumulated = distanceSinceLastUpdate.getOrDefault(uuid, 0.0) + distance;
+            distanceSinceLastUpdate.put(uuid, accumulated);
 
-            // ✅ ZAŁADUJ ELYTRĘ
-            double charge = Math.min(100.0, (totalDistance / DISTANCE_PER_1_PERCENT) * 100.0);
-            WzmocnianaElytra.setCharge(elytra, charge);
+            // ✅ AKTUALIZUJ CHARGE CO 10 TICKÓW
+            if (tickCounter % UPDATE_INTERVAL == 0) {
+                double totalDistance = playerFlightDistance.get(uuid) + accumulated;
+                playerFlightDistance.put(uuid, totalDistance);
+                distanceSinceLastUpdate.put(uuid, 0.0);
 
-            plugin.getLogger().info("[DEBUG] Gracz: " + player.getName() + " | Dystans: " + String.format("%.2f", totalDistance) + " | Charge: " + String.format("%.2f", charge) + "%");
+                // ✅ ZAŁADUJ ELYTRĘ
+                double charge = Math.min(100.0, (totalDistance / TOTAL_BLOCKS_FOR_100_PERCENT) * 100.0);
+                WzmocnianaElytra.setCharge(elytra, charge);
+
+                plugin.getLogger().info("[Elytra] " + player.getName() + " | Dystans: " + 
+                        String.format("%.2f", totalDistance) + " | Charge: " + 
+                        String.format("%.2f", charge) + "%");
+            }
         }
 
         previousLocations.put(uuid, currentLoc.clone());
@@ -110,6 +129,7 @@ public class WzmocnianaElytraManager {
         UUID uuid = player.getUniqueId();
         playerFlightDistance.remove(uuid);
         previousLocations.remove(uuid);
+        distanceSinceLastUpdate.remove(uuid);
         shiftClicks.remove(uuid);
 
         BukkitTask task = flyingPlayers.remove(uuid);
@@ -166,7 +186,7 @@ public class WzmocnianaElytraManager {
                             .deserialize(elytraBar));
                 }
             }
-        }.runTaskTimer(plugin, 0L, 1L); // Co tick
+        }.runTaskTimer(plugin, 0L, UPDATE_INTERVAL); // ✅ Co 10 ticków zamiast co tick
 
         flyingPlayers.put(uuid, task);
     }
@@ -190,6 +210,7 @@ public class WzmocnianaElytraManager {
             // ✅ Resetuj ładowanie
             WzmocnianaElytra.resetCharge(chestplate);
             playerFlightDistance.put(uuid, 0.0);
+            distanceSinceLastUpdate.put(uuid, 0.0);
             previousLocations.put(uuid, player.getLocation().clone());
             shiftClicks.remove(uuid);
 
@@ -204,17 +225,16 @@ public class WzmocnianaElytraManager {
     }
 
     /**
-     * ✅ Gracz wpadł w ziemię z 100% elytrą.
+     * ✅ Gracz wylądował na bloku z 100% elytrą.
      */
-    public void triggerLightningStrike(Player player) {
+    public void triggerLightningStrike(Player player, Location landingLocation) {
         ItemStack chestplate = player.getInventory().getChestplate();
         if (!WzmocnianaElytra.isWzmocnianaElytra(chestplate)) return;
 
         double charge = WzmocnianaElytra.getCharge(chestplate);
         if (charge < 100.0) return;
 
-        Location center = player.getLocation().clone();
-        center.setY(center.getY() - 1); // Gdzie gracz uderzył
+        Location center = landingLocation.clone();
 
         // ✅ PIORUN - visual only
         center.getWorld().strikeLightningEffect(center);
@@ -226,9 +246,10 @@ public class WzmocnianaElytraManager {
         // ✅ CZĄSTECZKI
         center.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, center, 50, 1, 1, 1, 0.5);
 
-        // ✅ DAMAGE - wszyscy w 5x5x5
+        // ✅ DAMAGE - wszyscy w 5x5x5 OPRÓCZ STRZELCA
         for (Player nearPlayer : center.getWorld().getNearbyPlayers(center, DAMAGE_RADIUS)) {
             if (nearPlayer == null || !nearPlayer.isOnline()) continue;
+            if (nearPlayer.equals(player)) continue; // ✅ NIE ZADAJ DAMAGE STRZELCOWI
 
             // Odejmij serca bezpośrednio
             double newHealth = nearPlayer.getHealth() - DAMAGE;
@@ -238,13 +259,13 @@ public class WzmocnianaElytraManager {
                 nearPlayer.setHealth(newHealth);
             }
 
-            // ✅ TAG COMBATU - wszyscy w obrębie + strzelec
+            // ✅ TAG COMBATU - wszyscy w obrębie
             if (plugin.getCombatIntegrationManager().isEnabled()) {
                 plugin.getCombatIntegrationManager().tagPlayer(nearPlayer, player);
             }
         }
 
-        // ✅ TAG COMBATU - strzelec
+        // ✅ TAG COMBATU - strzelec (ale NIE bierze damage)
         if (plugin.getCombatIntegrationManager().isEnabled()) {
             plugin.getCombatIntegrationManager().tagPlayer(player, player);
         }
@@ -252,6 +273,7 @@ public class WzmocnianaElytraManager {
         // ✅ RESETUJ CHARGE
         WzmocnianaElytra.resetCharge(chestplate);
         playerFlightDistance.remove(player.getUniqueId());
+        distanceSinceLastUpdate.remove(player.getUniqueId());
         previousLocations.remove(player.getUniqueId());
     }
 
@@ -262,6 +284,7 @@ public class WzmocnianaElytraManager {
         flyingPlayers.clear();
         playerFlightDistance.clear();
         previousLocations.clear();
+        distanceSinceLastUpdate.clear();
         shiftClicks.clear();
     }
 }
