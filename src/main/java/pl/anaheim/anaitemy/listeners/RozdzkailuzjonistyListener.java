@@ -15,6 +15,8 @@ import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.items.RozdzkailuzjonistyItem;
 import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
 
+import java.util.UUID;
+
 public class RozdzkailuzjonistyListener implements Listener {
 
     private final AnaItemy plugin;
@@ -65,8 +67,12 @@ public class RozdzkailuzjonistyListener implements Listener {
             return;
         }
 
-        // ✅ SPRAWDŹ OCHRONĘ PRZED RÓŻDŻKĄ
-        if (fang.getShooter() instanceof Player attacker) {
+        // ✅ POBIERZ WŁAŚCICIELA SZCZĘK Z MANAGERA
+        UUID ownerUUID = manager.getFangOwner(fang);
+        Player attacker = ownerUUID != null ? plugin.getServer().getPlayer(ownerUUID) : null;
+
+        if (attacker != null) {
+            // ✅ SPRAWDŹ OCHRONĘ PRZED RÓŻDŻKĄ
             if (plugin.getItemProtectionManager().isProtected(victim, "rozdzka-iluzjonisty")) {
                 event.setCancelled(true);
                 
@@ -86,8 +92,6 @@ public class RozdzkailuzjonistyListener implements Listener {
         // ✅ ANULUJ domyślne damage
         event.setCancelled(true);
 
-        // ✅ Ubijamy normalnie przez setHealth(0), a Totem Ułaskawienia
-        // obsługuje teraz wszystko globalnie w PlayerDeathEvent.
         ItemsConfig config = plugin.getItemsConfig();
         double damage = config.getRozdzkailuzjonistyFangsDamage();
 
