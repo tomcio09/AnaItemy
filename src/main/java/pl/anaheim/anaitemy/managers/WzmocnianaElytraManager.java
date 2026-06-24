@@ -43,7 +43,10 @@ public class WzmocnianaElytraManager {
     // ✅ Dystans od ostatniej aktualizacji (co 10 ticków)
     private final Map<UUID, Double> distanceSinceLastUpdate = new ConcurrentHashMap<>();
 
-    // ✅ 500 bloków = 100% (było 5.0, powinno być 500.0)
+    // ✅ Poprzedni stan gliding (do wykrywania lądowania)
+    private final Map<UUID, Boolean> wasGliding = new ConcurrentHashMap<>();
+
+    // ✅ 500 bloków = 100%
     private static final double TOTAL_BLOCKS_FOR_100_PERCENT = 500.0;
     private static final int MAX_CHARGE = 100;
     private static final int DAMAGE_RADIUS = 5;
@@ -73,9 +76,17 @@ public class WzmocnianaElytraManager {
                     // ✅ Gracz leci z wzmocnianą elytrą
                     if (player.isGliding() && WzmocnianaElytra.isWzmocnianaElytra(chestplate)) {
                         updateFlying(player, chestplate, tickCounter);
+                        wasGliding.put(player.getUniqueId(), true);
                     } else {
+                        // ✅ Sprawdź czy gracz przed chwilą lądował
+                        if (wasGliding.getOrDefault(player.getUniqueId(), false)) {
+                            // Gracz PRZESTAŁ lecieć - możliwe lądowanie
+                            handleLanding(player, chestplate);
+                        }
+
                         // Gracz przestał lecieć lub zdje elytrę
                         stopFlying(player);
+                        wasGliding.remove(player.getUniqueId());
                     }
                 }
             }
@@ -115,14 +126,29 @@ public class WzmocnianaElytraManager {
                 // ✅ ZAŁADUJ ELYTRĘ
                 double charge = Math.min(100.0, (totalDistance / TOTAL_BLOCKS_FOR_100_PERCENT) * 100.0);
                 WzmocnianaElytra.setCharge(elytra, charge);
-
-                plugin.getLogger().info("[Elytra] " + player.getName() + " | Dystans: " + 
-                        String.format("%.2f", totalDistance) + " | Charge: " + 
-                        String.format("%.2f", charge) + "%");
             }
         }
 
         previousLocations.put(uuid, currentLoc.clone());
+    }
+
+    /**
+     * ✅ Obsługa lądowania gracza.
+     */
+    private void handleLanding(Player player, ItemStack elytra) {
+        if (!WzmocnianaElytra.isWzmocnianaElytra(elytra)) return;
+
+        double charge = WzmocnianaElytra.getCharge(elytra);
+        if (charge < 100.0) return;
+
+        // ✅ Sprawdź czy gracz jest teraz na ziemi
+        if (!player.isOnGround()) return;
+
+        // ✅ WYWOŁAJ PIORUN
+        Location landingLoc = player.getLocation().clone();
+        landingLoc.setY(landingLoc.getY() - 0.5); // Blok pod graczem
+
+        triggerLightningStrike(player, landingLoc);
     }
 
     private void stopFlying(Player player) {
@@ -137,10 +163,8 @@ public class WzmocnianaElytraManager {
             task.cancel();
         }
 
-        // Wyczyść action bar tylko jeśli hydroklatka nie wysyła
-        if (!plugin.getHydroKlatkaManager().isPlayerOnCooldown(player)) {
-            player.sendActionBar(Component.empty());
-        }
+        // ✅ Użyj ActionBarManager zamiast bezpośrednio wysyłać
+        plugin.getActionBarManager().removeActionBar(player, "elytra");
     }
 
     private void startActionBarDisplay(Player player) {
@@ -171,20 +195,8 @@ public class WzmocnianaElytraManager {
                 // ✅ Główny action bar elytra
                 String elytraBar = "&bWzmocniana elytra &fzaladowana w &3" + chargeStr + "%";
 
-                // Sprawdź czy hydroklatka wysyła
-                if (plugin.getHydroKlatkaManager().isPlayerOnCooldown(player)) {
-                    long remaining = plugin.getHydroKlatkaManager().getPlayerCooldownRemaining(player);
-                    String hydroBar = plugin.getItemsConfig().getHydroKlatkaActionBarFormat()
-                            .replace("{time}", String.valueOf(remaining));
-                    // ✅ Połącz oba action bary
-                    String combined = elytraBar + " &8| " + hydroBar;
-                    player.sendActionBar(LegacyComponentSerializer.legacyAmpersand()
-                            .deserialize(combined));
-                } else {
-                    // Tylko elytra
-                    player.sendActionBar(LegacyComponentSerializer.legacyAmpersand()
-                            .deserialize(elytraBar));
-                }
+                // ✅ Użyj ActionBarManager zamiast bezpośrednio wysyłać
+                plugin.getActionBarManager().setActionBar(player, "elytra", elytraBar);
             }
         }.runTaskTimer(plugin, 0L, UPDATE_INTERVAL); // ✅ Co 10 ticków zamiast co tick
 
@@ -286,5 +298,6 @@ public class WzmocnianaElytraManager {
         previousLocations.clear();
         distanceSinceLastUpdate.clear();
         shiftClicks.clear();
+        wasGliding.clear();
     }
 }
