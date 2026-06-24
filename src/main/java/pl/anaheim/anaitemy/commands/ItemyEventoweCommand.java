@@ -16,6 +16,7 @@ import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.gui.EventoweGUI;
 import pl.anaheim.anaitemy.items.*;
 import pl.anaheim.anaitemy.managers.BlokWidmoManager;
+import pl.anaheim.anaitemy.managers.CudownaLatarniaManager;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.managers.HydroTrojzabManager;
 import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
@@ -33,7 +34,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> ITEM_IDS = Arrays.asList(
             "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka",
-            "elytra", "blokwidmo", "siekiera", "hydrotrident"
+            "elytra", "blokwidmo", "siekiera", "hydrotrident", "latarnia"
     );
 
     public ItemyEventoweCommand(AnaItemy plugin) {
@@ -183,6 +184,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "blokwidmo" -> BlokWidmoItem.create();
             case "siekiera" -> SiekieraGrinchaItem.create();
             case "hydrotrident", "hydrotrojzab" -> HydroTrojzabItem.create();
+            case "latarnia" -> CudownaLatarniaItem.create();
             default -> null;
         };
     }
@@ -199,6 +201,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "blokwidmo" -> "&cBlok Widmo";
             case "siekiera" -> "&2Siekiera Grincha";
             case "hydrotrident", "hydrotrojzab" -> "&3Hydro Trójząb";
+            case "latarnia" -> "&dCudowna Latarnia";
             default -> id;
         };
     }
@@ -263,6 +266,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         BlokWidmoManager blokWidmoManager = plugin.getBlokWidmoManager();
         SiekieraGrinchaManager siekieraGrinchaManager = plugin.getSiekieraGrinchaManager();
         HydroTrojzabManager hydroTrojzabManager = plugin.getHydroTrojzabManager();
+        CudownaLatarniaManager cudownaLatarniaManager = plugin.getCudownaLatarniaManager();
 
         hydroManager.resetCooldown(target);
         target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
@@ -275,6 +279,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         blokWidmoManager.resetCooldown(target);
         siekieraGrinchaManager.resetCooldown(target);
         hydroTrojzabManager.resetCooldowns(target);
+        cudownaLatarniaManager.resetCooldown(target);
 
         sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
         target.sendMessage(color("&aTwoje cooldowny zostały zresetowane przez &f" + sender.getName() + "&a!"));
