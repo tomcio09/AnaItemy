@@ -27,8 +27,9 @@ public class EventoweGUI {
         gui.setItem(2, HydroKlatka.create());
         gui.setItem(3, RozdzkailuzjonistyItem.create());
         gui.setItem(4, WedkaNielotaItem.create());
-        gui.setItem(5, SakiewkaDropu.create()); // ✅ DODANA SAKIEWKA
-        gui.setItem(6, WzmocnianaElytra.create()); // ✅ DODANA ELYTRA
+        gui.setItem(5, SakiewkaDropu.create());
+        gui.setItem(6, WzmocnianaElytra.create());
+        gui.setItem(7, BlokWidmoItem.create());
 
         player.openInventory(gui);
     }
