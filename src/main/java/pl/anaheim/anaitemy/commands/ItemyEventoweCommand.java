@@ -16,6 +16,7 @@ import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.gui.EventoweGUI;
 import pl.anaheim.anaitemy.items.*;
 import pl.anaheim.anaitemy.managers.BlokWidmoManager;
+import pl.anaheim.anaitemy.managers.BoskiToporManager;
 import pl.anaheim.anaitemy.managers.CudownaLatarniaManager;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.managers.HydroTrojzabManager;
@@ -35,7 +36,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> ITEM_IDS = Arrays.asList(
             "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka",
-            "elytra", "blokwidmo", "siekiera", "hydrotrident", "latarnia", "rog"
+            "elytra", "blokwidmo", "siekiera", "hydrotrident", "latarnia", "rog", "topor"
     );
 
     public ItemyEventoweCommand(AnaItemy plugin) {
@@ -102,16 +103,12 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
-    // ==================== RELOAD ====================
-
     private void handleReload(CommandSender sender) {
         plugin.reloadConfig();
         plugin.getItemsConfig().reloadConfig();
         sender.sendMessage(color("&aZreloadowano konfigurację &fconfig.yml &ai &fitems.yml&a!"));
         plugin.getLogger().info("[AnaItemy] " + sender.getName() + " przeladowal konfiguracje.");
     }
-
-    // ==================== GIVE ====================
 
     private void handleGiveCommand(CommandSender sender, String itemId, String targetName, String amountStr) {
         Player target = Bukkit.getPlayer(targetName);
@@ -134,18 +131,14 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
         if (itemId.equalsIgnoreCase("sakiewka")) {
             int freeSlots = countFreeSlots(target);
-
             if (freeSlots < amount) {
                 sender.sendMessage(color("&cGracz &4" + target.getName() + " &cma pełny ekwipunek!"));
                 sender.sendMessage(color("&7Potrzebne: &f" + amount + " &7slotów, dostępne: &f" + freeSlots));
                 return;
             }
-
             for (int i = 0; i < amount; i++) {
-                ItemStack newSakiewka = SakiewkaDropu.create();
-                target.getInventory().addItem(newSakiewka);
+                target.getInventory().addItem(SakiewkaDropu.create());
             }
-
             sender.sendMessage(color("&aDano &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
             target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7]&a!"));
             return;
@@ -160,7 +153,6 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
         int freeSlots = countFreeSlots(target);
         int neededSlots = (int) Math.ceil((double) amount / item.getMaxStackSize());
-
         if (freeSlots < neededSlots) {
             sender.sendMessage(color("&cGracz &4" + target.getName() + " &cma pełny ekwipunek!"));
             return;
@@ -168,7 +160,6 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
         item.setAmount(amount);
         target.getInventory().addItem(item);
-
         sender.sendMessage(color("&aDano &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
         target.sendMessage(color("&aOtrzymałeś &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7]&a!"));
     }
@@ -187,6 +178,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "hydrotrident", "hydrotrojzab" -> HydroTrojzabItem.create();
             case "latarnia" -> CudownaLatarniaItem.create();
             case "rog" -> RogJednorozcaItem.create();
+            case "topor" -> BoskiToporItem.create();
             default -> null;
         };
     }
@@ -205,6 +197,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "hydrotrident", "hydrotrojzab" -> "&3Hydro Trójząb";
             case "latarnia" -> "&dCudowna Latarnia";
             case "rog" -> "&dRóg Jednorożca";
+            case "topor" -> "&bBoski Topór";
             default -> id;
         };
     }
@@ -212,23 +205,17 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
     private int countFreeSlots(Player player) {
         int free = 0;
         for (ItemStack slot : player.getInventory().getStorageContents()) {
-            if (slot == null || slot.getType().isAir()) {
-                free++;
-            }
+            if (slot == null || slot.getType().isAir()) free++;
         }
         return free;
     }
 
-    // ==================== KILLS ====================
-
     private void handleKillsCommand(Player player, String killsStr) {
         ItemStack item = player.getInventory().getItemInMainHand();
-
         if (!Excalibur.isExcalibur(item)) {
             player.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageNotHolding()));
             return;
         }
-
         int kills;
         try {
             kills = Integer.parseInt(killsStr);
@@ -236,28 +223,21 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageInvalidNumber()));
             return;
         }
-
         if (kills < 0) {
             player.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageNegativeNumber()));
             return;
         }
-
         int maxKills = plugin.getItemsConfig().getExcaliburMaxKills();
         if (kills > maxKills) kills = maxKills;
-
         ItemStack updated = Excalibur.updateKills(item, kills, maxKills);
         player.getInventory().setItemInMainHand(updated);
-
         String msg = plugin.getItemsConfig().getExcaliburMessageKillsSet()
                 .replace("{kills}", String.valueOf(kills));
         player.sendMessage(color(msg));
     }
 
-    // ==================== COOLDOWN RESET ====================
-
     private void handleCooldownReset(CommandSender sender, String targetName) {
         Player target = Bukkit.getPlayer(targetName);
-
         if (target == null) {
             sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!"));
             return;
@@ -267,10 +247,11 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         RozdzkailuzjonistyManager rozdzkaManager = plugin.getRozdzkailuzjonistyManager();
         WedkaNielotaManager wedkaManager = plugin.getWedkaNielotaManager();
         BlokWidmoManager blokWidmoManager = plugin.getBlokWidmoManager();
-        SiekieraGrinchaManager siekieraGrinchaManager = plugin.getSiekieraGrinchaManager();
+        SiekieraGrinchaManager siekieraManager = plugin.getSiekieraGrinchaManager();
         HydroTrojzabManager hydroTrojzabManager = plugin.getHydroTrojzabManager();
-        CudownaLatarniaManager cudownaLatarniaManager = plugin.getCudownaLatarniaManager();
+        CudownaLatarniaManager latarniaManager = plugin.getCudownaLatarniaManager();
         RogJednorozcaManager rogManager = plugin.getRogJednorozcaManager();
+        BoskiToporManager toporManager = plugin.getBoskiToporManager();
 
         hydroManager.resetCooldown(target);
         target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
@@ -281,39 +262,29 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
         wedkaManager.resetCooldown(target);
         blokWidmoManager.resetCooldown(target);
-        siekieraGrinchaManager.resetCooldown(target);
+        siekieraManager.resetCooldown(target);
         hydroTrojzabManager.resetCooldowns(target);
-        cudownaLatarniaManager.resetCooldown(target);
+        latarniaManager.resetCooldown(target);
         rogManager.resetCooldown(target);
+        toporManager.resetCooldown(target);
 
         sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
         target.sendMessage(color("&aTwoje cooldowny zostały zresetowane przez &f" + sender.getName() + "&a!"));
-
-        plugin.getLogger().info("[AnaItemy] " + sender.getName() +
-                " zresetowal cooldowny gracza " + target.getName());
+        plugin.getLogger().info("[AnaItemy] " + sender.getName() + " zresetowal cooldowny gracza " + target.getName());
     }
-
-    // ==================== KLATWA ====================
 
     private void handleKlatwaCommand(CommandSender sender, String action, String targetName) {
         Player target = Bukkit.getPlayer(targetName);
-
         if (target == null) {
             sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!"));
             return;
         }
-
         WedkaNielotaManager wedkaManager = plugin.getWedkaNielotaManager();
-
         switch (action.toLowerCase()) {
-
             case "naloz" -> {
                 wedkaManager.applyCurse(target, null);
                 sender.sendMessage(color("&aNałożono klątwę na gracza &f" + target.getName() + "&a!"));
-                plugin.getLogger().info("[AnaItemy] " + sender.getName() +
-                        " nalozyl klatwe na gracza " + target.getName());
             }
-
             case "zdejmij" -> {
                 if (!wedkaManager.hasCurse(target)) {
                     sender.sendMessage(color("&cGracz &f" + target.getName() + " &cnie ma klątwy!"));
@@ -322,36 +293,23 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
                 wedkaManager.forceRemoveCurse(target);
                 sender.sendMessage(color("&aZdjęto klątwę z gracza &f" + target.getName() + "&a!"));
                 target.sendMessage(color("&aKlątwa została z Ciebie zdjęta!"));
-                plugin.getLogger().info("[AnaItemy] " + sender.getName() +
-                        " zdjalj klatwe z gracza " + target.getName());
             }
-
-            default -> sender.sendMessage(color(
-                    "&cUżycie: &f/itemyeventowe klatwa <naloz|zdejmij> <nick>"));
+            default -> sender.sendMessage(color("&cUżycie: &f/itemyeventowe klatwa <naloz|zdejmij> <nick>"));
         }
     }
 
-    // ==================== WIDMO ====================
-
     private void handleWidmoCommand(CommandSender sender, String action, String targetName) {
         Player target = Bukkit.getPlayer(targetName);
-
         if (target == null) {
             sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!"));
             return;
         }
-
         BlokWidmoManager widmoManager = plugin.getBlokWidmoManager();
-
         switch (action.toLowerCase()) {
-
             case "naloz" -> {
                 widmoManager.activate(target, target.getLocation());
                 sender.sendMessage(color("&aNałożono efekt Bloku Widmo na gracza &f" + target.getName() + "&a!"));
-                plugin.getLogger().info("[AnaItemy] " + sender.getName() +
-                        " nalozyl efekt bloku widmo na gracza " + target.getName());
             }
-
             case "zdejmij" -> {
                 if (!widmoManager.isAffected(target)) {
                     sender.sendMessage(color("&cGracz &f" + target.getName() + " &cnie ma efektu Bloku Widmo!"));
@@ -360,16 +318,10 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
                 widmoManager.forceRemoveEffect(target);
                 sender.sendMessage(color("&aZdjęto efekt Bloku Widmo z gracza &f" + target.getName() + "&a!"));
                 target.sendMessage(color("&aEfekt Bloku Widmo został z Ciebie zdjęty!"));
-                plugin.getLogger().info("[AnaItemy] " + sender.getName() +
-                        " zdjal efekt bloku widmo z gracza " + target.getName());
             }
-
-            default -> sender.sendMessage(color(
-                    "&cUżycie: &f/itemyeventowe widmo <naloz|zdejmij> <nick>"));
+            default -> sender.sendMessage(color("&cUżycie: &f/itemyeventowe widmo <naloz|zdejmij> <nick>"));
         }
     }
-
-    // ==================== HELP ====================
 
     private void sendHelp(CommandSender sender) {
         sender.sendMessage(color("&8&m                                    "));
@@ -388,8 +340,6 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(color("&8&m                                    "));
     }
 
-    // ==================== TAB COMPLETE ====================
-
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender,
                                                 @NotNull Command command,
@@ -398,32 +348,21 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            completions.addAll(Arrays.asList(
-                    "reload", "kills", "give", "cooldown", "klatwa", "widmo"
-            ));
+            completions.addAll(Arrays.asList("reload", "kills", "give", "cooldown", "klatwa", "widmo"));
         } else if (args.length == 2) {
             switch (args[0].toLowerCase()) {
                 case "kills" -> completions.add("<liczba>");
                 case "give" -> completions.addAll(ITEM_IDS);
                 case "cooldown" -> completions.add("reset");
-                case "klatwa", "widmo" -> completions.addAll(
-                        Arrays.asList("naloz", "zdejmij")
-                );
+                case "klatwa", "widmo" -> completions.addAll(Arrays.asList("naloz", "zdejmij"));
             }
         } else if (args.length == 3) {
             switch (args[0].toLowerCase()) {
                 case "give", "klatwa", "widmo" -> completions.addAll(
-                        Bukkit.getOnlinePlayers().stream()
-                                .map(Player::getName)
-                                .collect(Collectors.toList())
-                );
+                        Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList()));
                 case "cooldown" -> {
                     if (args[1].equalsIgnoreCase("reset")) {
-                        completions.addAll(
-                                Bukkit.getOnlinePlayers().stream()
-                                        .map(Player::getName)
-                                        .collect(Collectors.toList())
-                        );
+                        completions.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList()));
                     }
                 }
             }
