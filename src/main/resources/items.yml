@@ -168,7 +168,7 @@ rozdzka-iluzjonisty:
     messages:
       activated: '&aSzczęki Evokera &7zostały &aaktywowane&7!'
       cooldown-title: '&cUmiejętność w odnowieniu'
-      cooldown-subtitle: '&7Do użycia za: &e{seconds}s'
+      cooldown-subtitle: '&7Do użycia za: &e{seconds}'
 
   vanish:
     cooldown: 60
@@ -191,7 +191,7 @@ rozdzka-iluzjonisty:
   notify-attacker: true
   protection-messages:
     title: '&c&lNie zadziałało!'
-    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 
 # ==========================================
 #         WĘDKA NIELOTA
@@ -244,7 +244,7 @@ wedka-nielota:
   notify-attacker: true
   protection-messages:
     title: '&c&lNie zadziałało!'
-    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 
 # ==========================================
 #         SAKIEWKA DROPU
@@ -302,7 +302,7 @@ wzmocniana-elytra:
   notify-attacker: false
   protection-messages:
     title: '&c&lNie zadziałało!'
-    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 
 # ==========================================
 #         BLOK WIDMO
@@ -389,7 +389,7 @@ siekiera-grincha:
   notify-attacker: true
   protection-messages:
     title: '&c&lNie zadziałało!'
-    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 
 # ==========================================
 #         HYDRO TRÓJZĄB
@@ -431,14 +431,14 @@ hydro-trojzab:
     - netherspawn
 
   messages:
-    shot-cooldown-subtitle: '&7Cios pirunem możesz użyć za: &b{seconds_left}s&7!'
+    shot-cooldown-subtitle: '&7Cios pirunem możesz użyć za: &b{seconds_left}&7!'
     launch-cooldown-subtitle: '&7Wystrzelenia możesz użyć za: &b{seconds_left}&7!'
 
   respects-protection: true
   notify-attacker: false
   protection-messages:
     title: '&c&lNie zadziałało!'
-    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 # ==========================================
 #         CUDOWNA LATARNIA
 # ==========================================
@@ -538,7 +538,7 @@ rog-jednorozca:
   notify-attacker: true
   protection-messages:
     title: '&c&lNie zadziałało!'
-    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 # ==========================================
 #         BOSKI TOPÓR
 # ==========================================
