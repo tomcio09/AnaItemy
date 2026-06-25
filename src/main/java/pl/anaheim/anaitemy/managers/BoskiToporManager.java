@@ -24,7 +24,6 @@ public class BoskiToporManager {
     public BoskiToporManager(AnaItemy plugin) {
         this.plugin = plugin;
 
-        // Cleanup task
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -105,17 +104,18 @@ public class BoskiToporManager {
             }
         }, glowDuration * 20L);
 
-        // ✅ 6. Odpychanie graczy wokół na 5 kratek
+        // ✅ 6. Odpychanie graczy wokół + combat tag TYLKO jeśli kogoś odepchnął
         double knockbackRadius = config.getBoskiToporKnockbackRadius();
         double knockbackPower = config.getBoskiToporKnockbackPower();
 
         Location center = player.getLocation();
         List<String> blockedRegions = config.getBoskiToporBlockedRegions();
 
+        boolean pushedAnyone = false;
+
         for (Player target : center.getWorld().getNearbyPlayers(center, knockbackRadius)) {
             if (target.equals(player)) continue;
 
-            // Nie odpychaj graczy na zablokowanych regionach
             if (plugin.getWorldGuardManager().isInNamedRegion(target.getLocation(), blockedRegions)) {
                 continue;
             }
@@ -130,6 +130,18 @@ public class BoskiToporManager {
 
             knockback.normalize().multiply(knockbackPower).setY(0.4);
             target.setVelocity(target.getVelocity().add(knockback));
+
+            pushedAnyone = true;
+
+            // ✅ Combat tag dla odepchniętego gracza
+            if (plugin.getCombatIntegrationManager().isEnabled()) {
+                plugin.getCombatIntegrationManager().tagPlayer(target, player);
+            }
+        }
+
+        // ✅ Combat tag dla użytkownika TYLKO jeśli kogoś odepchnął
+        if (pushedAnyone && plugin.getCombatIntegrationManager().isEnabled()) {
+            plugin.getCombatIntegrationManager().tagPlayer(player, player);
         }
 
         // ✅ 7. Particle
@@ -137,15 +149,6 @@ public class BoskiToporManager {
                 10, 2, 1, 2, 0.1);
         center.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, center.clone().add(0, 1, 0),
                 40, 2, 1, 2, 0.3);
-
-        // ✅ 8. Combat tag
-        if (plugin.getCombatIntegrationManager().isEnabled()) {
-            for (Player target : center.getWorld().getNearbyPlayers(center, knockbackRadius)) {
-                if (target.equals(player)) continue;
-                plugin.getCombatIntegrationManager().tagPlayer(target, player);
-                plugin.getCombatIntegrationManager().tagPlayer(player, target);
-            }
-        }
     }
 
     // ==================== REGION CHECK ====================
@@ -160,7 +163,6 @@ public class BoskiToporManager {
     // ==================== CLEANUP ====================
 
     public void cleanup() {
-        // Wyłącz glowing
         for (UUID uuid : invinciblePlayers.keySet()) {
             Player player = Bukkit.getPlayer(uuid);
             if (player != null && player.isOnline()) {
