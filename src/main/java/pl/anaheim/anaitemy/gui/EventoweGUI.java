@@ -33,6 +33,7 @@ public class EventoweGUI {
         gui.setItem(8, SiekieraGrinchaItem.create());
         gui.setItem(9, HydroTrojzabItem.create());
         gui.setItem(10, CudownaLatarniaItem.create());
+        gui.setItem(11, RogJednorozcaItem.create());
 
         player.openInventory(gui);
     }
