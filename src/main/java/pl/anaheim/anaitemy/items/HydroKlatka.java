@@ -20,7 +20,6 @@ public class HydroKlatka {
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
-                "",
                 " &8» &7Jest to przedmiot zdobyty podczas",
                 " &8» &fwydarzenia wakacyjnego 2025&7!",
                 "",
@@ -32,13 +31,11 @@ public class HydroKlatka {
         ItemStack item = new ItemStack(Material.BLAZE_ROD);
         ItemMeta meta = item.getItemMeta();
 
-        // Nazwa
         Component nameComponent = LegacyComponentSerializer.legacyAmpersand()
                 .deserialize("&3&lWyrzutnia Hydro Klatki")
                 .decoration(TextDecoration.ITALIC, false);
         meta.displayName(nameComponent);
 
-        // Lore - POPRAWKA: używam ArrayList i dodaję każdy element
         List<Component> loreComponents = new ArrayList<>();
         for (String line : lore) {
             Component lineComp = LegacyComponentSerializer.legacyAmpersand()
@@ -48,28 +45,15 @@ public class HydroKlatka {
         }
         meta.lore(loreComponents);
 
-        // Custom model data
         meta.setCustomModelData(2);
-
-        // Glow effect (dodaj enchant i ukryj)
         meta.addEnchant(Enchantment.DURABILITY, 1, true);
-
-        // Niezniszczalny
         meta.setUnbreakable(true);
-
-        // Ukryj flagi
-        meta.addItemFlags(
-                ItemFlag.HIDE_ENCHANTS,
-                ItemFlag.HIDE_UNBREAKABLE
-        );
+        meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE);
 
         item.setItemMeta(meta);
         return item;
     }
 
-    /**
-     * Sprawdza czy ItemStack to Hydro Klatka.
-     */
     public static boolean isHydroKlatka(ItemStack item) {
         if (item == null || item.getType() != Material.BLAZE_ROD) return false;
         if (!item.hasItemMeta()) return false;
