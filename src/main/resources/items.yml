@@ -540,6 +540,52 @@ rog-jednorozca:
     title: '&c&lNie zadziałało!'
     subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
 # ==========================================
+#         BOSKI TOPÓR
+# ==========================================
+boski-topor:
+  material: IRON_AXE
+  name: '&b&lBoski topór'
+  lore:
+    - ''
+    - ' &8» &7Jest to przedmiot z:'
+    - ' &8» &fspecjalnego wydarzenia (2025)'
+    - ''
+    - ' &8» &7Po &fkliknięciu &7prawym przyciskiem'
+    - ' &8» &7aktywujesz &epotężną falę uderzeniową'
+    - ' &8» &7która zapewni Tobie &enieśmiertelność&7!'
+  custom-model-data: 1
+  gui-slot: 12
+  enchants:
+    unbreaking: 10
+    efficiency: 5
+
+  # Cooldown (sekundy)
+  cooldown: 60
+
+  # Czas nieśmiertelności (sekundy)
+  invincibility-duration: 3
+
+  # Czas glowingu (sekundy)
+  glow-duration: 2
+
+  # Promień odpychania (bloki)
+  knockback-radius: 5.0
+
+  # Siła odpychania
+  knockback-power: 1.8
+
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+
+  messages:
+    activated-subtitle: '&bAktywowałeś boski topór&7!'
+    cooldown-subtitle: '&bBoski topór &7możesz użyć dopiero za &f{seconds_left}'
+
+  respects-protection: false
+  notify-attacker: false
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
