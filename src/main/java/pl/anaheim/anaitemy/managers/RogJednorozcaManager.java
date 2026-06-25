@@ -203,24 +203,22 @@ public class RogJednorozcaManager {
     private void startHorseTask(Player player, Horse horse, ActiveUnicorn unicorn) {
         new BukkitRunnable() {
             Location lastLocation = horse.getLocation().clone();
+            int debugCounter = 0;
 
             @Override
             public void run() {
-                // Koń nie istnieje
                 if (!horse.isValid() || horse.isDead()) {
                     activeUnicorns.remove(player.getUniqueId());
                     cancel();
                     return;
                 }
 
-                // Gracz nie jedzie
                 if (!horse.getPassengers().contains(player)) {
                     removeUnicorn(unicorn, true);
                     cancel();
                     return;
                 }
 
-                // Czas wygasł
                 if (unicorn.isExpired()) {
                     removeUnicorn(unicorn, true);
                     cancel();
@@ -229,7 +227,6 @@ public class RogJednorozcaManager {
 
                 Location horseLoc = horse.getLocation();
 
-                // Przejechany dystans
                 double moved = horseLoc.distance(lastLocation);
                 unicorn.addRawDistance(moved);
 
@@ -239,7 +236,6 @@ public class RogJednorozcaManager {
                     return;
                 }
 
-                // Sprawdź region
                 List<String> blockedRegions = plugin.getItemsConfig().getRogJednorozcaBlockedRegions();
                 if (plugin.getWorldGuardManager().isInBlockedRegion(horseLoc, blockedRegions)) {
                     removeUnicorn(unicorn, true);
@@ -247,23 +243,38 @@ public class RogJednorozcaManager {
                     return;
                 }
 
-                // ✅ KIERUNEK RUCHU (nie patrzenia!)
                 double dx = horseLoc.getX() - lastLocation.getX();
                 double dz = horseLoc.getZ() - lastLocation.getZ();
                 double horizontalLength = Math.sqrt(dx * dx + dz * dz);
 
                 boolean isMoving = horizontalLength > 0.05;
 
+                // ✅ DEBUG - co 20 ticków (1 sekundę)
+                debugCounter++;
+                if (debugCounter % 20 == 0) {
+                    plugin.getLogger().info("[RogDebug] horseLoc=" + 
+                            String.format("%.2f, %.2f, %.2f", horseLoc.getX(), horseLoc.getY(), horseLoc.getZ()) +
+                            " moved=" + String.format("%.4f", moved) +
+                            " horizontal=" + String.format("%.4f", horizontalLength) +
+                            " isMoving=" + isMoving +
+                            " totalDist=" + String.format("%.1f", unicorn.getTotalDistance()));
+                }
+
                 if (isMoving) {
                     Vector moveDirection = new Vector(dx / horizontalLength, 0, dz / horizontalLength);
 
-                    // ✅ Niszcz bloki przed koniem
                     boolean canBuild = canDestroyInRegion(horseLoc);
+                    
+                    // ✅ DEBUG
+                    if (debugCounter % 20 == 0) {
+                        plugin.getLogger().info("[RogDebug] canBuild=" + canBuild + 
+                                " direction=" + String.format("%.2f, %.2f", moveDirection.getX(), moveDirection.getZ()));
+                    }
+
                     if (canBuild) {
                         destroyBlocksInFront(horse, moveDirection);
                     }
 
-                    // ✅ Ogłuszaj graczy
                     stunNearbyPlayers(horse, player);
                 }
 
