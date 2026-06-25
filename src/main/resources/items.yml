@@ -586,6 +586,42 @@ boski-topor:
   respects-protection: false
   notify-attacker: false
 # ==========================================
+#         SUPER NIESKOŃCZONA MARCHEWKA
+# ==========================================
+super-marchewka:
+  material: GOLDEN_CARROT
+  name: '&6&lSuper Nieskończona Marchewka'
+  lore:
+    - ' &8» &7Jest to przedmiot zdobyty podczas'
+    - ' &8» &fwielkanocnego wydarzenia 2026&7!'
+    - ''
+    - ' &8» &7Po użyciu &fpowiększa cię do &6ogromnej wielkości&7,'
+    - ' &8» &7nakłada &cSpowolnienie II &7i &aOdporność III'
+    - ' &8» &7oraz &czwiększa &dobrażenia krytyczne&7!'
+  custom-model-data: 2026
+  gui-slot: 13
+
+  # Czas trwania efektu (sekundy)
+  effect-duration: 10
+
+  # Cooldown (sekundy)
+  cooldown: 60
+
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+
+  messages:
+    cooldown-subtitle: '&6Marchewkę &7możesz użyć za: &6{seconds_left}'
+    super-title: '&6&lSuper Marchewka'
+    super-subtitle: '&7Zwiększony x2 na &610 sekund&7!'
+    mini-title: '&b&lMini Marchewka'
+    mini-subtitle: '&aZmniejszony o 50% na 10 sekund!'
+
+  respects-protection: false
+  notify-attacker: false
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
