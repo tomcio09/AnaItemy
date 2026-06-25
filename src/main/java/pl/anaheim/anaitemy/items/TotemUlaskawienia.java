@@ -27,16 +27,11 @@ public class TotemUlaskawienia {
                 .build();
     }
 
-    /**
-     * Sprawdza czy dany ItemStack to Totem Ułaskawienia (po nazwie i custom model data).
-     */
     public static boolean isTotemUlaskawienia(ItemStack item) {
         if (item == null || item.getType() != Material.TOTEM_OF_UNDYING) return false;
         if (!item.hasItemMeta()) return false;
         if (!item.getItemMeta().hasCustomModelData()) return false;
         if (item.getItemMeta().getCustomModelData() != 1) return false;
-
-        // Sprawdź nazwę
         if (item.getItemMeta().displayName() == null) return false;
 
         String plainName = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
