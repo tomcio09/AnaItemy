@@ -52,7 +52,6 @@ public class WzmocnianaElytra {
         meta.setUnbreakable(true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE);
 
-        // ✅ Załaduj na 0% domyślnie
         meta.getPersistentDataContainer().set(CHARGE_KEY, PersistentDataType.DOUBLE, 0.0);
 
         item.setItemMeta(meta);
@@ -81,7 +80,7 @@ public class WzmocnianaElytra {
 
     public static void setCharge(ItemStack item, double charge) {
         if (!isWzmocnianaElytra(item)) return;
-        charge = Math.max(0.0, Math.min(100.0, charge)); // 0-100
+        charge = Math.max(0.0, Math.min(100.0, charge));
         ItemMeta meta = item.getItemMeta();
         meta.getPersistentDataContainer().set(CHARGE_KEY, PersistentDataType.DOUBLE, charge);
         item.setItemMeta(meta);
