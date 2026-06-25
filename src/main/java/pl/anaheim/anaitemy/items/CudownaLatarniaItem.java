@@ -20,7 +20,6 @@ public class CudownaLatarniaItem {
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
-                "",
                 " &8» &7Przedmiot z &7świątecznego wydarzenia 2025&7!",
                 "",
                 " &8» &7Po postawieniu otrzymujesz:",
