@@ -34,6 +34,7 @@ public class EventoweGUI {
         gui.setItem(9, HydroTrojzabItem.create());
         gui.setItem(10, CudownaLatarniaItem.create());
         gui.setItem(11, RogJednorozcaItem.create());
+        gui.setItem(12, BoskiToporItem.create());
 
         player.openInventory(gui);
     }
