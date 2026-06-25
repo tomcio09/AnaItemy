@@ -33,7 +33,8 @@ public class RogJednorozcaManager {
             Material.BEDROCK, Material.BARRIER, Material.COMMAND_BLOCK,
             Material.CHAIN_COMMAND_BLOCK, Material.REPEATING_COMMAND_BLOCK,
             Material.STRUCTURE_VOID, Material.JIGSAW,
-            Material.END_PORTAL_FRAME, Material.END_PORTAL, Material.NETHER_PORTAL
+            Material.END_PORTAL_FRAME, Material.END_PORTAL, Material.NETHER_PORTAL,
+            Material.BEACON, Material.BLUE_GLAZED_TERRACOTTA
     );
 
     private static final Set<Material> DEATH_ONLY_DESTRUCTIBLE = Set.of(
