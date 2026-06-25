@@ -20,6 +20,7 @@ import pl.anaheim.anaitemy.managers.CudownaLatarniaManager;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.managers.HydroTrojzabManager;
 import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
+import pl.anaheim.anaitemy.managers.RogJednorozcaManager;
 import pl.anaheim.anaitemy.managers.SiekieraGrinchaManager;
 import pl.anaheim.anaitemy.managers.WedkaNielotaManager;
 
@@ -34,7 +35,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> ITEM_IDS = Arrays.asList(
             "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka",
-            "elytra", "blokwidmo", "siekiera", "hydrotrident", "latarnia"
+            "elytra", "blokwidmo", "siekiera", "hydrotrident", "latarnia", "rog"
     );
 
     public ItemyEventoweCommand(AnaItemy plugin) {
@@ -185,6 +186,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "siekiera" -> SiekieraGrinchaItem.create();
             case "hydrotrident", "hydrotrojzab" -> HydroTrojzabItem.create();
             case "latarnia" -> CudownaLatarniaItem.create();
+            case "rog" -> RogJednorozcaItem.create();
             default -> null;
         };
     }
@@ -202,6 +204,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "siekiera" -> "&2Siekiera Grincha";
             case "hydrotrident", "hydrotrojzab" -> "&3Hydro Trójząb";
             case "latarnia" -> "&dCudowna Latarnia";
+            case "rog" -> "&dRóg Jednorożca";
             default -> id;
         };
     }
@@ -267,6 +270,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         SiekieraGrinchaManager siekieraGrinchaManager = plugin.getSiekieraGrinchaManager();
         HydroTrojzabManager hydroTrojzabManager = plugin.getHydroTrojzabManager();
         CudownaLatarniaManager cudownaLatarniaManager = plugin.getCudownaLatarniaManager();
+        RogJednorozcaManager rogManager = plugin.getRogJednorozcaManager();
 
         hydroManager.resetCooldown(target);
         target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
@@ -280,6 +284,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         siekieraGrinchaManager.resetCooldown(target);
         hydroTrojzabManager.resetCooldowns(target);
         cudownaLatarniaManager.resetCooldown(target);
+        rogManager.resetCooldown(target);
 
         sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
         target.sendMessage(color("&aTwoje cooldowny zostały zresetowane przez &f" + sender.getName() + "&a!"));
