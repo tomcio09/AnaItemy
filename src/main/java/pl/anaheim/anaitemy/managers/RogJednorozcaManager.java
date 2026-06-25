@@ -314,8 +314,9 @@ public class RogJednorozcaManager {
         World world = horseLoc.getWorld();
         int baseY = horseLoc.getBlockY();
 
-        // Wektor prostopadły (do boku)
         Vector perp = new Vector(-direction.getZ(), 0, direction.getX());
+
+        int destroyed = 0;
 
         for (double dist = 1.0; dist <= 2.5; dist += 0.5) {
             double frontX = horseLoc.getX() + direction.getX() * dist;
@@ -328,13 +329,20 @@ public class RogJednorozcaManager {
                     int blockY = baseY + h;
 
                     Block block = world.getBlockAt(blockX, blockY, blockZ);
+                    Material type = block.getType();
 
-                    if (canDestroyBlock(block, false)) {
-                        // ✅ breakNaturally() = drop itemy jak przy normalnym kopaniu
-                        block.breakNaturally();
-                    }
+                    if (type.isAir()) continue;
+                    if (FULLY_INDESTRUCTIBLE.contains(type)) continue;
+                    if (DEATH_ONLY_DESTRUCTIBLE.contains(type)) continue;
+
+                    block.breakNaturally();
+                    destroyed++;
                 }
             }
+        }
+
+        if (destroyed > 0) {
+            plugin.getLogger().info("[RogDebug] Zniszczono " + destroyed + " bloków przed koniem");
         }
     }
 
