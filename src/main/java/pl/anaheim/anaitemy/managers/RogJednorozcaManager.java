@@ -27,6 +27,7 @@ public class RogJednorozcaManager {
     private final Map<UUID, ActiveUnicorn> activeUnicorns = new ConcurrentHashMap<>();
     private final Map<UUID, Long> stunnedPlayers = new ConcurrentHashMap<>();
     private final Map<UUID, Location> stunnedLocations = new ConcurrentHashMap<>();
+    private final Map<UUID, Boolean> stunnedGravity = new ConcurrentHashMap<>();
 
     private static final Set<Material> FULLY_INDESTRUCTIBLE = Set.of(
             Material.BEDROCK, Material.BARRIER, Material.COMMAND_BLOCK,
@@ -39,77 +40,15 @@ public class RogJednorozcaManager {
             Material.OBSIDIAN, Material.CRYING_OBSIDIAN
     );
 
-    private BukkitTask tickTask;
     private BukkitTask stunTask;
 
     public RogJednorozcaManager(AnaItemy plugin) {
         this.plugin = plugin;
-        startTickTask();
         startStunTask();
+        startCooldownCleanup();
     }
 
-    // ==================== TASKS ====================
-
-    private void startTickTask() {
-        tickTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                long now = System.currentTimeMillis();
-                cooldowns.entrySet().removeIf(e -> now >= e.getValue());
-
-                for (ActiveUnicorn unicorn : new ArrayList<>(activeUnicorns.values())) {
-                    Player owner = Bukkit.getPlayer(unicorn.getOwnerId());
-
-                    if (owner == null || !owner.isOnline()) {
-                        removeUnicorn(unicorn, false);
-                        continue;
-                    }
-
-                    Horse horse = unicorn.getHorse();
-                    if (horse == null || horse.isDead() || !horse.isValid()) {
-                        removeUnicorn(unicorn, false);
-                        continue;
-                    }
-
-                    // Gracz nie jedzie koniem
-                    if (!horse.getPassengers().contains(owner)) {
-                        removeUnicorn(unicorn, true);
-                        continue;
-                    }
-
-                    // Czas wygasł
-                    if (unicorn.isExpired()) {
-                        removeUnicorn(unicorn, true);
-                        continue;
-                    }
-
-                    // Sprawdź przejechane bloki
-                    Location current = horse.getLocation();
-                    double distance = unicorn.addDistance(current);
-                    if (distance >= unicorn.getMaxDistance()) {
-                        removeUnicorn(unicorn, true);
-                        continue;
-                    }
-
-                    // Sprawdź region - jeśli wjeżdża w zablokowany region, znika
-                    List<String> blockedRegions = plugin.getItemsConfig().getRogJednorozcaBlockedRegions();
-                    if (plugin.getWorldGuardManager().isInBlockedRegion(current, blockedRegions)) {
-                        removeUnicorn(unicorn, true);
-                        continue;
-                    }
-
-                    // ✅ Niszcz bloki przed koniem (KAŻDY TICK)
-                    boolean canBuild = canDestroyInRegion(current);
-                    if (canBuild) {
-                        destroyBlocksInFront(horse);
-                    }
-
-                    // Ogłuszaj graczy
-                    stunNearbyPlayers(horse, owner);
-                }
-            }
-        }.runTaskTimer(plugin, 0L, 1L); // ✅ CO TICK (nie co 2 ticki)
-    }
+    // ==================== STUN TASK ====================
 
     private void startStunTask() {
         stunTask = new BukkitRunnable() {
@@ -118,37 +57,53 @@ public class RogJednorozcaManager {
                 long now = System.currentTimeMillis();
 
                 for (Map.Entry<UUID, Long> entry : new ArrayList<>(stunnedPlayers.entrySet())) {
+                    UUID uuid = entry.getKey();
+
                     if (now >= entry.getValue()) {
-                        stunnedPlayers.remove(entry.getKey());
-                        stunnedLocations.remove(entry.getKey());
+                        // Stun skończony
+                        Player player = Bukkit.getPlayer(uuid);
+                        if (player != null && player.isOnline()) {
+                            // Przywróć grawitację
+                            Boolean hadGravity = stunnedGravity.remove(uuid);
+                            if (hadGravity != null) {
+                                player.setGravity(true);
+                            }
+                        }
+                        stunnedPlayers.remove(uuid);
+                        stunnedLocations.remove(uuid);
                         continue;
                     }
 
-                    Player player = Bukkit.getPlayer(entry.getKey());
+                    Player player = Bukkit.getPlayer(uuid);
                     if (player == null || !player.isOnline()) {
-                        stunnedPlayers.remove(entry.getKey());
-                        stunnedLocations.remove(entry.getKey());
+                        stunnedPlayers.remove(uuid);
+                        stunnedLocations.remove(uuid);
+                        stunnedGravity.remove(uuid);
                         continue;
                     }
 
                     // Trzymaj gracza w miejscu
-                    Location stunLoc = stunnedLocations.get(entry.getKey());
-                    if (stunLoc != null) {
-                        Location playerLoc = player.getLocation();
-                        if (playerLoc.getWorld().equals(stunLoc.getWorld())) {
-                            double dist = playerLoc.distance(stunLoc);
-                            if (dist > 0.3) {
-                                Location tp = stunLoc.clone();
-                                tp.setYaw(playerLoc.getYaw());
-                                tp.setPitch(playerLoc.getPitch());
-                                player.teleport(tp);
-                            }
-                            player.setVelocity(new Vector(0, 0, 0));
-                        }
+                    Location stunLoc = stunnedLocations.get(uuid);
+                    if (stunLoc != null && player.getLocation().getWorld().equals(stunLoc.getWorld())) {
+                        Location tp = stunLoc.clone();
+                        tp.setYaw(player.getLocation().getYaw());
+                        tp.setPitch(player.getLocation().getPitch());
+                        player.teleport(tp);
+                        player.setVelocity(new Vector(0, 0, 0));
                     }
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    private void startCooldownCleanup() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                long now = System.currentTimeMillis();
+                cooldowns.entrySet().removeIf(e -> now >= e.getValue());
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
     }
 
     // ==================== COOLDOWN ====================
@@ -182,10 +137,10 @@ public class RogJednorozcaManager {
         ItemsConfig config = plugin.getItemsConfig();
         Location spawnLoc = player.getLocation();
 
-        // ✅ Niszcz bloki 3x3x3 przy spawnie (bedrock = skip, obsydian = skip)
+        // ✅ Niszcz bloki 3x3x3 przy spawnie
         boolean canBuild = canDestroyInRegion(spawnLoc);
         if (canBuild) {
-            destroyArea(spawnLoc, 3, false);
+            destroyArea(spawnLoc, false);
         }
 
         // Spawn konia
@@ -197,17 +152,19 @@ public class RogJednorozcaManager {
             h.getInventory().setSaddle(new ItemStack(Material.SADDLE));
             h.setAdult();
 
-            // Najszybszy koń w MC: ~0.3375 movement speed
+            // Najszybszy koń w MC
             if (h.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED) != null) {
                 h.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED).setBaseValue(0.3375);
             }
-            // Skok
             if (h.getAttribute(Attribute.HORSE_JUMP_STRENGTH) != null) {
                 h.getAttribute(Attribute.HORSE_JUMP_STRENGTH).setBaseValue(1.0);
             }
+            if (h.getAttribute(Attribute.GENERIC_MAX_HEALTH) != null) {
+                h.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(30.0);
+                h.setHealth(30.0);
+            }
         });
 
-        // Gracz wsiada
         horse.addPassenger(player);
 
         // Dźwięk rogu
@@ -221,7 +178,7 @@ public class RogJednorozcaManager {
         // Cooldown
         setCooldown(player);
 
-        // Zapisz aktywnego jednorożca
+        // Zapisz i uruchom task
         int duration = config.getRogJednorozcaDuration();
         int maxBlocks = config.getRogJednorozcaMaxBlocks();
 
@@ -232,6 +189,87 @@ public class RogJednorozcaManager {
                 maxBlocks
         );
         activeUnicorns.put(player.getUniqueId(), unicorn);
+
+        // ✅ OSOBNY TASK DLA KONIA - wzorowany na starym kodzie
+        startHorseTask(player, horse, unicorn);
+    }
+
+    // ==================== HORSE TASK ====================
+
+    /**
+     * ✅ Główny task konia - co tick sprawdza ruch i niszczy bloki.
+     * Kierunek niszczenia = RZECZYWISTY KIERUNEK RUCHU (nie patrzenia).
+     */
+    private void startHorseTask(Player player, Horse horse, ActiveUnicorn unicorn) {
+        new BukkitRunnable() {
+            Location lastLocation = horse.getLocation().clone();
+
+            @Override
+            public void run() {
+                // Koń nie istnieje
+                if (!horse.isValid() || horse.isDead()) {
+                    activeUnicorns.remove(player.getUniqueId());
+                    cancel();
+                    return;
+                }
+
+                // Gracz nie jedzie
+                if (!horse.getPassengers().contains(player)) {
+                    removeUnicorn(unicorn, true);
+                    cancel();
+                    return;
+                }
+
+                // Czas wygasł
+                if (unicorn.isExpired()) {
+                    removeUnicorn(unicorn, true);
+                    cancel();
+                    return;
+                }
+
+                Location horseLoc = horse.getLocation();
+
+                // Przejechany dystans
+                double moved = horseLoc.distance(lastLocation);
+                unicorn.addRawDistance(moved);
+
+                if (unicorn.getTotalDistance() >= unicorn.getMaxDistance()) {
+                    removeUnicorn(unicorn, true);
+                    cancel();
+                    return;
+                }
+
+                // Sprawdź region
+                List<String> blockedRegions = plugin.getItemsConfig().getRogJednorozcaBlockedRegions();
+                if (plugin.getWorldGuardManager().isInBlockedRegion(horseLoc, blockedRegions)) {
+                    removeUnicorn(unicorn, true);
+                    cancel();
+                    return;
+                }
+
+                // ✅ KIERUNEK RUCHU (nie patrzenia!)
+                double dx = horseLoc.getX() - lastLocation.getX();
+                double dz = horseLoc.getZ() - lastLocation.getZ();
+                double horizontalLength = Math.sqrt(dx * dx + dz * dz);
+
+                boolean isMoving = horizontalLength > 0.05;
+
+                if (isMoving) {
+                    Vector moveDirection = new Vector(dx / horizontalLength, 0, dz / horizontalLength);
+
+                    // ✅ Niszcz bloki przed koniem
+                    boolean canBuild = canDestroyInRegion(horseLoc);
+                    if (canBuild) {
+                        destroyBlocksInFront(horse, moveDirection);
+                    }
+
+                    // ✅ Ogłuszaj graczy
+                    stunNearbyPlayers(horse, player);
+                }
+
+                lastLocation = horseLoc.clone();
+            }
+        }.runTaskTimer(plugin, 1L, 1L);
     }
 
     // ==================== USUWANIE ====================
@@ -243,10 +281,9 @@ public class RogJednorozcaManager {
         if (horse != null && horse.isValid() && !horse.isDead()) {
             Location deathLoc = horse.getLocation();
 
-            // ✅ Niszcz bloki 3x3x3 przy śmierci (obsydian = TAK, bedrock = NIE)
             boolean canBuild = canDestroyInRegion(deathLoc);
             if (canBuild && destroyOnDeath) {
-                destroyArea(deathLoc, 3, true);
+                destroyArea(deathLoc, true);
             }
 
             horse.eject();
@@ -268,37 +305,32 @@ public class RogJednorozcaManager {
     // ==================== NISZCZENIE BLOKÓW ====================
 
     /**
-     * ✅ Niszczy bloki 3x3 PRZED koniem w kierunku patrzenia.
-     * Tunel 3 wysoki (Y+0, Y+1, Y+2 od poziomu konia) i 3 szeroki.
-     * Wywołane CO TICK - koń przejeżdża przez ściany bez zatrzymywania.
+     * ✅ Niszczy bloki 3x3 PRZED koniem w kierunku RUCHU.
+     * Sprawdza od 1.0 do 2.5 bloka przed koniem (co 0.5)
+     * żeby przy pełnej prędkości nie przeskakiwał bloków.
      */
-    private void destroyBlocksInFront(Horse horse) {
-        Location loc = horse.getLocation();
-        Vector direction = loc.getDirection().clone();
-        direction.setY(0).normalize();
+    private void destroyBlocksInFront(Horse horse, Vector direction) {
+        Location horseLoc = horse.getLocation();
+        World world = horseLoc.getWorld();
+        int baseY = horseLoc.getBlockY();
 
-        // Jeśli koń stoi w miejscu - nie niszcz
-        if (direction.lengthSquared() < 0.01) return;
+        // Wektor prostopadły (do boku)
+        Vector perp = new Vector(-direction.getZ(), 0, direction.getX());
 
-        Vector right = new Vector(-direction.getZ(), 0, direction.getX()).normalize();
+        for (double dist = 1.0; dist <= 2.5; dist += 0.5) {
+            double frontX = horseLoc.getX() + direction.getX() * dist;
+            double frontZ = horseLoc.getZ() + direction.getZ() * dist;
 
-        int baseY = loc.getBlockY();
-        World world = loc.getWorld();
+            for (int w = -1; w <= 1; w++) {
+                for (int h = 0; h <= 2; h++) {
+                    int blockX = (int) Math.floor(frontX + perp.getX() * w);
+                    int blockZ = (int) Math.floor(frontZ + perp.getZ() * w);
+                    int blockY = baseY + h;
 
-        // ✅ Sprawdź 2 bloki przed koniem (żeby przy pełnej prędkości nie przeskakiwał)
-        for (int forward = 1; forward <= 2; forward++) {
-            Location frontCenter = loc.clone().add(direction.clone().multiply(forward));
+                    Block block = world.getBlockAt(blockX, blockY, blockZ);
 
-            for (int dy = 0; dy <= 2; dy++) {
-                for (int side = -1; side <= 1; side++) {
-                    Location blockLoc = new Location(world,
-                            frontCenter.getBlockX() + (int) Math.round(right.getX() * side),
-                            baseY + dy,
-                            frontCenter.getBlockZ() + (int) Math.round(right.getZ() * side)
-                    );
-
-                    Block block = blockLoc.getBlock();
                     if (canDestroyBlock(block, false)) {
+                        // ✅ breakNaturally() = drop itemy jak przy normalnym kopaniu
                         block.breakNaturally();
                     }
                 }
@@ -308,16 +340,14 @@ public class RogJednorozcaManager {
 
     /**
      * ✅ Niszczy bloki w obszarze 3x3x3 (spawn/śmierć).
-     * @param deathExplosion true = niszczy też obsydian
      */
-    private void destroyArea(Location center, int size, boolean deathExplosion) {
-        int half = size / 2;
+    private void destroyArea(Location center, boolean deathExplosion) {
         World world = center.getWorld();
         int baseY = center.getBlockY();
 
-        for (int x = -half; x <= half; x++) {
-            for (int y = 0; y < size; y++) {
-                for (int z = -half; z <= half; z++) {
+        for (int x = -1; x <= 1; x++) {
+            for (int y = 0; y <= 2; y++) {
+                for (int z = -1; z <= 1; z++) {
                     Block block = world.getBlockAt(
                             center.getBlockX() + x,
                             baseY + y,
@@ -331,23 +361,11 @@ public class RogJednorozcaManager {
         }
     }
 
-    /**
-     * ✅ Sprawdza czy blok może być zniszczony.
-     * - Bedrock, barrier itp. = NIGDY
-     * - Obsydian = TYLKO przy śmierci konia (deathExplosion = true)
-     * - Reszta = TAK
-     */
     private boolean canDestroyBlock(Block block, boolean deathExplosion) {
         Material type = block.getType();
-
         if (type.isAir()) return false;
         if (FULLY_INDESTRUCTIBLE.contains(type)) return false;
-
-        // Obsydian tylko przy śmierci/spawnie z deathExplosion
-        if (DEATH_ONLY_DESTRUCTIBLE.contains(type)) {
-            return deathExplosion;
-        }
-
+        if (DEATH_ONLY_DESTRUCTIBLE.contains(type)) return deathExplosion;
         return true;
     }
 
@@ -356,19 +374,16 @@ public class RogJednorozcaManager {
     private void stunNearbyPlayers(Horse horse, Player owner) {
         ItemsConfig config = plugin.getItemsConfig();
         Location horseLoc = horse.getLocation();
-        double stunRadius = 1.5;
 
-        for (Player target : horseLoc.getWorld().getNearbyPlayers(horseLoc, stunRadius)) {
+        for (Player target : horseLoc.getWorld().getNearbyPlayers(horseLoc, 1.5, 1.5, 1.5)) {
             if (target.equals(owner)) continue;
             if (isStunned(target)) continue;
 
-            // Region check
             List<String> blockedRegions = config.getRogJednorozcaBlockedRegions();
             if (plugin.getWorldGuardManager().isInBlockedRegion(target.getLocation(), blockedRegions)) {
                 continue;
             }
 
-            // 4s protection (od końca ogłuszenia)
             if (plugin.getItemProtectionManager().isProtected(target, "rog-jednorozca")) {
                 plugin.getItemProtectionManager()
                         .notifyAttacker(owner, "rog-jednorozca",
@@ -378,7 +393,6 @@ public class RogJednorozcaManager {
 
             applyStun(target, config.getRogJednorozcaStunDuration());
 
-            // Combat tag
             if (plugin.getCombatIntegrationManager().isEnabled()) {
                 plugin.getCombatIntegrationManager().tagPlayer(target, owner);
                 plugin.getCombatIntegrationManager().tagPlayer(owner, target);
@@ -391,7 +405,11 @@ public class RogJednorozcaManager {
         stunnedPlayers.put(target.getUniqueId(), endTime);
         stunnedLocations.put(target.getUniqueId(), target.getLocation().clone());
 
-        // Subtitle
+        // ✅ Wyłącz grawitację (gracz nie spada jeśli był w powietrzu)
+        stunnedGravity.put(target.getUniqueId(), target.hasGravity());
+        target.setGravity(false);
+        target.setVelocity(new Vector(0, 0, 0));
+
         target.showTitle(Title.title(
                 Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand()
@@ -417,6 +435,10 @@ public class RogJednorozcaManager {
     public void removeStun(Player player) {
         stunnedPlayers.remove(player.getUniqueId());
         stunnedLocations.remove(player.getUniqueId());
+        Boolean hadGravity = stunnedGravity.remove(player.getUniqueId());
+        if (hadGravity != null) {
+            player.setGravity(true);
+        }
     }
 
     // ==================== REGION CHECKS ====================
@@ -428,14 +450,13 @@ public class RogJednorozcaManager {
         );
     }
 
-    /**
-     * ✅ Sprawdza czy w danym regionie można niszczyć bloki.
-     * Jeśli build/block-break jest off - nie niszczymy bloków ale koń nadal jeździ.
-     */
     private boolean canDestroyInRegion(Location location) {
-        // Sprawdź czy WorldGuard pozwala na block-break
-        // Używamy null gracza - sprawdzamy ogólną flagę regionu
-        return plugin.getWorldGuardManager().canBreakBlock(null, location);
+        try {
+            return plugin.getWorldGuardManager().canBreakBlock(null, location);
+        } catch (Exception e) {
+            // Jeśli WorldGuard nie obsługuje null gracza, domyślnie pozwól
+            return true;
+        }
     }
 
     // ==================== HORSE CHECKS ====================
@@ -461,7 +482,6 @@ public class RogJednorozcaManager {
     // ==================== CLEANUP ====================
 
     public void cleanup() {
-        if (tickTask != null) tickTask.cancel();
         if (stunTask != null) stunTask.cancel();
 
         for (ActiveUnicorn unicorn : new ArrayList<>(activeUnicorns.values())) {
@@ -472,10 +492,19 @@ public class RogJednorozcaManager {
             }
         }
 
+        // Przywróć grawitację ogłuszonym graczom
+        for (UUID uuid : stunnedGravity.keySet()) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null && player.isOnline()) {
+                player.setGravity(true);
+            }
+        }
+
         activeUnicorns.clear();
         cooldowns.clear();
         stunnedPlayers.clear();
         stunnedLocations.clear();
+        stunnedGravity.clear();
     }
 
     // ==================== INNER CLASS ====================
@@ -485,7 +514,6 @@ public class RogJednorozcaManager {
         private final Horse horse;
         private final long expirationTime;
         private final int maxDistance;
-        private Location lastLocation;
         private double totalDistance;
 
         public ActiveUnicorn(UUID ownerId, Horse horse, long expirationTime, int maxDistance) {
@@ -493,24 +521,20 @@ public class RogJednorozcaManager {
             this.horse = horse;
             this.expirationTime = expirationTime;
             this.maxDistance = maxDistance;
-            this.lastLocation = horse.getLocation().clone();
             this.totalDistance = 0;
         }
 
         public UUID getOwnerId() { return ownerId; }
         public Horse getHorse() { return horse; }
         public int getMaxDistance() { return maxDistance; }
+        public double getTotalDistance() { return totalDistance; }
 
         public boolean isExpired() {
             return System.currentTimeMillis() >= expirationTime;
         }
 
-        public double addDistance(Location current) {
-            if (lastLocation != null && lastLocation.getWorld().equals(current.getWorld())) {
-                totalDistance += lastLocation.distance(current);
-            }
-            lastLocation = current.clone();
-            return totalDistance;
+        public void addRawDistance(double distance) {
+            this.totalDistance += distance;
         }
     }
 }
