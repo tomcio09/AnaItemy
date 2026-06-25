@@ -21,7 +21,6 @@ public class HydroTrojzabItem {
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
-                "",
                 " &8» &7Jest to przedmiot zdobyty podczas",
                 " &8» &fwydarzenia wakacyjnego 2025&7!",
                 "",
