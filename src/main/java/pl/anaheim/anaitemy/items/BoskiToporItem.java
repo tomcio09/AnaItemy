@@ -17,10 +17,10 @@ import java.util.List;
 public class BoskiToporItem {
 
     public static final String ITEM_NAME_STRIPPED = "Boski topór";
+    public static final int CUSTOM_MODEL_DATA = 3462232;
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
-                "",
                 " &8» &7Jest to przedmiot z:",
                 " &8» &fspecjalnego wydarzenia (2025)",
                 "",
@@ -46,7 +46,7 @@ public class BoskiToporItem {
         }
         meta.lore(loreComponents);
 
-        meta.setCustomModelData(1);
+        meta.setCustomModelData(CUSTOM_MODEL_DATA);
         meta.addEnchant(Enchantment.DURABILITY, 10, true);
         meta.addEnchant(Enchantment.DIG_SPEED, 5, true);
         meta.setUnbreakable(true);
@@ -60,7 +60,7 @@ public class BoskiToporItem {
         if (item == null || item.getType() != Material.IRON_AXE) return false;
         if (!item.hasItemMeta()) return false;
         if (!item.getItemMeta().hasCustomModelData()) return false;
-        if (item.getItemMeta().getCustomModelData() != 1) return false;
+        if (item.getItemMeta().getCustomModelData() != CUSTOM_MODEL_DATA) return false;
         if (item.getItemMeta().displayName() == null) return false;
 
         String plainName = PlainTextComponentSerializer.plainText()
