@@ -36,6 +36,8 @@ public class EventoweGUI {
         gui.setItem(11, RogJednorozcaItem.create());
         gui.setItem(12, BoskiToporItem.create());
         gui.setItem(13, SuperMarchewkaItem.create());
+        gui.setItem(14, LopataGrinchaItem.create());
+        gui.setItem(15, RozgaItem.create());
 
         player.openInventory(gui);
     }
