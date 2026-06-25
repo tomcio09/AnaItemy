@@ -23,6 +23,7 @@ import pl.anaheim.anaitemy.managers.HydroTrojzabManager;
 import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
 import pl.anaheim.anaitemy.managers.RogJednorozcaManager;
 import pl.anaheim.anaitemy.managers.SiekieraGrinchaManager;
+import pl.anaheim.anaitemy.managers.SuperMarchewkaManager;
 import pl.anaheim.anaitemy.managers.WedkaNielotaManager;
 
 import java.util.ArrayList;
@@ -36,7 +37,8 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> ITEM_IDS = Arrays.asList(
             "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka",
-            "elytra", "blokwidmo", "siekiera", "hydrotrident", "latarnia", "rog", "topor"
+            "elytra", "blokwidmo", "siekiera", "hydrotrident", "latarnia", "rog",
+            "topor", "marchewka"
     );
 
     public ItemyEventoweCommand(AnaItemy plugin) {
@@ -179,6 +181,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "latarnia" -> CudownaLatarniaItem.create();
             case "rog" -> RogJednorozcaItem.create();
             case "topor" -> BoskiToporItem.create();
+            case "marchewka" -> SuperMarchewkaItem.create();
             default -> null;
         };
     }
@@ -198,6 +201,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "latarnia" -> "&dCudowna Latarnia";
             case "rog" -> "&dRóg Jednorożca";
             case "topor" -> "&bBoski Topór";
+            case "marchewka" -> "&6Super Marchewka";
             default -> id;
         };
     }
@@ -252,6 +256,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         CudownaLatarniaManager latarniaManager = plugin.getCudownaLatarniaManager();
         RogJednorozcaManager rogManager = plugin.getRogJednorozcaManager();
         BoskiToporManager toporManager = plugin.getBoskiToporManager();
+        SuperMarchewkaManager marchewkaManager = plugin.getSuperMarchewkaManager();
 
         hydroManager.resetCooldown(target);
         target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
@@ -267,6 +272,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         latarniaManager.resetCooldown(target);
         rogManager.resetCooldown(target);
         toporManager.resetCooldown(target);
+        marchewkaManager.resetCooldown(target);
 
         sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
         target.sendMessage(color("&aTwoje cooldowny zostały zresetowane przez &f" + sender.getName() + "&a!"));
