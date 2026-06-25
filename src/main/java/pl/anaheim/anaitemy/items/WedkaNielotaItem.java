@@ -20,7 +20,6 @@ public class WedkaNielotaItem {
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
-                "",
                 " &8» &7Wędka nielota była do zdobycia",
                 " &8» &7w &f2026 roku &7podczas &adnia dziecka",
                 "",
