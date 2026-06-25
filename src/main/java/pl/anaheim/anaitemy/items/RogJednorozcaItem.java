@@ -20,7 +20,6 @@ public class RogJednorozcaItem {
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
-                "",
                 " &8» &7Jest to przedmiot z:",
                 " &8» &feventu walentynkowego (2026)",
                 "",
