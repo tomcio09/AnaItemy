@@ -493,6 +493,53 @@ cudowna-latarnia:
   respects-protection: false
   notify-attacker: false
 # ==========================================
+#         RÓG JEDNOROŻCA
+# ==========================================
+rog-jednorozca:
+  material: GOAT_HORN
+  name: '&d&lRóg Jednorożca'
+  lore:
+    - ''
+    - ' &8» &7Jest to przedmiot z:'
+    - ' &8» &feventu walentynkowego (2026)'
+    - ''
+    - ' &8» &7Po użyciu przywołujesz &djednorożca&7,'
+    - ' &8» &7którym możesz jeździć! Niszczyć bloki'
+    - ' &8» &7na swojej drodze i &cogłuszać graczy&7,'
+    - ' &8» &7w których wjedziesz!'
+  custom-model-data: 1
+  gui-slot: 11
+  enchants:
+    unbreaking: 10
+
+  # Czas trwania konia (sekundy)
+  duration: 10
+
+  # Maksymalna ilość przejechanych bloków
+  max-blocks: 100
+
+  # Cooldown (sekundy)
+  cooldown: 60
+
+  # Czas ogłuszenia (sekundy)
+  stun-duration: 3
+
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+
+  messages:
+    cooldown-subtitle: '&7Możesz użyć dopiero za: &d{seconds_left}s&7!'
+    stun-subtitle: '&cZostałeś ogłuszony!'
+
+  # 4s protection od KOŃCA ogłuszenia (3s stun + 4s = 7s łącznie)
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
