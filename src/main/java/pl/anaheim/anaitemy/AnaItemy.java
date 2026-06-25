@@ -20,6 +20,7 @@ public class AnaItemy extends JavaPlugin {
     private RogJednorozcaManager rogJednorozcaManager;
     private BoskiToporManager boskiToporManager;
     private SuperMarchewkaManager superMarchewkaManager;
+    private LopataGrinchaManager lopataGrinchaManager;
     private ItemsConfig itemsConfig;
     private WorldGuardManager worldGuardManager;
     private CombatIntegrationManager combatIntegrationManager;
@@ -49,6 +50,7 @@ public class AnaItemy extends JavaPlugin {
         rogJednorozcaManager = new RogJednorozcaManager(this);
         boskiToporManager = new BoskiToporManager(this);
         superMarchewkaManager = new SuperMarchewkaManager(this);
+        lopataGrinchaManager = new LopataGrinchaManager(this);
 
         if (!getServer().getPluginManager().isPluginEnabled("Citizens")) {
             getLogger().warning("Citizens nie znaleziono - Różdżka Iluzjonisty działa bez NPC!");
@@ -82,6 +84,7 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new RogJednorozcaListener(this), this);
         getServer().getPluginManager().registerEvents(new BoskiToporListener(this), this);
         getServer().getPluginManager().registerEvents(new SuperMarchewkaListener(this), this);
+        getServer().getPluginManager().registerEvents(new LopataGrinchaListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
@@ -99,6 +102,7 @@ public class AnaItemy extends JavaPlugin {
         if (rogJednorozcaManager != null) rogJednorozcaManager.cleanup();
         if (boskiToporManager != null) boskiToporManager.cleanup();
         if (superMarchewkaManager != null) superMarchewkaManager.cleanup();
+        if (lopataGrinchaManager != null) lopataGrinchaManager.cleanup();
         if (actionBarManager != null) actionBarManager.cleanup();
         if (itemProtectionManager != null) itemProtectionManager.cleanup();
         getLogger().info("AnaItemy zostal wylaczony!");
@@ -116,6 +120,7 @@ public class AnaItemy extends JavaPlugin {
     public RogJednorozcaManager getRogJednorozcaManager() { return rogJednorozcaManager; }
     public BoskiToporManager getBoskiToporManager() { return boskiToporManager; }
     public SuperMarchewkaManager getSuperMarchewkaManager() { return superMarchewkaManager; }
+    public LopataGrinchaManager getLopataGrinchaManager() { return lopataGrinchaManager; }
     public ItemsConfig getItemsConfig() { return itemsConfig; }
     public WorldGuardManager getWorldGuardManager() { return worldGuardManager; }
     public TotemListener getTotemListener() { return totemListener; }
