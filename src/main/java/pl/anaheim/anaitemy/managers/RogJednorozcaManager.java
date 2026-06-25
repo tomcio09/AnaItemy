@@ -60,10 +60,8 @@ public class RogJednorozcaManager {
                     UUID uuid = entry.getKey();
 
                     if (now >= entry.getValue()) {
-                        // Stun skończony
                         Player player = Bukkit.getPlayer(uuid);
                         if (player != null && player.isOnline()) {
-                            // Przywróć grawitację
                             Boolean hadGravity = stunnedGravity.remove(uuid);
                             if (hadGravity != null) {
                                 player.setGravity(true);
@@ -82,7 +80,6 @@ public class RogJednorozcaManager {
                         continue;
                     }
 
-                    // Trzymaj gracza w miejscu
                     Location stunLoc = stunnedLocations.get(uuid);
                     if (stunLoc != null && player.getLocation().getWorld().equals(stunLoc.getWorld())) {
                         Location tp = stunLoc.clone();
@@ -138,12 +135,10 @@ public class RogJednorozcaManager {
         Location spawnLoc = player.getLocation();
 
         // ✅ Niszcz bloki 3x3x3 przy spawnie
-        boolean canBuild = canDestroyInRegion(spawnLoc);
-        if (canBuild) {
+        if (canDestroyInRegion(player, spawnLoc)) {
             destroyArea(spawnLoc, false);
         }
 
-        // Spawn konia
         Horse horse = spawnLoc.getWorld().spawn(spawnLoc, Horse.class, h -> {
             h.setColor(Horse.Color.WHITE);
             h.setStyle(Horse.Style.NONE);
@@ -152,7 +147,6 @@ public class RogJednorozcaManager {
             h.getInventory().setSaddle(new ItemStack(Material.SADDLE));
             h.setAdult();
 
-            // Najszybszy koń w MC
             if (h.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED) != null) {
                 h.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED).setBaseValue(0.3375);
             }
@@ -167,18 +161,14 @@ public class RogJednorozcaManager {
 
         horse.addPassenger(player);
 
-        // Dźwięk rogu
         spawnLoc.getWorld().playSound(spawnLoc, Sound.ITEM_GOAT_HORN_SOUND_0,
                 SoundCategory.PLAYERS, 2.0f, 1.0f);
 
-        // Particle
         spawnLoc.getWorld().spawnParticle(Particle.HEART, spawnLoc.clone().add(0, 2, 0),
                 15, 1, 0.5, 1, 0.1);
 
-        // Cooldown
         setCooldown(player);
 
-        // Zapisz i uruchom task
         int duration = config.getRogJednorozcaDuration();
         int maxBlocks = config.getRogJednorozcaMaxBlocks();
 
@@ -190,20 +180,14 @@ public class RogJednorozcaManager {
         );
         activeUnicorns.put(player.getUniqueId(), unicorn);
 
-        // ✅ OSOBNY TASK DLA KONIA - wzorowany na starym kodzie
         startHorseTask(player, horse, unicorn);
     }
 
     // ==================== HORSE TASK ====================
 
-    /**
-     * ✅ Główny task konia - co tick sprawdza ruch i niszczy bloki.
-     * Kierunek niszczenia = RZECZYWISTY KIERUNEK RUCHU (nie patrzenia).
-     */
     private void startHorseTask(Player player, Horse horse, ActiveUnicorn unicorn) {
         new BukkitRunnable() {
             Location lastLocation = horse.getLocation().clone();
-            int debugCounter = 0;
 
             @Override
             public void run() {
@@ -236,8 +220,9 @@ public class RogJednorozcaManager {
                     return;
                 }
 
+                // ✅ TYLKO regiony z items.yml
                 List<String> blockedRegions = plugin.getItemsConfig().getRogJednorozcaBlockedRegions();
-                if (plugin.getWorldGuardManager().isInBlockedRegion(horseLoc, blockedRegions)) {
+                if (plugin.getWorldGuardManager().isInNamedRegion(horseLoc, blockedRegions)) {
                     removeUnicorn(unicorn, true);
                     cancel();
                     return;
@@ -249,29 +234,11 @@ public class RogJednorozcaManager {
 
                 boolean isMoving = horizontalLength > 0.05;
 
-                // ✅ DEBUG - co 20 ticków (1 sekundę)
-                debugCounter++;
-                if (debugCounter % 20 == 0) {
-                    plugin.getLogger().info("[RogDebug] horseLoc=" + 
-                            String.format("%.2f, %.2f, %.2f", horseLoc.getX(), horseLoc.getY(), horseLoc.getZ()) +
-                            " moved=" + String.format("%.4f", moved) +
-                            " horizontal=" + String.format("%.4f", horizontalLength) +
-                            " isMoving=" + isMoving +
-                            " totalDist=" + String.format("%.1f", unicorn.getTotalDistance()));
-                }
-
                 if (isMoving) {
                     Vector moveDirection = new Vector(dx / horizontalLength, 0, dz / horizontalLength);
 
-                    boolean canBuild = canDestroyInRegion(horseLoc);
-                    
-                    // ✅ DEBUG
-                    if (debugCounter % 20 == 0) {
-                        plugin.getLogger().info("[RogDebug] canBuild=" + canBuild + 
-                                " direction=" + String.format("%.2f, %.2f", moveDirection.getX(), moveDirection.getZ()));
-                    }
-
-                    if (canBuild) {
+                    // ✅ TERAZ sprawdzamy block-break dla WŁAŚCICIELA
+                    if (canDestroyInRegion(player, horseLoc)) {
                         destroyBlocksInFront(horse, moveDirection);
                     }
 
@@ -291,9 +258,9 @@ public class RogJednorozcaManager {
         Horse horse = unicorn.getHorse();
         if (horse != null && horse.isValid() && !horse.isDead()) {
             Location deathLoc = horse.getLocation();
+            Player owner = Bukkit.getPlayer(unicorn.getOwnerId());
 
-            boolean canBuild = canDestroyInRegion(deathLoc);
-            if (canBuild && destroyOnDeath) {
+            if (owner != null && canDestroyInRegion(owner, deathLoc) && destroyOnDeath) {
                 destroyArea(deathLoc, true);
             }
 
@@ -316,9 +283,8 @@ public class RogJednorozcaManager {
     // ==================== NISZCZENIE BLOKÓW ====================
 
     /**
-     * ✅ Niszczy bloki 3x3 PRZED koniem w kierunku RUCHU.
-     * Sprawdza od 1.0 do 2.5 bloka przed koniem (co 0.5)
-     * żeby przy pełnej prędkości nie przeskakiwał bloków.
+     * ✅ Niszczy tunel 3x3 PRZED koniem, według rzeczywistego kierunku ruchu.
+     * Dzięki temu koń może wjechać w ścianę i od razu ją drążyć.
      */
     private void destroyBlocksInFront(Horse horse, Vector direction) {
         Location horseLoc = horse.getLocation();
@@ -327,9 +293,8 @@ public class RogJednorozcaManager {
 
         Vector perp = new Vector(-direction.getZ(), 0, direction.getX());
 
-        int destroyed = 0;
-
-        for (double dist = 1.0; dist <= 2.5; dist += 0.5) {
+        // ✅ Sprawdzamy kilka "warstw" do przodu, żeby nie przeskakiwał bloków
+        for (double dist = 0.7; dist <= 2.8; dist += 0.35) {
             double frontX = horseLoc.getX() + direction.getX() * dist;
             double frontZ = horseLoc.getZ() + direction.getZ() * dist;
 
@@ -340,25 +305,17 @@ public class RogJednorozcaManager {
                     int blockY = baseY + h;
 
                     Block block = world.getBlockAt(blockX, blockY, blockZ);
-                    Material type = block.getType();
 
-                    if (type.isAir()) continue;
-                    if (FULLY_INDESTRUCTIBLE.contains(type)) continue;
-                    if (DEATH_ONLY_DESTRUCTIBLE.contains(type)) continue;
-
-                    block.breakNaturally();
-                    destroyed++;
+                    if (canDestroyBlock(block, false)) {
+                        block.breakNaturally();
+                    }
                 }
             }
-        }
-
-        if (destroyed > 0) {
-            plugin.getLogger().info("[RogDebug] Zniszczono " + destroyed + " bloków przed koniem");
         }
     }
 
     /**
-     * ✅ Niszczy bloki w obszarze 3x3x3 (spawn/śmierć).
+     * ✅ 3x3x3 przy spawnie/śmierci.
      */
     private void destroyArea(Location center, boolean deathExplosion) {
         World world = center.getWorld();
@@ -382,9 +339,14 @@ public class RogJednorozcaManager {
 
     private boolean canDestroyBlock(Block block, boolean deathExplosion) {
         Material type = block.getType();
+
         if (type.isAir()) return false;
         if (FULLY_INDESTRUCTIBLE.contains(type)) return false;
-        if (DEATH_ONLY_DESTRUCTIBLE.contains(type)) return deathExplosion;
+
+        if (DEATH_ONLY_DESTRUCTIBLE.contains(type)) {
+            return deathExplosion;
+        }
+
         return true;
     }
 
@@ -399,7 +361,7 @@ public class RogJednorozcaManager {
             if (isStunned(target)) continue;
 
             List<String> blockedRegions = config.getRogJednorozcaBlockedRegions();
-            if (plugin.getWorldGuardManager().isInBlockedRegion(target.getLocation(), blockedRegions)) {
+            if (plugin.getWorldGuardManager().isInNamedRegion(target.getLocation(), blockedRegions)) {
                 continue;
             }
 
@@ -424,7 +386,6 @@ public class RogJednorozcaManager {
         stunnedPlayers.put(target.getUniqueId(), endTime);
         stunnedLocations.put(target.getUniqueId(), target.getLocation().clone());
 
-        // ✅ Wyłącz grawitację (gracz nie spada jeśli był w powietrzu)
         stunnedGravity.put(target.getUniqueId(), target.hasGravity());
         target.setGravity(false);
         target.setVelocity(new Vector(0, 0, 0));
@@ -440,7 +401,6 @@ public class RogJednorozcaManager {
                 )
         ));
 
-        // Nałóż protection od KOŃCA ogłuszenia
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             plugin.getItemProtectionManager().applyProtection(target, "rog-jednorozca");
         }, durationSeconds * 20L);
@@ -463,19 +423,18 @@ public class RogJednorozcaManager {
     // ==================== REGION CHECKS ====================
 
     public boolean isInBlockedRegion(Location location) {
-        return plugin.getWorldGuardManager().isInBlockedRegion(
+        return plugin.getWorldGuardManager().isInNamedRegion(
                 location,
                 plugin.getItemsConfig().getRogJednorozcaBlockedRegions()
         );
     }
 
-    private boolean canDestroyInRegion(Location location) {
-        try {
-            return plugin.getWorldGuardManager().canBreakBlock(null, location);
-        } catch (Exception e) {
-            // Jeśli WorldGuard nie obsługuje null gracza, domyślnie pozwól
-            return true;
-        }
+    /**
+     * ✅ Czy właściciel może niszczyć bloki w tym miejscu.
+     * Jeśli build/block-break off -> koń jedzie, ale nic nie niszczy.
+     */
+    private boolean canDestroyInRegion(Player owner, Location location) {
+        return plugin.getWorldGuardManager().canBreakBlock(owner, location);
     }
 
     // ==================== HORSE CHECKS ====================
@@ -511,7 +470,6 @@ public class RogJednorozcaManager {
             }
         }
 
-        // Przywróć grawitację ogłuszonym graczom
         for (UUID uuid : stunnedGravity.keySet()) {
             Player player = Bukkit.getPlayer(uuid);
             if (player != null && player.isOnline()) {
