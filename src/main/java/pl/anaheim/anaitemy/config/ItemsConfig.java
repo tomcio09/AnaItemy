@@ -936,4 +936,28 @@ public class ItemsConfig {
         return config.getString("super-marchewka.messages.mini-subtitle",
                 "&aZmniejszony o 50% na 10 sekund!");
     }
+        // ==================== ŁOPATA GRINCHA ====================
+
+    public long getLopataGrinchaCooldown() {
+        return config.getLong("lopata-grincha.cooldown", 30);
+    }
+
+    public List<String> getLopataGrinchaBlockedRegions() {
+        return config.getStringList("lopata-grincha.blocked-regions");
+    }
+
+    public String getLopataGrinchaAttackerSubtitle() {
+        return config.getString("lopata-grincha.messages.attacker-subtitle",
+                "&7Uderzyłeś gracza &f{nick} &7łopatą &agrincha&7!");
+    }
+
+    public String getLopataGrinchaVictimSubtitle() {
+        return config.getString("lopata-grincha.messages.victim-subtitle",
+                "&7Zostałeś uderzony &ałopatą grincha&7!");
+    }
+
+    public String getLopataGrinchaCooldownSubtitle() {
+        return config.getString("lopata-grincha.messages.cooldown-subtitle",
+                "&aŁopatę grincha &7możesz użyć za: &a{seconds_left}&7!");
+    }
 }
