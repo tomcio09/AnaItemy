@@ -301,12 +301,11 @@ public class RogJednorozcaManager {
     private void destroyBlocksInFront(Location horseLoc, Vector direction) {
         World world = horseLoc.getWorld();
 
-        // ✅ niższa baza, żeby czyściło także blok "schodka" przed koniem
-        int baseY = horseLoc.clone().subtract(0, 1, 0).getBlockY();
+        // ✅ baseY = pozycja konia (nie -1)
+        int baseY = horseLoc.getBlockY();
 
         Vector perp = new Vector(-direction.getZ(), 0, direction.getX()).normalize();
 
-        // ✅ gęsto sprawdzane od przodu aż kawałek dalej
         for (double dist = 0.35; dist <= 2.7; dist += 0.25) {
             Location front = horseLoc.clone().add(direction.clone().multiply(dist));
 
@@ -331,7 +330,8 @@ public class RogJednorozcaManager {
      */
     private void destroyArea(Location center, boolean deathExplosion) {
         World world = center.getWorld();
-        int baseY = center.clone().subtract(0, 1, 0).getBlockY();
+        // ✅ baseY = pozycja konia (nie -1)
+        int baseY = center.getBlockY();
 
         for (int x = -1; x <= 1; x++) {
             for (int y = 0; y <= 2; y++) {
