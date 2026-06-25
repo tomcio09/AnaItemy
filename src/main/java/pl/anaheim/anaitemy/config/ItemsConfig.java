@@ -822,4 +822,39 @@ public class ItemsConfig {
     public String getCudownaLatarniaBossBarColor() {
         return config.getString("cudowna-latarnia.bossbar.color", "PURPLE");
     }
+        // ==================== RÓG JEDNOROŻCA ====================
+
+    public int getRogJednorozcaGuiSlot() {
+        return config.getInt("rog-jednorozca.gui-slot", 11);
+    }
+
+    public long getRogJednorozcaCooldown() {
+        return config.getLong("rog-jednorozca.cooldown", 60);
+    }
+
+    public int getRogJednorozcaDuration() {
+        return config.getInt("rog-jednorozca.duration", 8);
+    }
+
+    public int getRogJednorozcaMaxBlocks() {
+        return config.getInt("rog-jednorozca.max-blocks", 100);
+    }
+
+    public int getRogJednorozcaStunDuration() {
+        return config.getInt("rog-jednorozca.stun-duration", 3);
+    }
+
+    public List<String> getRogJednorozcaBlockedRegions() {
+        return config.getStringList("rog-jednorozca.blocked-regions");
+    }
+
+    public String getRogJednorozcaCooldownSubtitle() {
+        return config.getString("rog-jednorozca.messages.cooldown-subtitle",
+                "&7Możesz użyć dopiero za: &d{seconds_left}s&7!");
+    }
+
+    public String getRogJednorozcaStunSubtitle() {
+        return config.getString("rog-jednorozca.messages.stun-subtitle",
+                "&cZostałeś ogłuszony!");
+    }
 }
