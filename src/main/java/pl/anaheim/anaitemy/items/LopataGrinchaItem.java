@@ -17,6 +17,7 @@ import java.util.List;
 public class LopataGrinchaItem {
 
     public static final String ITEM_NAME_STRIPPED = "Łopata grincha";
+    public static final int CUSTOM_MODEL_DATA = 4572321;
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
@@ -45,7 +46,7 @@ public class LopataGrinchaItem {
         }
         meta.lore(loreComponents);
 
-        meta.setCustomModelData(1);
+        meta.setCustomModelData(CUSTOM_MODEL_DATA);
         meta.addEnchant(Enchantment.DURABILITY, 10, true);
         meta.addEnchant(Enchantment.DIG_SPEED, 5, true);
         meta.setUnbreakable(true);
@@ -59,7 +60,7 @@ public class LopataGrinchaItem {
         if (item == null || item.getType() != Material.DIAMOND_SHOVEL) return false;
         if (!item.hasItemMeta()) return false;
         if (!item.getItemMeta().hasCustomModelData()) return false;
-        if (item.getItemMeta().getCustomModelData() != 1) return false;
+        if (item.getItemMeta().getCustomModelData() != CUSTOM_MODEL_DATA) return false;
         if (item.getItemMeta().displayName() == null) return false;
 
         String plainName = PlainTextComponentSerializer.plainText()
