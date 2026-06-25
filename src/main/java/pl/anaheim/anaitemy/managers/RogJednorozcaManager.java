@@ -134,7 +134,7 @@ public class RogJednorozcaManager {
         ItemsConfig config = plugin.getItemsConfig();
         Location spawnLoc = player.getLocation();
 
-        // ✅ Niszcz bloki 3x3x3 przy spawnie
+        // ✅ Niszczenie 3x3x3 przy spawnie
         if (canDestroyInRegion(player, spawnLoc)) {
             destroyArea(spawnLoc, false);
         }
@@ -185,6 +185,11 @@ public class RogJednorozcaManager {
 
     // ==================== HORSE TASK ====================
 
+    /**
+     * ✅ Najważniejsza poprawka:
+     * Bloki są niszczone CO TICK na podstawie kierunku jazdy/patrzenia,
+     * nawet jeśli koń właśnie wciska się w ścianę.
+     */
     private void startHorseTask(Player player, Horse horse, ActiveUnicorn unicorn) {
         new BukkitRunnable() {
             Location lastLocation = horse.getLocation().clone();
@@ -211,6 +216,7 @@ public class RogJednorozcaManager {
 
                 Location horseLoc = horse.getLocation();
 
+                // dystans
                 double moved = horseLoc.distance(lastLocation);
                 unicorn.addRawDistance(moved);
 
@@ -220,7 +226,7 @@ public class RogJednorozcaManager {
                     return;
                 }
 
-                // ✅ TYLKO regiony z items.yml
+                // ✅ jeśli koń próbuje wejść w blocked-region z configu -> znika
                 List<String> blockedRegions = plugin.getItemsConfig().getRogJednorozcaBlockedRegions();
                 if (plugin.getWorldGuardManager().isInNamedRegion(horseLoc, blockedRegions)) {
                     removeUnicorn(unicorn, true);
@@ -228,20 +234,23 @@ public class RogJednorozcaManager {
                     return;
                 }
 
-                double dx = horseLoc.getX() - lastLocation.getX();
-                double dz = horseLoc.getZ() - lastLocation.getZ();
-                double horizontalLength = Math.sqrt(dx * dx + dz * dz);
+                // ✅ kierunek niszczenia = kierunek patrzenia gracza/kon
+                Vector direction = player.getLocation().getDirection().clone();
+                direction.setY(0);
 
-                boolean isMoving = horizontalLength > 0.05;
+                if (direction.lengthSquared() < 0.0001) {
+                    direction = horseLoc.getDirection().clone().setY(0);
+                }
 
-                if (isMoving) {
-                    Vector moveDirection = new Vector(dx / horizontalLength, 0, dz / horizontalLength);
+                if (direction.lengthSquared() > 0.0001) {
+                    direction.normalize();
 
-                    // ✅ TERAZ sprawdzamy block-break dla WŁAŚCICIELA
+                    // ✅ najpierw niszczenie
                     if (canDestroyInRegion(player, horseLoc)) {
-                        destroyBlocksInFront(horse, moveDirection);
+                        destroyBlocksInFront(horseLoc, direction);
                     }
 
+                    // ✅ potem ogłuszenie
                     stunNearbyPlayers(horse, player);
                 }
 
@@ -283,29 +292,32 @@ public class RogJednorozcaManager {
     // ==================== NISZCZENIE BLOKÓW ====================
 
     /**
-     * ✅ Niszczy tunel 3x3 PRZED koniem, według rzeczywistego kierunku ruchu.
-     * Dzięki temu koń może wjechać w ścianę i od razu ją drążyć.
+     * ✅ Tunel 3x3x100:
+     * - 3 szerokości
+     * - 3 wysokości
+     * - niszczy od razu przed koniem
+     * - nie pozwala "wchodzić pod górę", bo czyści ścianę przed sobą
      */
-    private void destroyBlocksInFront(Horse horse, Vector direction) {
-        Location horseLoc = horse.getLocation();
+    private void destroyBlocksInFront(Location horseLoc, Vector direction) {
         World world = horseLoc.getWorld();
-        int baseY = horseLoc.getBlockY();
 
-        Vector perp = new Vector(-direction.getZ(), 0, direction.getX());
+        // ✅ niższa baza, żeby czyściło także blok "schodka" przed koniem
+        int baseY = horseLoc.clone().subtract(0, 1, 0).getBlockY();
 
-        // ✅ Sprawdzamy kilka "warstw" do przodu, żeby nie przeskakiwał bloków
-        for (double dist = 0.7; dist <= 2.8; dist += 0.35) {
-            double frontX = horseLoc.getX() + direction.getX() * dist;
-            double frontZ = horseLoc.getZ() + direction.getZ() * dist;
+        Vector perp = new Vector(-direction.getZ(), 0, direction.getX()).normalize();
 
-            for (int w = -1; w <= 1; w++) {
-                for (int h = 0; h <= 2; h++) {
-                    int blockX = (int) Math.floor(frontX + perp.getX() * w);
-                    int blockZ = (int) Math.floor(frontZ + perp.getZ() * w);
-                    int blockY = baseY + h;
+        // ✅ gęsto sprawdzane od przodu aż kawałek dalej
+        for (double dist = 0.35; dist <= 2.7; dist += 0.25) {
+            Location front = horseLoc.clone().add(direction.clone().multiply(dist));
 
-                    Block block = world.getBlockAt(blockX, blockY, blockZ);
+            for (int side = -1; side <= 1; side++) {
+                for (int y = 0; y <= 2; y++) {
+                    Location sample = front.clone().add(perp.clone().multiply(side));
+                    int bx = sample.getBlockX();
+                    int by = baseY + y;
+                    int bz = sample.getBlockZ();
 
+                    Block block = world.getBlockAt(bx, by, bz);
                     if (canDestroyBlock(block, false)) {
                         block.breakNaturally();
                     }
@@ -315,11 +327,11 @@ public class RogJednorozcaManager {
     }
 
     /**
-     * ✅ 3x3x3 przy spawnie/śmierci.
+     * ✅ 3x3x3 przy spawnie / śmierci.
      */
     private void destroyArea(Location center, boolean deathExplosion) {
         World world = center.getWorld();
-        int baseY = center.getBlockY();
+        int baseY = center.clone().subtract(0, 1, 0).getBlockY();
 
         for (int x = -1; x <= 1; x++) {
             for (int y = 0; y <= 2; y++) {
@@ -430,8 +442,7 @@ public class RogJednorozcaManager {
     }
 
     /**
-     * ✅ Czy właściciel może niszczyć bloki w tym miejscu.
-     * Jeśli build/block-break off -> koń jedzie, ale nic nie niszczy.
+     * ✅ Jeśli build/block-break off -> koń istnieje, ale nie niszczy bloków.
      */
     private boolean canDestroyInRegion(Player owner, Location location) {
         return plugin.getWorldGuardManager().canBreakBlock(owner, location);
