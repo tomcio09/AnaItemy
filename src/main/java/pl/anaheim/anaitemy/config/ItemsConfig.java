@@ -896,4 +896,44 @@ public class ItemsConfig {
         return config.getString("boski-topor.messages.cooldown-subtitle",
                 "&bBoski topór &7możesz użyć dopiero za &f{seconds_left}");
     }
+        // ==================== SUPER MARCHEWKA ====================
+
+    public int getSuperMarchewkaGuiSlot() {
+        return config.getInt("super-marchewka.gui-slot", 13);
+    }
+
+    public long getSuperMarchewkaCooldown() {
+        return config.getLong("super-marchewka.cooldown", 60);
+    }
+
+    public int getSuperMarchewkaEffectDuration() {
+        return config.getInt("super-marchewka.effect-duration", 10);
+    }
+
+    public List<String> getSuperMarchewkaBlockedRegions() {
+        return config.getStringList("super-marchewka.blocked-regions");
+    }
+
+    public String getSuperMarchewkaCooldownSubtitle() {
+        return config.getString("super-marchewka.messages.cooldown-subtitle",
+                "&6Marchewkę &7możesz użyć za: &6{seconds_left}");
+    }
+
+    public String getSuperMarchewkaSuperTitle() {
+        return config.getString("super-marchewka.messages.super-title", "&6&lSuper Marchewka");
+    }
+
+    public String getSuperMarchewkaSuperSubtitle() {
+        return config.getString("super-marchewka.messages.super-subtitle",
+                "&7Zwiększony x2 na &610 sekund&7!");
+    }
+
+    public String getSuperMarchewkaMiniTitle() {
+        return config.getString("super-marchewka.messages.mini-title", "&b&lMini Marchewka");
+    }
+
+    public String getSuperMarchewkaMiniSubtitle() {
+        return config.getString("super-marchewka.messages.mini-subtitle",
+                "&aZmniejszony o 50% na 10 sekund!");
+    }
 }
