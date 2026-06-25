@@ -857,4 +857,43 @@ public class ItemsConfig {
         return config.getString("rog-jednorozca.messages.stun-subtitle",
                 "&cZostałeś ogłuszony!");
     }
+        // ==================== BOSKI TOPÓR ====================
+
+    public int getBoskiToporGuiSlot() {
+        return config.getInt("boski-topor.gui-slot", 12);
+    }
+
+    public long getBoskiToporCooldown() {
+        return config.getLong("boski-topor.cooldown", 60);
+    }
+
+    public int getBoskiToporInvincibilityDuration() {
+        return config.getInt("boski-topor.invincibility-duration", 3);
+    }
+
+    public int getBoskiToporGlowDuration() {
+        return config.getInt("boski-topor.glow-duration", 2);
+    }
+
+    public double getBoskiToporKnockbackRadius() {
+        return config.getDouble("boski-topor.knockback-radius", 5.0);
+    }
+
+    public double getBoskiToporKnockbackPower() {
+        return config.getDouble("boski-topor.knockback-power", 1.8);
+    }
+
+    public List<String> getBoskiToporBlockedRegions() {
+        return config.getStringList("boski-topor.blocked-regions");
+    }
+
+    public String getBoskiToporActivatedSubtitle() {
+        return config.getString("boski-topor.messages.activated-subtitle",
+                "&bAktywowałeś boski topór&7!");
+    }
+
+    public String getBoskiToporCooldownSubtitle() {
+        return config.getString("boski-topor.messages.cooldown-subtitle",
+                "&bBoski topór &7możesz użyć dopiero za &f{seconds_left}");
+    }
 }
