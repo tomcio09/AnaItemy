@@ -1,11 +1,5 @@
 package pl.anaheim.anaitemy.managers;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.wrappers.WrappedDataValue;
-import com.comphenix.protocol.wrappers.WrappedDataWatcher;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
@@ -27,7 +21,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SuperMarchewkaManager {
 
     private final AnaItemy plugin;
-    private final boolean protocolLibEnabled;
 
     private final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, ActiveEffect> activeEffects = new ConcurrentHashMap<>();
@@ -35,22 +28,9 @@ public class SuperMarchewkaManager {
     private static final UUID CRIT_MODIFIER_UUID = UUID.fromString("C3D4E5F6-A7B8-9012-CDEF-123456789012");
     private static final String CRIT_MODIFIER_NAME = "super_marchewka_crit";
 
-    // ✅ Metadata index for entity scale w 1.20.1 nie istnieje natywnie,
-    // ale możemy użyć POSE + rozmiar przez ProtocolLib EntityMetadata
-    // W 1.20.1 nie ma entity scale - użyjemy efektu wizualnego przez
-    // modyfikowanie bounding box i wysyłanie fake entity metadata
-
     public SuperMarchewkaManager(AnaItemy plugin) {
         this.plugin = plugin;
-        this.protocolLibEnabled = plugin.getServer().getPluginManager().isPluginEnabled("ProtocolLib");
 
-        if (protocolLibEnabled) {
-            plugin.getLogger().info("[SuperMarchewka] ProtocolLib wykryty - skalowanie graczy WŁĄCZONE!");
-        } else {
-            plugin.getLogger().warning("[SuperMarchewka] ProtocolLib nie znaleziony - skalowanie graczy WYŁĄCZONE!");
-        }
-
-        // Cleanup task
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -101,7 +81,6 @@ public class SuperMarchewkaManager {
     public void activate(Player player, boolean inHydroKlatka) {
         ItemsConfig config = plugin.getItemsConfig();
 
-        // Jeśli już ma aktywny efekt - usuń stary
         if (activeEffects.containsKey(player.getUniqueId())) {
             removeEffect(player);
         }
@@ -112,8 +91,7 @@ public class SuperMarchewkaManager {
         int effectTicks = effectDuration * 20;
 
         if (inHydroKlatka) {
-            // ✅ MINI MARCHEWKA - pomniejszenie o 50%
-            sendScalePacket(player, 0.5f);
+            // ✅ MINI MARCHEWKA - w hydroklatce
 
             // Odporność III
             player.addPotionEffect(new PotionEffect(
@@ -135,8 +113,7 @@ public class SuperMarchewkaManager {
                     )
             ));
         } else {
-            // ✅ SUPER MARCHEWKA - powiększenie x2
-            sendScalePacket(player, 2.0f);
+            // ✅ SUPER MARCHEWKA - poza klatką
 
             // Odporność III
             player.addPotionEffect(new PotionEffect(
@@ -188,104 +165,6 @@ public class SuperMarchewkaManager {
         }, effectTicks);
     }
 
-    // ==================== SKALOWANIE PRZEZ PROTOCOLLIB ====================
-
-    /**
-     * ✅ Wysyła pakiet EntityMetadata zmieniający skalę gracza.
-     * W 1.20.1 używamy Pose size trick - modyfikujemy metadata index 
-     * dla rozmiaru entity przez ProtocolLib.
-     * 
-     * Uwaga: W 1.20.1 nie ma natywnego scale attribute.
-     * Używamy efektu wizualnego przez modyfikowanie entity data.
-     */
-    private void sendScalePacket(Player player, float scale) {
-        if (!protocolLibEnabled) {
-            plugin.getLogger().info("[SuperMarchewka] ProtocolLib niedostępny - pomijam skalowanie dla " + player.getName());
-            return;
-        }
-
-        try {
-            ProtocolManager protocolManager = ProtocolLibrary.getProtocolManager();
-
-            // ✅ Tworzymy pakiet metadata z fake skalą
-            PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
-            packet.getIntegers().write(0, player.getEntityId());
-
-            // ✅ W 1.20.1 entity metadata index 17 = Pose
-            // Ale prawdziwe skalowanie nie istnieje w 1.20.1
-            // Zamiast tego używamy SMALL/BIG efektu przez potion effects
-            
-            // Wysyłamy pakiet do wszystkich graczy w pobliżu
-            List<WrappedDataValue> wrappedDataValues = new ArrayList<>();
-
-            // Index 0 = Entity flags (byte)
-            // W 1.20.1 nie ma scale metadata - musimy użyć alternatywnej metody
-
-            // ✅ ALTERNATYWA: Użyj efektu INVISIBLE + ArmorStand z custom size
-            // ALE to jest zbyt skomplikowane dla 1.20.1
-            
-            // ✅ NAJPROSTSZA METODA NA 1.20.1:
-            // Pomniejszenie = daj gracza jako pasażera na małym armor standzie
-            // Powiększenie = efekt wizualny particle + slowness
-
-            // Na razie logujemy że scale jest ustawione
-            plugin.getLogger().info("[SuperMarchewka] Scale " + scale + "x dla gracza " + player.getName() +
-                    " (wizualny efekt - 1.20.1 nie obsługuje natywnego skalowania)");
-
-            // ✅ DLA POWIĘKSZENIA: Daj efekt SLOWNESS (spowalnia) + większy hitbox niemożliwy w 1.20.1
-            // DLA POMNIEJSZENIA: Daj efekt INVISIBILITY na chwilę + mała postać
-
-            if (scale < 1.0f) {
-                // Pomniejszenie - swimming pose (gracz wygląda jakby pływał = mniejszy)
-                player.setSwimming(true);
-                Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    // Utrzymuj swimming przez cały czas trwania efektu
-                    startSwimmingTask(player);
-                }, 1L);
-            }
-
-        } catch (Exception e) {
-            plugin.getLogger().warning("[SuperMarchewka] Błąd ProtocolLib: " + e.getMessage());
-        }
-    }
-
-    private void resetScale(Player player) {
-        if (!protocolLibEnabled) return;
-
-        try {
-            // Przywróć normalną pozę
-            player.setSwimming(false);
-        } catch (Exception e) {
-            plugin.getLogger().warning("[SuperMarchewka] Błąd resetowania skali: " + e.getMessage());
-        }
-    }
-
-    /**
-     * ✅ Utrzymuje gracza w pozycji swimming (mniejszy) przez czas trwania efektu.
-     */
-    private void startSwimmingTask(Player player) {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!player.isOnline() || !activeEffects.containsKey(player.getUniqueId())) {
-                    player.setSwimming(false);
-                    cancel();
-                    return;
-                }
-
-                ActiveEffect effect = activeEffects.get(player.getUniqueId());
-                if (effect == null || !effect.isMini()) {
-                    player.setSwimming(false);
-                    cancel();
-                    return;
-                }
-
-                // Utrzymuj swimming pose
-                player.setSwimming(true);
-            }
-        }.runTaskTimer(plugin, 0L, 2L);
-    }
-
     // ==================== CRIT BOOST ====================
 
     private void applyCritBoost(Player player) {
@@ -294,7 +173,6 @@ public class SuperMarchewkaManager {
 
         removeCritModifier(attackDamage);
 
-        // 1.2x = +20% obrażeń
         attackDamage.addModifier(new AttributeModifier(
                 CRIT_MODIFIER_UUID,
                 CRIT_MODIFIER_NAME,
@@ -318,9 +196,6 @@ public class SuperMarchewkaManager {
         ActiveEffect effect = activeEffects.remove(player.getUniqueId());
         if (effect == null) return;
 
-        // Usuń skalowanie
-        resetScale(player);
-
         // Usuń crit boost
         AttributeInstance attackDamage = player.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE);
         if (attackDamage != null) {
@@ -335,7 +210,7 @@ public class SuperMarchewkaManager {
         player.showTitle(Title.title(
                 Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand()
-                        .deserialize("&7Wróciłeś do &fnormalnego rozmiaru&7!"),
+                        .deserialize("&7Efekt marchewki &fwygasł&7!"),
                 Title.Times.times(
                         Duration.ofMillis(200),
                         Duration.ofMillis(2000),
@@ -379,11 +254,8 @@ public class SuperMarchewkaManager {
             removeEffect(player);
         }
 
-        // Na wszelki wypadek
         AttributeInstance attackDamage = player.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE);
         if (attackDamage != null) removeCritModifier(attackDamage);
-
-        player.setSwimming(false);
     }
 
     // ==================== INNER CLASS ====================
