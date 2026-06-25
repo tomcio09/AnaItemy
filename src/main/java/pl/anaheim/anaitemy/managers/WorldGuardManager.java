@@ -11,6 +11,7 @@ import com.sk89q.worldguard.protection.flags.StateFlag;
 import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import com.sk89q.worldguard.protection.regions.RegionContainer;
+import com.sk89q.worldguard.protection.regions.RegionQuery;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -38,7 +39,7 @@ public class WorldGuardManager {
 
     /**
      * ✅ Stare zachowanie:
-     * sprawdza blocked-regions ORAZ regiony z pvp=deny.
+     * blocked-regions + regiony z pvp=deny.
      */
     public boolean isInBlockedRegion(Location location, List<String> blockedRegions) {
         if (!worldGuardEnabled) return false;
@@ -78,9 +79,7 @@ public class WorldGuardManager {
     }
 
     /**
-     * ✅ NOWA METODA:
-     * sprawdza TYLKO nazwane regiony z configu, bez pvp=deny.
-     * Używane np. przy Rogu Jednorożca.
+     * ✅ Tylko nazwy regionów z configu.
      */
     public boolean isInNamedRegion(Location location, List<String> regionNames) {
         if (!worldGuardEnabled) return false;
@@ -116,7 +115,7 @@ public class WorldGuardManager {
 
     /**
      * ✅ Sprawdza czy gracz może niszczyć bloki w danej lokalizacji.
-     * Jeśli player == null, domyślnie zwraca true.
+     * Używa testBuild z BUILD + BLOCK_BREAK.
      */
     public boolean canBreakBlock(Player player, Location location) {
         if (!worldGuardEnabled) return true;
@@ -125,23 +124,18 @@ public class WorldGuardManager {
 
         try {
             RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
-            RegionManager regionManager = container.get(BukkitAdapter.adapt(location.getWorld()));
-
-            if (regionManager == null) return true;
-
-            BlockVector3 position = BlockVector3.at(
-                    location.getBlockX(),
-                    location.getBlockY(),
-                    location.getBlockZ()
-            );
-
-            ApplicableRegionSet regions = regionManager.getApplicableRegions(position);
+            RegionQuery query = container.createQuery();
             LocalPlayer localPlayer = WorldGuardPlugin.inst().wrapPlayer(player);
 
-            return regions.testState(localPlayer, Flags.BLOCK_BREAK);
+            return query.testBuild(
+                    BukkitAdapter.adapt(location),
+                    localPlayer,
+                    Flags.BLOCK_BREAK,
+                    Flags.BUILD
+            );
 
         } catch (Exception e) {
-            plugin.getLogger().warning("Błąd podczas sprawdzania block-break: " + e.getMessage());
+            plugin.getLogger().warning("Błąd podczas sprawdzania block-break/build: " + e.getMessage());
             return true;
         }
     }
