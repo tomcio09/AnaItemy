@@ -33,6 +33,7 @@ public class BoskiToporListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerInteract(PlayerInteractEvent event) {
+        // ✅ Obsługuj zarówno PPM w powietrze jak i na blok
         if (event.getAction() != Action.RIGHT_CLICK_AIR
                 && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         if (event.getHand() == EquipmentSlot.OFF_HAND) return;
@@ -42,13 +43,8 @@ public class BoskiToporListener implements Listener {
 
         if (!BoskiToporItem.isBoskiTopor(item)) return;
 
-        // ✅ NIE anulujemy eventu - topór ma działać normalnie (niszczenie bloków)
-        // Anulujemy tylko jeśli PPM w powietrze (nie na blok)
-        if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            // Pozwól na normalne użycie na bloku (np. odkorowanie drewna)
-            // Aktywacja tylko w powietrze
-            return;
-        }
+        // ✅ Anuluj event żeby nie otwierał GUI craftingu/odkorowywania
+        event.setCancelled(true);
 
         BoskiToporManager manager = plugin.getBoskiToporManager();
 
