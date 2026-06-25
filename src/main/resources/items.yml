@@ -622,6 +622,60 @@ super-marchewka:
   respects-protection: false
   notify-attacker: false
 # ==========================================
+#         ŁOPATA GRINCHA
+# ==========================================
+lopata-grincha:
+  material: DIAMOND_SHOVEL
+  name: '&a&lŁopata grincha'
+  lore:
+    - ' &8» &7Jest to przedmiot z:'
+    - ' &8» &feventu świątecznego (2024)'
+    - ''
+    - ' &8» &7Po &auderzeniu &7przeciwnika'
+    - ' &8» &7zostaje on &cogłuszony &7przez co'
+    - ' &8» &7rotacja zostaje wylosowana!'
+  custom-model-data: 1
+  gui-slot: 14
+  enchants:
+    unbreaking: 10
+    efficiency: 5
+
+  cooldown: 30
+
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+
+  messages:
+    attacker-subtitle: '&7Uderzyłeś gracza &f{nick} &7łopatą &agrincha&7!'
+    victim-subtitle: '&7Zostałeś uderzony &ałopatą grincha&7!'
+    cooldown-subtitle: '&aŁopatę grincha &7możesz użyć za: &a{seconds_left}&7!'
+
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+
+# ==========================================
+#         RÓZGA
+# ==========================================
+rozga:
+  material: STICK
+  name: '&6Rózga'
+  lore:
+    - ' &8» &7Jest to przedmiot z:'
+    - ' &8» &feventu świątecznego (2023)'
+    - ''
+    - ' &8» &cOdrzuca &7z potężną siłą'
+    - ' &8» &7niegrzecznych graczy!'
+  custom-model-data: 1
+  gui-slot: 15
+
+  respects-protection: false
+  notify-attacker: false
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
