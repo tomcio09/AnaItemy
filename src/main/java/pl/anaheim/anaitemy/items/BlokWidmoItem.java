@@ -20,7 +20,6 @@ public class BlokWidmoItem {
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
-                "",
                 " &8» &7Jest to przedmiot zdobyty podczas",
                 " &8» &fDnia Dziecka 2025&7!",
                 "",
@@ -48,7 +47,6 @@ public class BlokWidmoItem {
         meta.lore(loreComponents);
 
         meta.setCustomModelData(0);
-
         meta.addEnchant(Enchantment.DURABILITY, 10, true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
 
@@ -59,8 +57,6 @@ public class BlokWidmoItem {
     public static boolean isBlokWidmo(ItemStack item) {
         if (item == null || item.getType() != Material.STRUCTURE_BLOCK) return false;
         if (!item.hasItemMeta()) return false;
-        if (!item.getItemMeta().hasCustomModelData()) return false;
-        if (item.getItemMeta().getCustomModelData() != 0) return false;
         if (item.getItemMeta().displayName() == null) return false;
 
         String plainName = PlainTextComponentSerializer.plainText()
