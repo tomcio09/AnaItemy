@@ -7,8 +7,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.PiekielnyMieczItem;
@@ -25,13 +23,10 @@ public class PiekielnyMieczListener implements Listener {
     // UUID -> czas wygaśnięcia piekielnego ognia
     private final Map<UUID, Long> hellFirePlayers = new ConcurrentHashMap<>();
 
-    // UUID -> zapisany efekt fire resistance (do przywrócenia po wygaśnięciu ognia)
-    private final Map<UUID, SavedFireResistance> savedFireResistance = new ConcurrentHashMap<>();
-
     public PiekielnyMieczListener(AnaItemy plugin) {
         this.plugin = plugin;
 
-        // ✅ Co 2 ticki wymuszaj palenie + zarządzaj fire resistance
+        // ✅ Co sekundę zadaj fire damage ręcznie (jak vanilla ogień)
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -40,50 +35,37 @@ public class PiekielnyMieczListener implements Listener {
                 for (Map.Entry<UUID, Long> entry : new ArrayList<>(hellFirePlayers.entrySet())) {
                     UUID uuid = entry.getKey();
 
+                    if (now >= entry.getValue()) {
+                        hellFirePlayers.remove(uuid);
+                        continue;
+                    }
+
                     Player victim = org.bukkit.Bukkit.getPlayer(uuid);
                     if (victim == null || !victim.isOnline() || victim.isDead()) {
-                        restoreFireResistance(uuid);
                         hellFirePlayers.remove(uuid);
                         continue;
                     }
 
-                    if (now >= entry.getValue()) {
-                        // ✅ Piekielny ogień wygasł - przywróć fire resistance
-                        restoreFireResistance(uuid);
-                        hellFirePlayers.remove(uuid);
-                        victim.setFireTicks(0); // Zgaś ogień
-                        continue;
-                    }
+                    // ✅ Vanilla fire damage = 1 HP co sekundę
+                    // Redukowane przez zbroję i enchanty
+                    double damage = calculateFireDamageWithArmor(victim, 1.0);
 
-                    // ✅ Jeśli gracz dostał fire resistance (np. od mikstury) - zabierz i zapisz
-                    if (victim.hasPotionEffect(PotionEffectType.FIRE_RESISTANCE)) {
-                        PotionEffect currentFR = victim.getPotionEffect(PotionEffectType.FIRE_RESISTANCE);
-                        if (currentFR != null) {
-                            // Zapisz tylko jeśli nie mamy już zapisanego lub nowy jest dłuższy
-                            SavedFireResistance saved = savedFireResistance.get(uuid);
-                            if (saved == null || currentFR.getDuration() > 10) {
-                                savedFireResistance.put(uuid, new SavedFireResistance(
-                                        currentFR.getAmplifier(),
-                                        currentFR.getDuration(),
-                                        now
-                                ));
-                            }
-                        }
-                        victim.removePotionEffect(PotionEffectType.FIRE_RESISTANCE);
-                    }
+                    if (damage <= 0) continue;
 
-                    // ✅ Wymuszaj palenie
-                    if (victim.getFireTicks() <= 1) {
-                        victim.setFireTicks(40);
-                    }
+                    // ✅ Wizualnie podpal (żeby gracz widział ogień na sobie)
+                    victim.setFireTicks(25); // Krótko - odnawiane co sekundę
 
-                    // ✅ W wodzie nadal pali
-                    if (victim.isInWater()) {
-                        victim.setFireTicks(40);
+                    double health = victim.getHealth();
+                    if (health - damage <= 0) {
+                        victim.setHealth(0.0);
+                    } else {
+                        victim.setHealth(health - damage);
+                        // ✅ Czerwony efekt obrażeń
+                        victim.damage(0.001); // Minimalny damage żeby pokazać animację
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 2L);
+        }.runTaskTimer(plugin, 20L, 20L); // Co sekundę
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -98,67 +80,36 @@ public class PiekielnyMieczListener implements Listener {
         long fireEnd = System.currentTimeMillis() + (fireDuration * 1000L);
         hellFirePlayers.put(victim.getUniqueId(), fireEnd);
 
-        // ✅ Jeśli gracz ma fire resistance - zabierz i zapisz
-        if (victim.hasPotionEffect(PotionEffectType.FIRE_RESISTANCE)) {
-            PotionEffect currentFR = victim.getPotionEffect(PotionEffectType.FIRE_RESISTANCE);
-            if (currentFR != null) {
-                savedFireResistance.put(victim.getUniqueId(), new SavedFireResistance(
-                        currentFR.getAmplifier(),
-                        currentFR.getDuration(),
-                        System.currentTimeMillis()
-                ));
-            }
-            victim.removePotionEffect(PotionEffectType.FIRE_RESISTANCE);
-        }
-
-        // ✅ Natychmiast podpal
+        // ✅ Wizualnie podpal natychmiast
         victim.setFireTicks(fireDuration * 20);
     }
 
     /**
-     * ✅ Przywraca fire resistance po wygaśnięciu piekielnego ognia.
-     * Oblicza ile czasu zostało z oryginalnego efektu.
+     * ✅ Oblicza fire damage z uwzględnieniem zbroi i enchantów.
+     * 
+     * Protection: każdy level = 4% redukcji (max łącznie 80%)
+     * Fire Protection: każdy level = 8% redukcji od ognia
+     * Łączna max redukcja z enchantów = 80%
      */
-    private void restoreFireResistance(UUID uuid) {
-        SavedFireResistance saved = savedFireResistance.remove(uuid);
-        if (saved == null) return;
+    private double calculateFireDamageWithArmor(Player player, double baseDamage) {
+        int totalProtectionLevel = 0;
+        int totalFireProtectionLevel = 0;
 
-        Player player = org.bukkit.Bukkit.getPlayer(uuid);
-        if (player == null || !player.isOnline()) return;
+        ItemStack[] armor = player.getInventory().getArmorContents();
+        for (ItemStack piece : armor) {
+            if (piece == null || piece.getType().isAir()) continue;
 
-        // ✅ Oblicz ile ticków zostało z oryginalnego efektu
-        long elapsedMs = System.currentTimeMillis() - saved.savedAt;
-        int elapsedTicks = (int) (elapsedMs / 50);
-        int remainingTicks = saved.duration - elapsedTicks;
-
-        if (remainingTicks > 20) { // Minimum 1 sekunda
-            player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.FIRE_RESISTANCE,
-                    remainingTicks,
-                    saved.amplifier,
-                    false, true, true
-            ));
+            totalProtectionLevel += piece.getEnchantmentLevel(Enchantment.PROTECTION_ENVIRONMENTAL);
+            totalFireProtectionLevel += piece.getEnchantmentLevel(Enchantment.PROTECTION_FIRE);
         }
+
+        double enchantReduction = Math.min(80.0,
+                (totalProtectionLevel * 4.0) + (totalFireProtectionLevel * 8.0));
+
+        return Math.max(0, baseDamage * (1.0 - (enchantReduction / 100.0)));
     }
 
-    /**
-     * ✅ Sprawdza czy gracz jest podpalony piekielnym ogniem.
-     */
     public boolean isHellFired(Player player) {
         return hellFirePlayers.containsKey(player.getUniqueId());
-    }
-
-    // ==================== INNER CLASS ====================
-
-    private static class SavedFireResistance {
-        final int amplifier;
-        final int duration; // w tickach
-        final long savedAt; // czas zapisu w ms
-
-        SavedFireResistance(int amplifier, int duration, long savedAt) {
-            this.amplifier = amplifier;
-            this.duration = duration;
-            this.savedAt = savedAt;
-        }
     }
 }
