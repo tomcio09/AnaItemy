@@ -254,35 +254,30 @@ public class ArcusMagnusManager {
         UUID shooterId = shooter.getUniqueId();
         UUID victimId = victim.getUniqueId();
 
-        // ✅ Sprawdź blocked region
         if (isInBlockedRegion(victim.getLocation())) return;
 
-        // ✅ Sprawdź czy ofiara jest już w combo innego gracza
         UUID currentLocker = victimLocks.get(victimId);
         if (currentLocker != null && !currentLocker.equals(shooterId)) {
-            // Inny gracz ma combo na tej ofierze - zignoruj
             return;
         }
 
-        // ✅ Pobierz lub stwórz combo
         ComboData combo = activeCombos.get(shooterId);
 
         if (combo == null || !combo.getVictimId().equals(victimId)
                 || System.currentTimeMillis() - combo.getLastHitTime() > COMBO_TIMEOUT_MS) {
-            // Nowe combo lub timeout lub inny target
             endCombo(shooterId);
             combo = new ComboData(shooterId, victimId);
             activeCombos.put(shooterId, combo);
             victimLocks.put(victimId, shooterId);
         }
 
-        // ✅ Oblicz damage
         int hitIndex = combo.getHitCount() % COMBO_DAMAGE.length;
-        double damage = COMBO_DAMAGE[hitIndex];
+        // ✅ COMBO_DAMAGE jest w sercach, mnożymy x2 na HP
+        double damageHearts = COMBO_DAMAGE[hitIndex];
+        double damageHP = damageHearts * 2.0;
 
-        // ✅ Zadaj damage
         double currentHealth = victim.getHealth();
-        double newHealth = currentHealth - damage;
+        double newHealth = currentHealth - damageHP;
 
         if (newHealth <= 0) {
             victim.setHealth(0.0);
@@ -290,15 +285,13 @@ public class ArcusMagnusManager {
             victim.setHealth(newHealth);
         }
 
-        // ✅ Combo tag
         if (plugin.getCombatIntegrationManager().isEnabled()) {
             plugin.getCombatIntegrationManager().tagPlayer(victim, shooter);
             plugin.getCombatIntegrationManager().tagPlayer(shooter, victim);
         }
 
-        // ✅ Subtitle dla ofiary
         String victimSubtitle = "&aZostałeś trafiony przez &eArcusa Magnusa&7! &c-"
-                + formatDamage(damage) + HEART;
+                + formatDamage(damageHearts) + HEART;
         victim.showTitle(Title.title(
                 Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand().deserialize(victimSubtitle),
@@ -309,33 +302,26 @@ public class ArcusMagnusManager {
                 )
         ));
 
-        // ✅ Aktualizuj combo
         combo.registerHit();
 
-        // ✅ Dźwięk
-        shooter.playSound(shooter.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP,
-                SoundCategory.PLAYERS, 1.0f, 1.0f + (hitIndex * 0.15f));
+        // ✅ USUNIĘTO dźwięk trafienia
 
-        // ✅ Particle na ofierze
         victim.getWorld().spawnParticle(Particle.CRIT, victim.getLocation().add(0, 1, 0),
                 15, 0.3, 0.5, 0.3, 0.2);
 
-        // ✅ BossBar
         int nextHitIndex = combo.getHitCount() % COMBO_DAMAGE.length;
-        double nextDamage = COMBO_DAMAGE[nextHitIndex];
-        startComboBossBar(shooter, nextDamage);
+        double nextDamageHearts = COMBO_DAMAGE[nextHitIndex];
+        startComboBossBar(shooter, nextDamageHearts);
     }
 
     // ==================== BOSSBAR ====================
 
-    private void startComboBossBar(Player shooter, double nextDamage) {
+    private void startComboBossBar(Player shooter, double nextDamageHearts) {
         UUID shooterId = shooter.getUniqueId();
 
-        // Usuń stary task
         BukkitTask oldTask = bossBarTasks.remove(shooterId);
         if (oldTask != null) oldTask.cancel();
 
-        // Stwórz lub aktualizuj bossbar
         BossBar bossBar = comboBossBars.get(shooterId);
         if (bossBar == null) {
             bossBar = BossBar.bossBar(
@@ -373,34 +359,15 @@ public class ArcusMagnusManager {
                         (float) remaining / COMBO_TIMEOUT_MS));
                 bar.progress(progress);
 
+                // ✅ Wyświetlaj serca nie HP
                 String title = "&aArcus Magnus &7ma aktywne &eCOMBO&7! Traf przeciwnika w czasie &a"
                         + remaining + "ms &7aby zadać mu &c"
-                        + formatDamage(nextDamage) + HEART;
+                        + formatDamage(nextDamageHearts) + HEART;
                 bar.name(LegacyComponentSerializer.legacyAmpersand().deserialize(title));
             }
         }.runTaskTimer(plugin, 0L, 2L);
 
         bossBarTasks.put(shooterId, task);
-    }
-
-    private void endCombo(UUID shooterId) {
-        ComboData combo = activeCombos.remove(shooterId);
-        if (combo != null) {
-            victimLocks.remove(combo.getVictimId());
-        }
-
-        // Ukryj bossbar
-        BossBar bossBar = comboBossBars.remove(shooterId);
-        if (bossBar != null) {
-            Player shooter = Bukkit.getPlayer(shooterId);
-            if (shooter != null && shooter.isOnline()) {
-                shooter.hideBossBar(bossBar);
-            }
-        }
-
-        // Anuluj task
-        BukkitTask task = bossBarTasks.remove(shooterId);
-        if (task != null) task.cancel();
     }
 
     // ==================== UTILS ====================
