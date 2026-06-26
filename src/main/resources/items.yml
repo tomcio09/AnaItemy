@@ -733,7 +733,27 @@ kroliczy-miecz:
   notify-attacker: true
   protection-messages:
     title: '&c&lNie zadziałało!'
-    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
+    // ==================== PIEKIELNY MIECZ ====================
+
+    public int getPiekielnyMieczFireDuration() {
+        return config.getInt("piekielny-miecz.fire-duration", 20);
+    }
+
+    // ==================== SMOCZY MIECZ ====================
+
+    public long getSmoczyMieczCooldown() {
+        return config.getLong("smoczy-miecz.cooldown", 60);
+    }
+
+    public List<String> getSmoczyMieczBlockedRegions() {
+        return config.getStringList("smoczy-miecz.blocked-regions");
+    }
+
+    public String getSmoczyMieczCooldownSubtitle() {
+        return config.getString("smoczy-miecz.messages.cooldown-subtitle",
+                "&dSmoczy miecz &7możesz użyć za: &d{seconds_left}");
+    }
 # ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
