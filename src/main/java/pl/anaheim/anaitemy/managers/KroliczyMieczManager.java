@@ -6,6 +6,7 @@ import net.kyori.adventure.title.Title;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
@@ -74,18 +75,11 @@ public class KroliczyMieczManager {
                         continue;
                     }
 
-                    // ✅ Blokuj skok: jeśli gracz próbuje się wznieść ponad swoją bazową pozycję Y
-                    // i jest na ziemi lub właśnie odskoczył - anuluj velocity Y
+                    // ✅ Blokuj skok
                     Vector vel = player.getVelocity();
                     if (vel.getY() > 0.1 && player.isOnGround()) {
-                        // Gracz próbuje skoczyć - anuluj
-                        vel.setY(-0.08); // Lekko w dół żeby nie "lewitował"
+                        vel.setY(-0.08);
                         player.setVelocity(vel);
-                    } else if (vel.getY() > 0.42) {
-                        // Gracz jest w trakcie skoku (0.42 to vanilla jump velocity)
-                        // Ale TYLKO jeśli to skok, nie knockback od miecza
-                        // Knockback ma zazwyczaj mniejsze Y niż 0.42
-                        // Więc blokujemy tylko czysty skok
                     }
                 }
             }
