@@ -6,8 +6,10 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.KroliczyMieczItem;
 import pl.anaheim.anaitemy.managers.KroliczyMieczManager;
@@ -28,10 +30,34 @@ public class KroliczyMieczListener implements Listener {
         ItemStack mainHand = attacker.getInventory().getItemInMainHand();
         if (!KroliczyMieczItem.isKroliczyMiecz(mainHand)) return;
 
-        // ✅ NIE anulujemy eventu - normalny damage przechodzi
-        // Umiejętność (blokada skoku) jest DODATKOWA
         KroliczyMieczManager manager = plugin.getKroliczyMieczManager();
         manager.attack(attacker, victim);
+    }
+
+    /**
+     * ✅ Blokada skoku przez PlayerMoveEvent.
+     * Anuluje ruch w górę gdy gracz jest na ziemi i próbuje skoczyć.
+     * NIE blokuje knockbacku ani spadania.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        KroliczyMieczManager manager = plugin.getKroliczyMieczManager();
+
+        if (!manager.isJumpBlocked(player)) return;
+
+        // ✅ Tylko blokuj skok (ruch w górę gdy gracz jest na ziemi)
+        if (event.getFrom().getY() < event.getTo().getY() && player.isOnGround()) {
+            // Gracz próbuje skoczyć - anuluj pionowy ruch
+            event.getTo().setY(event.getFrom().getY());
+
+            // Anuluj velocity Y
+            Vector vel = player.getVelocity();
+            if (vel.getY() > 0) {
+                vel.setY(0);
+                player.setVelocity(vel);
+            }
+        }
     }
 
     @EventHandler
