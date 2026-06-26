@@ -45,8 +45,11 @@ public class KoronaAnarchiiItem {
 
         List<Component> loreComponents = new ArrayList<>();
         for (String line : lore) {
-            loreComponents.add(LegacyComponentSerializer.legacyAmpersand()
-                    .deserialize(line).decoration(TextDecoration.ITALIC, false));
+            loreComponents.add(
+                    LegacyComponentSerializer.legacyAmpersand()
+                            .deserialize(line)
+                            .decoration(TextDecoration.ITALIC, false)
+            );
         }
         meta.lore(loreComponents);
 
@@ -71,6 +74,7 @@ public class KoronaAnarchiiItem {
 
         String plainName = PlainTextComponentSerializer.plainText()
                 .serialize(item.getItemMeta().displayName());
+
         return plainName.equals(ITEM_NAME_STRIPPED);
     }
 }
