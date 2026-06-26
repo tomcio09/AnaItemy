@@ -22,6 +22,7 @@ public class AnaItemy extends JavaPlugin {
     private SuperMarchewkaManager superMarchewkaManager;
     private LopataGrinchaManager lopataGrinchaManager;
     private ArcusMagnusManager arcusMagnusManager;
+    private KroliczyMieczManager kroliczyMieczManager;
     private ItemsConfig itemsConfig;
     private WorldGuardManager worldGuardManager;
     private CombatIntegrationManager combatIntegrationManager;
@@ -53,6 +54,7 @@ public class AnaItemy extends JavaPlugin {
         superMarchewkaManager = new SuperMarchewkaManager(this);
         lopataGrinchaManager = new LopataGrinchaManager(this);
         arcusMagnusManager = new ArcusMagnusManager(this);
+        kroliczyMieczManager = new KroliczyMieczManager(this);
 
         if (!getServer().getPluginManager().isPluginEnabled("Citizens")) {
             getLogger().warning("Citizens nie znaleziono - Różdżka Iluzjonisty działa bez NPC!");
@@ -88,6 +90,7 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SuperMarchewkaListener(this), this);
         getServer().getPluginManager().registerEvents(new LopataGrinchaListener(this), this);
         getServer().getPluginManager().registerEvents(new ArcusMagnusListener(this), this);
+        getServer().getPluginManager().registerEvents(new KroliczyMieczListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
@@ -107,6 +110,7 @@ public class AnaItemy extends JavaPlugin {
         if (superMarchewkaManager != null) superMarchewkaManager.cleanup();
         if (lopataGrinchaManager != null) lopataGrinchaManager.cleanup();
         if (arcusMagnusManager != null) arcusMagnusManager.cleanup();
+        if (kroliczyMieczManager != null) kroliczyMieczManager.cleanup();
         if (actionBarManager != null) actionBarManager.cleanup();
         if (itemProtectionManager != null) itemProtectionManager.cleanup();
         getLogger().info("AnaItemy zostal wylaczony!");
@@ -126,6 +130,7 @@ public class AnaItemy extends JavaPlugin {
     public SuperMarchewkaManager getSuperMarchewkaManager() { return superMarchewkaManager; }
     public LopataGrinchaManager getLopataGrinchaManager() { return lopataGrinchaManager; }
     public ArcusMagnusManager getArcusMagnusManager() { return arcusMagnusManager; }
+    public KroliczyMieczManager getKroliczyMieczManager() { return kroliczyMieczManager; }
     public ItemsConfig getItemsConfig() { return itemsConfig; }
     public WorldGuardManager getWorldGuardManager() { return worldGuardManager; }
     public TotemListener getTotemListener() { return totemListener; }
