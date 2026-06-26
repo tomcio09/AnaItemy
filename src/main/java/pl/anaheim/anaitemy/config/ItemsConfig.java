@@ -1001,4 +1001,24 @@ public class ItemsConfig {
         return config.getString("kroliczy-miecz.messages.victim-subtitle",
                 "&7Nie możesz skakać przez 4 sekundy!");
     }
+        // ==================== PIEKIELNY MIECZ ====================
+
+    public int getPiekielnyMieczFireDuration() {
+        return config.getInt("piekielny-miecz.fire-duration", 20);
+    }
+
+    // ==================== SMOCZY MIECZ ====================
+
+    public long getSmoczyMieczCooldown() {
+        return config.getLong("smoczy-miecz.cooldown", 60);
+    }
+
+    public List<String> getSmoczyMieczBlockedRegions() {
+        return config.getStringList("smoczy-miecz.blocked-regions");
+    }
+
+    public String getSmoczyMieczCooldownSubtitle() {
+        return config.getString("smoczy-miecz.messages.cooldown-subtitle",
+                "&dSmoczy miecz &7możesz użyć za: &d{seconds_left}");
+    }
 }
