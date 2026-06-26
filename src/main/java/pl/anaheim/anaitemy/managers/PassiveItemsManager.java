@@ -15,7 +15,9 @@ import pl.anaheim.anaitemy.items.KoronaAnarchiiItem;
 import pl.anaheim.anaitemy.items.LizakItem;
 import pl.anaheim.anaitemy.items.RozaKupidynaItem;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PassiveItemsManager {
@@ -42,19 +44,19 @@ public class PassiveItemsManager {
                     boolean hasRoza = checkRoza(player);
                     boolean hasLizak = checkLizak(player);
 
-                    // ✅ Korona - efekty na głowie
+                    // ✅ Korona - działa tylko gdy założona na głowie
                     if (hasKorona) {
-                        applyEffect(player, PotionEffectType.SPEED, 1);              // Speed II
-                        applyEffect(player, PotionEffectType.FIRE_RESISTANCE, 0);     // Fire Res I
-                        applyEffect(player, PotionEffectType.INCREASE_DAMAGE, 1);     // Strength II
-                        applyEffect(player, PotionEffectType.DAMAGE_RESISTANCE, 2);   // Resistance III
-                        applyEffect(player, PotionEffectType.LUCK, 0);                // Luck I
+                        applyEffect(player, PotionEffectType.SPEED, 1);             // Speed II
+                        applyEffect(player, PotionEffectType.FIRE_RESISTANCE, 0);   // Fire Resistance I
+                        applyEffect(player, PotionEffectType.INCREASE_DAMAGE, 1);   // Strength II
+                        applyEffect(player, PotionEffectType.DAMAGE_RESISTANCE, 2); // Resistance III
+                        applyEffect(player, PotionEffectType.LUCK, 0);              // Luck I
                     }
 
-                    // ✅ Róża - efekty w ręce/offhand
+                    // ✅ Róża kupidyna - ręka/offhand
                     if (hasRoza) {
-                        applyEffect(player, PotionEffectType.DAMAGE_RESISTANCE, 0);   // Resistance I
-                        applyEffect(player, PotionEffectType.REGENERATION, 1);        // Regen II
+                        applyEffect(player, PotionEffectType.DAMAGE_RESISTANCE, 0); // Resistance I
+                        applyEffect(player, PotionEffectType.REGENERATION, 1);      // Regeneration II
                         applyRozaHealth(player);
                     } else {
                         if (hadRozaLastTick.contains(player.getUniqueId())) {
@@ -68,27 +70,26 @@ public class PassiveItemsManager {
                         hadRozaLastTick.remove(player.getUniqueId());
                     }
 
-                    // ✅ Lizak - efekt w ręce/offhand
+                    // ✅ Lizak - ręka/offhand
                     if (hasLizak) {
-                        applyEffect(player, PotionEffectType.INCREASE_DAMAGE, 0);     // Strength I
+                        applyEffect(player, PotionEffectType.INCREASE_DAMAGE, 0);   // Strength I
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 16L); // Co 0.8 sekundy
+        }.runTaskTimer(plugin, 0L, 16L); // co 0.8 sekundy
     }
 
     /**
-     * ✅ Nakłada efekt TYLKO jeśli gracz nie ma silniejszego.
+     * Nadaj efekt tylko jeśli gracz nie ma silniejszego.
+     * Jeśli ma taki sam lub słabszy - odnawiamy.
      */
     private void applyEffect(Player player, PotionEffectType type, int amplifier) {
         PotionEffect current = player.getPotionEffect(type);
 
         if (current != null && current.getAmplifier() > amplifier) {
-            // Gracz ma silniejszy efekt - nie nadpisuj
             return;
         }
 
-        // Nadaj efekt na 30 ticków (1.5s) - odnawiany co 16 ticków (0.8s)
         player.addPotionEffect(new PotionEffect(type, 30, amplifier, false, false, true));
     }
 
@@ -116,11 +117,12 @@ public class PassiveItemsManager {
         if (maxHealth == null) return;
 
         for (AttributeModifier mod : maxHealth.getModifiers()) {
-            if (mod.getUniqueId().equals(ROZA_HEALTH_UUID)) return; // Już ma
+            if (mod.getUniqueId().equals(ROZA_HEALTH_UUID)) return;
         }
 
         maxHealth.addModifier(new AttributeModifier(
-                ROZA_HEALTH_UUID, ROZA_HEALTH_NAME,
+                ROZA_HEALTH_UUID,
+                ROZA_HEALTH_NAME,
                 10.0, // +5 serc = +10 HP
                 AttributeModifier.Operation.ADD_NUMBER
         ));
@@ -136,7 +138,6 @@ public class PassiveItemsManager {
             }
         }
 
-        // Jeśli HP przekracza nowy max - obetnij
         if (player.getHealth() > maxHealth.getValue()) {
             player.setHealth(maxHealth.getValue());
         }
