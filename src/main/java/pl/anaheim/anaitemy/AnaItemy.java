@@ -9,6 +9,7 @@ import pl.anaheim.anaitemy.managers.*;
 public class AnaItemy extends JavaPlugin {
 
     private static AnaItemy instance;
+
     private HydroKlatkaManager hydroKlatkaManager;
     private RozdzkailuzjonistyManager rozdzkailuzjonistyManager;
     private WedkaNielotaManager wedkaNielotaManager;
@@ -25,6 +26,9 @@ public class AnaItemy extends JavaPlugin {
     private KroliczyMieczManager kroliczyMieczManager;
     private SmoczyMieczManager smoczyMieczManager;
     private OslepienieManager oslepienieManager;
+    private MarchewkowyMieczManager marchewkowyMieczManager;
+    private MarchewkowaKuszaManager marchewkowaKuszaManager;
+
     private ItemsConfig itemsConfig;
     private WorldGuardManager worldGuardManager;
     private CombatIntegrationManager combatIntegrationManager;
@@ -43,6 +47,7 @@ public class AnaItemy extends JavaPlugin {
         combatIntegrationManager = new CombatIntegrationManager(this);
         actionBarManager = new ActionBarManager(this);
         itemProtectionManager = new ItemProtectionManager(this);
+
         hydroKlatkaManager = new HydroKlatkaManager(this);
         rozdzkailuzjonistyManager = new RozdzkailuzjonistyManager(this);
         wedkaNielotaManager = new WedkaNielotaManager(this);
@@ -59,14 +64,18 @@ public class AnaItemy extends JavaPlugin {
         kroliczyMieczManager = new KroliczyMieczManager(this);
         smoczyMieczManager = new SmoczyMieczManager(this);
         oslepienieManager = new OslepienieManager(this);
+        marchewkowyMieczManager = new MarchewkowyMieczManager(this);
+        marchewkowaKuszaManager = new MarchewkowaKuszaManager(this);
 
         if (!getServer().getPluginManager().isPluginEnabled("Citizens")) {
             getLogger().warning("Citizens nie znaleziono - Różdżka Iluzjonisty działa bez NPC!");
         }
 
         ItemyEventoweCommand cmd = new ItemyEventoweCommand(this);
-        getCommand("itemyeventowe").setExecutor(cmd);
-        getCommand("itemyeventowe").setTabCompleter(cmd);
+        if (getCommand("itemyeventowe") != null) {
+            getCommand("itemyeventowe").setExecutor(cmd);
+            getCommand("itemyeventowe").setTabCompleter(cmd);
+        }
 
         totemListener = new TotemListener(this);
 
@@ -99,6 +108,8 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SmoczyMieczListener(this), this);
         getServer().getPluginManager().registerEvents(new KosaListener(this), this);
         getServer().getPluginManager().registerEvents(new LukKupidynaListener(this), this);
+        getServer().getPluginManager().registerEvents(new MarchewkowyMieczListener(this), this);
+        getServer().getPluginManager().registerEvents(new MarchewkowaKuszaListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
@@ -121,32 +132,111 @@ public class AnaItemy extends JavaPlugin {
         if (kroliczyMieczManager != null) kroliczyMieczManager.cleanup();
         if (smoczyMieczManager != null) smoczyMieczManager.cleanup();
         if (oslepienieManager != null) oslepienieManager.cleanup();
+        if (marchewkowyMieczManager != null) marchewkowyMieczManager.cleanup();
+        if (marchewkowaKuszaManager != null) marchewkowaKuszaManager.cleanup();
         if (actionBarManager != null) actionBarManager.cleanup();
         if (itemProtectionManager != null) itemProtectionManager.cleanup();
+
         getLogger().info("AnaItemy zostal wylaczony!");
     }
 
-    public static AnaItemy getInstance() { return instance; }
-    public HydroKlatkaManager getHydroKlatkaManager() { return hydroKlatkaManager; }
-    public RozdzkailuzjonistyManager getRozdzkailuzjonistyManager() { return rozdzkailuzjonistyManager; }
-    public WedkaNielotaManager getWedkaNielotaManager() { return wedkaNielotaManager; }
-    public WzmocnianaElytraManager getWzmocnianaElytraManager() { return wzmocnianaElytraManager; }
-    public BlokWidmoManager getBlokWidmoManager() { return blokWidmoManager; }
-    public SiekieraGrinchaManager getSiekieraGrinchaManager() { return siekieraGrinchaManager; }
-    public HydroTrojzabManager getHydroTrojzabManager() { return hydroTrojzabManager; }
-    public CudownaLatarniaManager getCudownaLatarniaManager() { return cudownaLatarniaManager; }
-    public RogJednorozcaManager getRogJednorozcaManager() { return rogJednorozcaManager; }
-    public BoskiToporManager getBoskiToporManager() { return boskiToporManager; }
-    public SuperMarchewkaManager getSuperMarchewkaManager() { return superMarchewkaManager; }
-    public LopataGrinchaManager getLopataGrinchaManager() { return lopataGrinchaManager; }
-    public ArcusMagnusManager getArcusMagnusManager() { return arcusMagnusManager; }
-    public KroliczyMieczManager getKroliczyMieczManager() { return kroliczyMieczManager; }
-    public SmoczyMieczManager getSmoczyMieczManager() { return smoczyMieczManager; }
-    public OslepienieManager getOslepienieManager() { return oslepienieManager; }
-    public ItemsConfig getItemsConfig() { return itemsConfig; }
-    public WorldGuardManager getWorldGuardManager() { return worldGuardManager; }
-    public TotemListener getTotemListener() { return totemListener; }
-    public CombatIntegrationManager getCombatIntegrationManager() { return combatIntegrationManager; }
-    public ActionBarManager getActionBarManager() { return actionBarManager; }
-    public ItemProtectionManager getItemProtectionManager() { return itemProtectionManager; }
+    public static AnaItemy getInstance() {
+        return instance;
+    }
+
+    public HydroKlatkaManager getHydroKlatkaManager() {
+        return hydroKlatkaManager;
+    }
+
+    public RozdzkailuzjonistyManager getRozdzkailuzjonistyManager() {
+        return rozdzkailuzjonistyManager;
+    }
+
+    public WedkaNielotaManager getWedkaNielotaManager() {
+        return wedkaNielotaManager;
+    }
+
+    public WzmocnianaElytraManager getWzmocnianaElytraManager() {
+        return wzmocnianaElytraManager;
+    }
+
+    public BlokWidmoManager getBlokWidmoManager() {
+        return blokWidmoManager;
+    }
+
+    public SiekieraGrinchaManager getSiekieraGrinchaManager() {
+        return siekieraGrinchaManager;
+    }
+
+    public HydroTrojzabManager getHydroTrojzabManager() {
+        return hydroTrojzabManager;
+    }
+
+    public CudownaLatarniaManager getCudownaLatarniaManager() {
+        return cudownaLatarniaManager;
+    }
+
+    public RogJednorozcaManager getRogJednorozcaManager() {
+        return rogJednorozcaManager;
+    }
+
+    public BoskiToporManager getBoskiToporManager() {
+        return boskiToporManager;
+    }
+
+    public SuperMarchewkaManager getSuperMarchewkaManager() {
+        return superMarchewkaManager;
+    }
+
+    public LopataGrinchaManager getLopataGrinchaManager() {
+        return lopataGrinchaManager;
+    }
+
+    public ArcusMagnusManager getArcusMagnusManager() {
+        return arcusMagnusManager;
+    }
+
+    public KroliczyMieczManager getKroliczyMieczManager() {
+        return kroliczyMieczManager;
+    }
+
+    public SmoczyMieczManager getSmoczyMieczManager() {
+        return smoczyMieczManager;
+    }
+
+    public OslepienieManager getOslepienieManager() {
+        return oslepienieManager;
+    }
+
+    public MarchewkowyMieczManager getMarchewkowyMieczManager() {
+        return marchewkowyMieczManager;
+    }
+
+    public MarchewkowaKuszaManager getMarchewkowaKuszaManager() {
+        return marchewkowaKuszaManager;
+    }
+
+    public ItemsConfig getItemsConfig() {
+        return itemsConfig;
+    }
+
+    public WorldGuardManager getWorldGuardManager() {
+        return worldGuardManager;
+    }
+
+    public TotemListener getTotemListener() {
+        return totemListener;
+    }
+
+    public CombatIntegrationManager getCombatIntegrationManager() {
+        return combatIntegrationManager;
+    }
+
+    public ActionBarManager getActionBarManager() {
+        return actionBarManager;
+    }
+
+    public ItemProtectionManager getItemProtectionManager() {
+        return itemProtectionManager;
+    }
 }
