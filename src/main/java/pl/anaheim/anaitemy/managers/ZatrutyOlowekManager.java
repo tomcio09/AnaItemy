@@ -89,7 +89,6 @@ public class ZatrutyOlowekManager {
                 LegacyComponentSerializer.legacyAmpersand().deserialize(config.getZatrutyOlowekVictimSubtitle()),
                 Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2000), Duration.ofMillis(200))));
 
-        victim.playSound(victim.getLocation(), Sound.ENTITY_SPIDER_AMBIENT, SoundCategory.PLAYERS, 1.0f, 0.5f);
 
         if (plugin.getCombatIntegrationManager().isEnabled()) {
             plugin.getCombatIntegrationManager().tagPlayer(victim, attacker);
