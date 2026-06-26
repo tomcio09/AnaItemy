@@ -785,6 +785,61 @@ smoczy-miecz:
   respects-protection: false
   notify-attacker: false
 # ==========================================
+#         KOSA
+# ==========================================
+kosa:
+  material: NETHERITE_HOE
+  name: '&8&lKosa'
+  lore:
+    - ' &8» &7Jest to przedmiot z:'
+    - ' &8» &feventu halloween (2023)'
+    - ''
+    - ' &8» &7Twoje uderzenie może &fco minutę'
+    - ' &8» &7przestraszyć przeciwnika nadając'
+    - ' &8» &7mu efekty utrudniające widoczność'
+  custom-model-data: 1
+  gui-slot: 20
+
+  cooldown: 60
+
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         ŁUK KUPIDYNA
+# ==========================================
+luk-kupidyna:
+  material: BOW
+  name: '&4Łuk kupidyna'
+  lore:
+    - ' &8» &5&lSpecjalny przedmiot!'
+    - ' &8» &7Masz szansę, że trafiony przez'
+    - ' &8» &7Ciebie gracz zostanie &doślepiony&7!'
+  custom-model-data: 1
+  gui-slot: 21
+
+  cooldown: 60
+  blind-chance: 25.0
+
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         OŚLEPIENIE (WSPÓLNE DLA KOSY I ŁUKU)
+# ==========================================
+oslepienie:
+  duration: 4
+
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+
+  messages:
+    victim-subtitle: '&7Zostałeś oślepiony!'
+    attacker-subtitle: '&7Oślepiłeś gracza &f{nick_victim}&7!'
+    cooldown-subtitle: '&7Oślepienia możesz użyć za: &f{seconds_left}&7!'
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
