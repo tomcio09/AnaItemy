@@ -701,6 +701,40 @@ arcus-magnus:
   respects-protection: false
   notify-attacker: false
 # ==========================================
+#         KRÓLICZY MIECZ
+# ==========================================
+kroliczy-miecz:
+  material: NETHERITE_SWORD
+  name: '&3&lKróliczy miecz'
+  lore:
+    - ' &8» &7Jest to przedmiot z &fwydarzenia'
+    - ' &8» &fwielkanocnego &7z &f2024 roku'
+    - ''
+    - ' &8» &7Po uderzeniu przeciwnika blokuje'
+    - ' &8» &7możliwość skakania na &f4 sekundy&7!'
+  custom-model-data: 2
+  gui-slot: 17
+
+  cooldown: 60
+  curse-duration: 4
+
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+
+  messages:
+    attacker-subtitle: '&7Zablokowałeś &3skakanie &7graczowi &f{nick_victim}&7!'
+    victim-title: '&3Królicza klątwa'
+    victim-subtitle: '&7Nie możesz skakać przez 4 sekundy!'
+
+  # 4s protection od KOŃCA klątwy (4s curse + 4s protection = 8s łącznie)
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
