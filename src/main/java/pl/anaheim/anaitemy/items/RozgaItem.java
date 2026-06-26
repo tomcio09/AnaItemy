@@ -44,7 +44,7 @@ public class RozgaItem {
         }
         meta.lore(loreComponents);
 
-        meta.setCustomModelData(1);
+        meta.setCustomModelData(0);
         meta.addEnchant(Enchantment.KNOCKBACK, 4, true);
         meta.setUnbreakable(true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE);
