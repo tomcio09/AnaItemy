@@ -71,24 +71,11 @@ public class KroliczyMieczManager {
         if (end == null) return 0;
         return Math.max(0, (end - System.currentTimeMillis()) / 1000);
     }
-
+    
     public void setCooldown(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
         long seconds = config.getKroliczyMieczCooldown();
         cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000));
-
-        // ✅ Subtitle o cooldownie (bo setCooldown na NETHERITE_SWORD kolidowałby z innymi mieczami)
-        String subtitle = "&7Klątwy możesz użyć za:&f" + seconds + "s";
-        player.showTitle(net.kyori.adventure.title.Title.title(
-                net.kyori.adventure.text.Component.empty(),
-                net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacyAmpersand()
-                        .deserialize(subtitle),
-                net.kyori.adventure.title.Title.Times.times(
-                        java.time.Duration.ofMillis(200),
-                        java.time.Duration.ofMillis(2000),
-                        java.time.Duration.ofMillis(200)
-                )
-        ));
     }
 
     public void resetCooldown(Player player) {
