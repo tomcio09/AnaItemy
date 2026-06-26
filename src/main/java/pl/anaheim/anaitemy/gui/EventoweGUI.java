@@ -44,6 +44,8 @@ public class EventoweGUI {
         gui.setItem(19, SmoczyMieczItem.create());
         gui.setItem(20, KosaItem.create());
         gui.setItem(21, LukKupidynaItem.create());
+        gui.setItem(22, MarchewkowyMieczItem.create());
+        gui.setItem(23, MarchewkowaKuszaItem.create());
 
         player.openInventory(gui);
     }
