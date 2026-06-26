@@ -676,6 +676,31 @@ rozga:
   respects-protection: false
   notify-attacker: false
 # ==========================================
+#         ARCUS MAGNUS
+# ==========================================
+arcus-magnus:
+  material: BOW
+  name: '&a&lArcus Magnus'
+  lore:
+    - ' &8» &7Jest to przedmiot z:'
+    - ' &8» &feventu halloween (2024)'
+    - ''
+    - ' &8» &7Łuk, który pozwala na'
+    - ' &8» &eniszczycielskie &7combo!'
+    - ' &8» &7Po trafieniu przeciwnika'
+    - ' &8» &7zadajesz mu &cogromne obrażenia&7, które'
+    - ' &8» &7zwiększają się z każdym trafieniem!'
+  custom-model-data: 3
+  gui-slot: 16
+
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+
+  respects-protection: false
+  notify-attacker: false
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
