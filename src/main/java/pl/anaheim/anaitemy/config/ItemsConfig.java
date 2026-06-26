@@ -1076,4 +1076,52 @@ public class ItemsConfig {
     public List<String> getMarchewkowaKuszaBlockedRegions() { return config.getStringList("marchewkowa-kusza.blocked-regions"); }
     public String getMarchewkowaKuszaVictimSubtitle() { return config.getString("marchewkowa-kusza.messages.victim-subtitle", "&7Zostałeś przyciągnięty przez gracza &f{attacker}&7!"); }
     public String getMarchewkowaKuszaAttackerSubtitle() { return config.getString("marchewkowa-kusza.messages.attacker-subtitle", "&7Przyciągnąłeś gracza &f{victim_name}&7!"); }
+        // ==================== WĘDKA SURFERKA ====================
+
+    public long getWedkaSurferkaCooldown() { return config.getLong("wedka-surferka.cooldown", 15); }
+    public double getWedkaSurferkaPower() { return config.getDouble("wedka-surferka.power", 2.0); }
+    public String getWedkaSurferkaCooldownSubtitle() {
+        return config.getString("wedka-surferka.messages.cooldown-subtitle",
+                "&bSurferkę &7możesz użyć za: &f{seconds_left}&7!");
+    }
+
+    // ==================== ZATRUTY OŁÓWEK ====================
+
+    public long getZatrutyOlowekCooldown() { return config.getLong("zatruty-olowek.cooldown", 60); }
+    public int getZatrutyOlowekWeaknessDuration() { return config.getInt("zatruty-olowek.weakness-duration", 10); }
+    public int getZatrutyOlowekPoisonDuration() { return config.getInt("zatruty-olowek.poison-duration", 10); }
+    public List<String> getZatrutyOlowekBlockedRegions() { return config.getStringList("zatruty-olowek.blocked-regions"); }
+    public String getZatrutyOlowekAttackerSubtitle() {
+        return config.getString("zatruty-olowek.messages.attacker-subtitle", "&7Zatrułeś gracza &f{victim}&7!");
+    }
+    public String getZatrutyOlowekVictimSubtitle() {
+        return config.getString("zatruty-olowek.messages.victim-subtitle", "&7Zostałeś otruty!");
+    }
+    public String getZatrutyOlowekCooldownSubtitle() {
+        return config.getString("zatruty-olowek.messages.cooldown-subtitle", "&aOtrucie &7możesz użyć za: &f{seconds_left}&7!");
+    }
+
+    // ==================== PIEKIELNA TARCZA ====================
+
+    public String getPiekielnaTarczaAttackerSubtitle() {
+        return config.getString("piekielna-tarcza.messages.attacker-subtitle",
+                "&7Gracz &f{shield_handler} &7odbił twój cios!");
+    }
+    public String getPiekielnaTarczaDefenderSubtitle() {
+        return config.getString("piekielna-tarcza.messages.defender-subtitle",
+                "&7Odbiłeś cios gracza &f{attacker_bez_tarczy}&7!");
+    }
+
+    // ==================== KUKURYDZA ====================
+
+    public long getKukurydzaCooldown() { return config.getLong("kukurydza.cooldown", 60); }
+    public double getKukurydzaRadius() { return config.getDouble("kukurydza.radius", 5.0); }
+    public int getKukurydzaDurabilityDamage() { return config.getInt("kukurydza.durability-damage", 30); }
+    public List<String> getKukurydzaBlockedRegions() { return config.getStringList("kukurydza.blocked-regions"); }
+    public String getKukurydzaAttackerSubtitle() {
+        return config.getString("kukurydza.messages.attacker-subtitle", "&7Wystrzeliłeś &akukurydzą&7!");
+    }
+    public String getKukurydzaCooldownSubtitle() {
+        return config.getString("kukurydza.messages.cooldown-subtitle", "&7Użyć &akukurydzy &7możesz za: &f{seconds_left}&7!");
+    }
 }
