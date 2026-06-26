@@ -794,4 +794,4 @@ combat-integration:
 
   actionbar:
     enabled: true
-    resume-delay: 10
+    resume-delay: 20
