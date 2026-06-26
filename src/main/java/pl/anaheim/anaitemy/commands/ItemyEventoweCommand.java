@@ -30,7 +30,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka",
             "elytra", "blokwidmo", "siekiera", "hydrotrident", "latarnia", "rog",
             "topor", "marchewka", "lopata", "rozga", "arcus", "kroliczy",
-            "piekielny", "smoczy", "kosa", "lukkupidyna"
+            "piekielny", "smoczy", "kosa", "lukkupidyna", "marchewkowymiecz", "kusza"
     );
 
     public ItemyEventoweCommand(AnaItemy plugin) {
@@ -176,6 +176,8 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "smoczy" -> SmoczyMieczItem.create();
             case "kosa" -> KosaItem.create();
             case "lukkupidyna" -> LukKupidynaItem.create();
+            case "marchewkowymiecz" -> MarchewkowyMieczItem.create();
+            case "kusza" -> MarchewkowaKuszaItem.create();
             default -> null;
         };
     }
@@ -204,6 +206,8 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "smoczy" -> "&dSmoczy Miecz";
             case "kosa" -> "&8Kosa";
             case "lukkupidyna" -> "&4Łuk Kupidyna";
+            case "marchewkowymiecz" -> "&6Marchewkowy Miecz";
+            case "kusza" -> "&6Marchewkowa Kusza";
             default -> id;
         };
     }
@@ -265,6 +269,8 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         plugin.getSmoczyMieczManager().resetCooldown(target);
         plugin.getOslepienieManager().resetKosaCooldown(target);
         plugin.getOslepienieManager().resetLukCooldown(target);
+        plugin.getMarchewkowyMieczManager().resetCooldown(target);
+        plugin.getMarchewkowaKuszaManager().resetCooldown(target);
 
         sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
         target.sendMessage(color("&aTwoje cooldowny zostały zresetowane przez &f" + sender.getName() + "&a!"));
