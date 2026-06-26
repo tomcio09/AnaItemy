@@ -1061,4 +1061,19 @@ public class ItemsConfig {
         return config.getString("oslepienie.messages.cooldown-subtitle",
                 "&7Oślepienia możesz użyć za: &f{seconds_left}&7!");
     }
+        // ==================== MARCHEWKOWY MIECZ ====================
+
+    public long getMarchewkowyMieczCooldown() { return config.getLong("marchewkowy-miecz.cooldown", 60); }
+    public int getMarchewkowyMieczFreezeDuration() { return config.getInt("marchewkowy-miecz.freeze-duration", 1); }
+    public List<String> getMarchewkowyMieczBlockedRegions() { return config.getStringList("marchewkowy-miecz.blocked-regions"); }
+    public String getMarchewkowyMieczAttackerSubtitle() { return config.getString("marchewkowy-miecz.messages.attacker-subtitle", "&bZamroziłeś &7gracza: &f{nick_victim}&7!"); }
+    public String getMarchewkowyMieczVictimSubtitle() { return config.getString("marchewkowy-miecz.messages.victim-subtitle", "&7Zostałeś &bzamrożony&7!"); }
+    public String getMarchewkowyMieczCooldownSubtitle() { return config.getString("marchewkowy-miecz.messages.cooldown-subtitle", "&bZamrożenia &7możesz użyć za: &f{seconds_left}&7!"); }
+
+    // ==================== MARCHEWKOWA KUSZA ====================
+
+    public long getMarchewkowaKuszaCooldown() { return config.getLong("marchewkowa-kusza.cooldown", 60); }
+    public List<String> getMarchewkowaKuszaBlockedRegions() { return config.getStringList("marchewkowa-kusza.blocked-regions"); }
+    public String getMarchewkowaKuszaVictimSubtitle() { return config.getString("marchewkowa-kusza.messages.victim-subtitle", "&7Zostałeś przyciągnięty przez gracza &f{attacker}&7!"); }
+    public String getMarchewkowaKuszaAttackerSubtitle() { return config.getString("marchewkowa-kusza.messages.attacker-subtitle", "&7Przyciągnąłeś gracza &f{victim_name}&7!"); }
 }
