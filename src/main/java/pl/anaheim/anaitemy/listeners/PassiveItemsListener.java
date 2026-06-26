@@ -1,6 +1,5 @@
 package pl.anaheim.anaitemy.listeners;
 
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -17,10 +16,12 @@ public class PassiveItemsListener implements Listener {
 
     private final AnaItemy plugin;
 
-    public PassiveItemsListener(AnaItemy plugin) { this.plugin = plugin; }
+    public PassiveItemsListener(AnaItemy plugin) {
+        this.plugin = plugin;
+    }
 
     /**
-     * ✅ Blokuj stawianie róży/lizaka na ziemię.
+     * ✅ Blokuj stawianie róży i lizaka na ziemi.
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlace(PlayerInteractEvent event) {
