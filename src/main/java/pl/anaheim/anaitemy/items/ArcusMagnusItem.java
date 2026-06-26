@@ -17,7 +17,7 @@ import java.util.List;
 public class ArcusMagnusItem {
 
     public static final String ITEM_NAME_STRIPPED = "Arcus Magnus";
-    public static final int CUSTOM_MODEL_DATA = 3;
+    public static final int CUSTOM_MODEL_DATA = 5324;
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
