@@ -840,6 +840,48 @@ oslepienie:
     attacker-subtitle: '&7Oślepiłeś gracza &f{nick_victim}&7!'
     cooldown-subtitle: '&7Oślepienia możesz użyć za: &f{seconds_left}&7!'
 # ==========================================
+#         MARCHEWKOWY MIECZ
+# ==========================================
+marchewkowy-miecz:
+  material: GOLDEN_SWORD
+  name: '&6Marchewkowy miecz'
+  custom-model-data: 1
+  gui-slot: 22
+  cooldown: 60
+  freeze-duration: 1
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+  messages:
+    attacker-subtitle: '&bZamroziłeś &7gracza: &f{nick_victim}&7!'
+    victim-subtitle: '&7Zostałeś &bzamrożony&7!'
+    cooldown-subtitle: '&bZamrożenia &7możesz użyć za: &f{seconds_left}&7!'
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+
+# ==========================================
+#         MARCHEWKOWA KUSZA
+# ==========================================
+marchewkowa-kusza:
+  material: CROSSBOW
+  name: '&6&lMarchewkowa kusza'
+  custom-model-data: 1
+  gui-slot: 23
+  cooldown: 60
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+  messages:
+    victim-subtitle: '&7Zostałeś przyciągnięty przez gracza &f{attacker}&7!'
+    attacker-subtitle: '&7Przyciągnąłeś gracza &f{victim_name}&7!'
+  respects-protection: false
+  notify-attacker: false
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
