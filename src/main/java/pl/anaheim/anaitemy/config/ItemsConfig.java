@@ -960,4 +960,13 @@ public class ItemsConfig {
         return config.getString("lopata-grincha.messages.cooldown-subtitle",
                 "&aŁopatę grincha &7możesz użyć za: &a{seconds_left}&7!");
     }
+    // ==================== ARCUS MAGNUS ====================
+
+    public int getArcusMagnusGuiSlot() {
+        return config.getInt("arcus-magnus.gui-slot", 16);
+    }
+
+    public List<String> getArcusMagnusBlockedRegions() {
+        return config.getStringList("arcus-magnus.blocked-regions");
+    }
 }
