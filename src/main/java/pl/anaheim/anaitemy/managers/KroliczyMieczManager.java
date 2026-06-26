@@ -21,15 +21,13 @@ public class KroliczyMieczManager {
 
     private final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, Long> jumpBlocked = new ConcurrentHashMap<>();
-    private final Map<UUID, Location> jumpBlockedLocations = new ConcurrentHashMap<>();
 
-    private BukkitTask jumpBlockTask;
+    private BukkitTask expirationTask;
 
     public KroliczyMieczManager(AnaItemy plugin) {
         this.plugin = plugin;
-        startJumpBlockTask();
+        startExpirationTask();
 
-        // Cooldown cleanup
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -39,15 +37,8 @@ public class KroliczyMieczManager {
         }.runTaskTimer(plugin, 200L, 200L);
     }
 
-    // ==================== JUMP BLOCK TASK ====================
-
-    /**
-     * ✅ Co tick sprawdzaj czy gracze z blokadą skoku próbują skoczyć.
-     * Zamiast efektu jump boost (który powoduje bugi z knockbackiem),
-     * po prostu blokujemy ruch w górę.
-     */
-    private void startJumpBlockTask() {
-        jumpBlockTask = new BukkitRunnable() {
+    private void startExpirationTask() {
+        expirationTask = new BukkitRunnable() {
             @Override
             public void run() {
                 long now = System.currentTimeMillis();
@@ -56,34 +47,16 @@ public class KroliczyMieczManager {
                     UUID uuid = entry.getKey();
 
                     if (now >= entry.getValue()) {
-                        // Klątwa wygasła
                         jumpBlocked.remove(uuid);
-                        jumpBlockedLocations.remove(uuid);
 
                         Player player = Bukkit.getPlayer(uuid);
                         if (player != null && player.isOnline()) {
-                            // ✅ Nałóż 4s protection od KOŃCA klątwy
                             plugin.getItemProtectionManager().applyProtection(player, "kroliczy-miecz");
                         }
-                        continue;
-                    }
-
-                    Player player = Bukkit.getPlayer(uuid);
-                    if (player == null || !player.isOnline()) {
-                        jumpBlocked.remove(uuid);
-                        jumpBlockedLocations.remove(uuid);
-                        continue;
-                    }
-
-                    // ✅ Blokuj skok
-                    Vector vel = player.getVelocity();
-                    if (vel.getY() > 0.1 && player.isOnGround()) {
-                        vel.setY(-0.08);
-                        player.setVelocity(vel);
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, 10L);
     }
 
     // ==================== COOLDOWN ====================
@@ -130,13 +103,10 @@ public class KroliczyMieczManager {
             return false;
         }
 
-        // ✅ 1. Zablokuj skakanie na 4 sekundy
         int curseDuration = config.getKroliczyMieczCurseDuration();
         jumpBlocked.put(victim.getUniqueId(),
                 System.currentTimeMillis() + (curseDuration * 1000L));
-        jumpBlockedLocations.put(victim.getUniqueId(), victim.getLocation().clone());
 
-        // ✅ 2. Subtitle dla atakującego
         String attackerSubtitle = config.getKroliczyMieczAttackerSubtitle()
                 .replace("{nick_victim}", victim.getName());
         attacker.showTitle(Title.title(
@@ -149,7 +119,6 @@ public class KroliczyMieczManager {
                 )
         ));
 
-        // ✅ 3. Title/subtitle dla ofiary
         victim.showTitle(Title.title(
                 LegacyComponentSerializer.legacyAmpersand()
                         .deserialize(config.getKroliczyMieczVictimTitle()),
@@ -162,27 +131,72 @@ public class KroliczyMieczManager {
                 )
         ));
 
-        // ✅ 4. Dźwięk
         victim.playSound(victim.getLocation(), Sound.ENTITY_RABBIT_HURT,
                 SoundCategory.PLAYERS, 1.0f, 0.5f);
 
-        // ✅ 5. Combat tag
         if (plugin.getCombatIntegrationManager().isEnabled()) {
             plugin.getCombatIntegrationManager().tagPlayer(victim, attacker);
             plugin.getCombatIntegrationManager().tagPlayer(attacker, victim);
         }
 
-        // ✅ 6. Cooldown
         setCooldown(attacker);
 
-        // ✅ 7. Particle
         victim.getWorld().spawnParticle(Particle.SNOWFLAKE,
                 victim.getLocation().add(0, 0.5, 0), 15, 0.3, 0.3, 0.3, 0.05);
 
         return true;
     }
 
-    // ==================== CHECKS ====================
+    // ==================== JUMP BLOCK CHECK ====================
+
+    /**
+     * ✅ Wywoływane z listenera PlayerMoveEvent.
+     * Zwraca true jeśli ruch powinien być zablokowany (skok).
+     */
+    public boolean shouldBlockJump(Player player, Location from, Location to) {
+        if (!isJumpBlocked(player)) return false;
+
+        // ✅ Blokuj TYLKO ruch w górę (skok)
+        // Nie blokuj: spadanie, chodzenie po płaskim, knockback w dół
+        double deltaY = to.getY() - from.getY();
+
+        if (deltaY <= 0) return false; // Spadanie lub płasko - OK
+
+        // ✅ Sprawdź czy to skok (gracz był na ziemi w momencie ruchu w górę)
+        // Vanilla skok daje deltaY ~0.42 w pierwszym ticku
+        // Knockback w górę daje inne wartości ale nie możemy tego odróżnić
+        // Więc blokujemy KAŻDY ruch w górę inicjowany przez gracza
+
+        // Ale musimy pozwolić na:
+        // - wchodzenie po schodkach (deltaY = 0.5 ale to nie skok)
+        // - wchodzenie na pół-bloki
+
+        // ✅ Schodki i pół-bloki mają deltaY dokładnie 0.5
+        // Skok ma deltaY ~0.42 w pierwszym ticku
+        // Knockback w górę ma różne wartości
+
+        // Najprostsza metoda: sprawdź czy pod nogami gracza jest solid block
+        // Jeśli tak = gracz próbuje skoczyć = blokuj
+        // Jeśli nie = gracz spada/jest w powietrzu = pozwól (knockback)
+
+        Location feetBelow = from.clone().subtract(0, 0.1, 0);
+        boolean wasOnSolid = feetBelow.getBlock().getType().isSolid();
+
+        if (!wasOnSolid) return false; // Gracz w powietrzu - nie blokuj (knockback OK)
+
+        // ✅ Gracz na ziemi i próbuje się wznieść
+
+        // Pozwól na schodki/pół-bloki (deltaY <= 0.5625 i blok docelowy jest solid)
+        if (deltaY <= 0.5625) {
+            Location targetFeet = to.clone().subtract(0, 0.1, 0);
+            if (targetFeet.getBlock().getType().isSolid()) {
+                return false; // Wchodzenie na schodek - OK
+            }
+        }
+
+        // To jest skok - blokuj
+        return true;
+    }
 
     public boolean isJumpBlocked(Player player) {
         Long end = jumpBlocked.get(player.getUniqueId());
@@ -200,13 +214,11 @@ public class KroliczyMieczManager {
 
     public void removeJumpBlock(Player player) {
         jumpBlocked.remove(player.getUniqueId());
-        jumpBlockedLocations.remove(player.getUniqueId());
     }
 
     public void cleanup() {
-        if (jumpBlockTask != null) jumpBlockTask.cancel();
+        if (expirationTask != null) expirationTask.cancel();
         jumpBlocked.clear();
-        jumpBlockedLocations.clear();
         cooldowns.clear();
     }
 
