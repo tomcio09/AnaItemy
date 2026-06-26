@@ -24,6 +24,7 @@ public class AnaItemy extends JavaPlugin {
     private ArcusMagnusManager arcusMagnusManager;
     private KroliczyMieczManager kroliczyMieczManager;
     private SmoczyMieczManager smoczyMieczManager;
+    private OslepienieManager oslepienieManager;
     private ItemsConfig itemsConfig;
     private WorldGuardManager worldGuardManager;
     private CombatIntegrationManager combatIntegrationManager;
@@ -57,6 +58,7 @@ public class AnaItemy extends JavaPlugin {
         arcusMagnusManager = new ArcusMagnusManager(this);
         kroliczyMieczManager = new KroliczyMieczManager(this);
         smoczyMieczManager = new SmoczyMieczManager(this);
+        oslepienieManager = new OslepienieManager(this);
 
         if (!getServer().getPluginManager().isPluginEnabled("Citizens")) {
             getLogger().warning("Citizens nie znaleziono - Różdżka Iluzjonisty działa bez NPC!");
@@ -95,6 +97,8 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new KroliczyMieczListener(this), this);
         getServer().getPluginManager().registerEvents(new PiekielnyMieczListener(this), this);
         getServer().getPluginManager().registerEvents(new SmoczyMieczListener(this), this);
+        getServer().getPluginManager().registerEvents(new KosaListener(this), this);
+        getServer().getPluginManager().registerEvents(new LukKupidynaListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
@@ -116,6 +120,7 @@ public class AnaItemy extends JavaPlugin {
         if (arcusMagnusManager != null) arcusMagnusManager.cleanup();
         if (kroliczyMieczManager != null) kroliczyMieczManager.cleanup();
         if (smoczyMieczManager != null) smoczyMieczManager.cleanup();
+        if (oslepienieManager != null) oslepienieManager.cleanup();
         if (actionBarManager != null) actionBarManager.cleanup();
         if (itemProtectionManager != null) itemProtectionManager.cleanup();
         getLogger().info("AnaItemy zostal wylaczony!");
@@ -137,6 +142,7 @@ public class AnaItemy extends JavaPlugin {
     public ArcusMagnusManager getArcusMagnusManager() { return arcusMagnusManager; }
     public KroliczyMieczManager getKroliczyMieczManager() { return kroliczyMieczManager; }
     public SmoczyMieczManager getSmoczyMieczManager() { return smoczyMieczManager; }
+    public OslepienieManager getOslepienieManager() { return oslepienieManager; }
     public ItemsConfig getItemsConfig() { return itemsConfig; }
     public WorldGuardManager getWorldGuardManager() { return worldGuardManager; }
     public TotemListener getTotemListener() { return totemListener; }
