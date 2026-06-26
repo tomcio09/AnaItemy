@@ -39,6 +39,7 @@ public class EventoweGUI {
         gui.setItem(14, LopataGrinchaItem.create());
         gui.setItem(15, RozgaItem.create());
         gui.setItem(16, ArcusMagnusItem.create());
+        gui.setItem(17, KroliczyMieczItem.create());
 
         player.openInventory(gui);
     }
