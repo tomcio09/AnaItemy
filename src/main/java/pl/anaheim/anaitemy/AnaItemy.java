@@ -21,6 +21,7 @@ public class AnaItemy extends JavaPlugin {
     private BoskiToporManager boskiToporManager;
     private SuperMarchewkaManager superMarchewkaManager;
     private LopataGrinchaManager lopataGrinchaManager;
+    private ArcusMagnusManager arcusMagnusManager;
     private ItemsConfig itemsConfig;
     private WorldGuardManager worldGuardManager;
     private CombatIntegrationManager combatIntegrationManager;
@@ -51,6 +52,7 @@ public class AnaItemy extends JavaPlugin {
         boskiToporManager = new BoskiToporManager(this);
         superMarchewkaManager = new SuperMarchewkaManager(this);
         lopataGrinchaManager = new LopataGrinchaManager(this);
+        arcusMagnusManager = new ArcusMagnusManager(this);
 
         if (!getServer().getPluginManager().isPluginEnabled("Citizens")) {
             getLogger().warning("Citizens nie znaleziono - Różdżka Iluzjonisty działa bez NPC!");
@@ -85,6 +87,7 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new BoskiToporListener(this), this);
         getServer().getPluginManager().registerEvents(new SuperMarchewkaListener(this), this);
         getServer().getPluginManager().registerEvents(new LopataGrinchaListener(this), this);
+        getServer().getPluginManager().registerEvents(new ArcusMagnusListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
@@ -103,6 +106,7 @@ public class AnaItemy extends JavaPlugin {
         if (boskiToporManager != null) boskiToporManager.cleanup();
         if (superMarchewkaManager != null) superMarchewkaManager.cleanup();
         if (lopataGrinchaManager != null) lopataGrinchaManager.cleanup();
+        if (arcusMagnusManager != null) arcusMagnusManager.cleanup();
         if (actionBarManager != null) actionBarManager.cleanup();
         if (itemProtectionManager != null) itemProtectionManager.cleanup();
         getLogger().info("AnaItemy zostal wylaczony!");
@@ -121,6 +125,7 @@ public class AnaItemy extends JavaPlugin {
     public BoskiToporManager getBoskiToporManager() { return boskiToporManager; }
     public SuperMarchewkaManager getSuperMarchewkaManager() { return superMarchewkaManager; }
     public LopataGrinchaManager getLopataGrinchaManager() { return lopataGrinchaManager; }
+    public ArcusMagnusManager getArcusMagnusManager() { return arcusMagnusManager; }
     public ItemsConfig getItemsConfig() { return itemsConfig; }
     public WorldGuardManager getWorldGuardManager() { return worldGuardManager; }
     public TotemListener getTotemListener() { return totemListener; }
