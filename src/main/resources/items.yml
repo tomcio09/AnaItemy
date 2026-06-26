@@ -902,7 +902,7 @@ wedka-surferka:
 zatruty-olowek:
   material: LIME_CANDLE
   name: '&aZatruty ołówek'
-  custom-model-data: 1
+  custom-model-data: 14
   gui-slot: 25
   cooldown: 60
   weakness-duration: 10
@@ -977,7 +977,7 @@ lizak:
 kukurydza:
   material: BLAZE_ROD
   name: '&a&lRozgotowana kukurydza'
-  custom-model-data: 3
+  custom-model-data: 1
   gui-slot: 30
   cooldown: 60
   radius: 5.0
