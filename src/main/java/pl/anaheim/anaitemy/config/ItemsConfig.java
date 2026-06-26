@@ -1021,4 +1021,44 @@ public class ItemsConfig {
         return config.getString("smoczy-miecz.messages.cooldown-subtitle",
                 "&dSmoczy miecz &7możesz użyć za: &d{seconds_left}");
     }
+        // ==================== KOSA ====================
+
+    public long getKosaCooldown() {
+        return config.getLong("kosa.cooldown", 60);
+    }
+
+    // ==================== ŁUK KUPIDYNA ====================
+
+    public long getLukKupidynaCooldown() {
+        return config.getLong("luk-kupidyna.cooldown", 60);
+    }
+
+    public double getLukKupidynaBlindChance() {
+        return config.getDouble("luk-kupidyna.blind-chance", 25.0);
+    }
+
+    // ==================== OŚLEPIENIE (WSPÓLNE) ====================
+
+    public int getOslepienieDuration() {
+        return config.getInt("oslepienie.duration", 4);
+    }
+
+    public List<String> getOslepienieBlockedRegions() {
+        return config.getStringList("oslepienie.blocked-regions");
+    }
+
+    public String getOslepienieVictimSubtitle() {
+        return config.getString("oslepienie.messages.victim-subtitle",
+                "&7Zostałeś oślepiony!");
+    }
+
+    public String getOslepienieAttackerSubtitle() {
+        return config.getString("oslepienie.messages.attacker-subtitle",
+                "&7Oślepiłeś gracza &f{nick_victim}&7!");
+    }
+
+    public String getOslepienieCooldownSubtitle() {
+        return config.getString("oslepienie.messages.cooldown-subtitle",
+                "&7Oślepienia możesz użyć za: &f{seconds_left}&7!");
+    }
 }
