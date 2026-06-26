@@ -5,6 +5,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
 import org.bukkit.*;
+import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -14,8 +15,8 @@ import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
-import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.items.*;
 
 import java.time.Duration;
@@ -27,22 +28,23 @@ public class ArcusMagnusManager {
     private static final String META_ARCUS_ARROW = "anaitemy_arcus_arrow";
     private static final String HEART = "❤";
 
+    // WARTOŚCI W SERCACH, nie HP
     private static final double[] COMBO_DAMAGE = {0.5, 1.0, 2.0, 4.0, 8.0};
-    private static final long COMBO_TIMEOUT_MS = 4000;
+    private static final long COMBO_TIMEOUT_MS = 4000L;
 
     private final AnaItemy plugin;
     private final NamespacedKey ghostArrowKey;
 
-    // Combo data: shooter UUID -> ComboData
+    // shooter UUID -> combo
     private final Map<UUID, ComboData> activeCombos = new ConcurrentHashMap<>();
 
-    // Ghost arrow system (współdzielony z HydroTrojzab)
-    private final Map<UUID, GhostArrowState> ghostArrows = new ConcurrentHashMap<>();
-
-    // Blokada: victim UUID -> shooter UUID (jeden gracz może mieć jedno combo na sobie)
+    // victim UUID -> shooter UUID
     private final Map<UUID, UUID> victimLocks = new ConcurrentHashMap<>();
 
-    // BossBary
+    // ghost arrows
+    private final Map<UUID, GhostArrowState> ghostArrows = new ConcurrentHashMap<>();
+
+    // bossbary
     private final Map<UUID, BossBar> comboBossBars = new ConcurrentHashMap<>();
     private final Map<UUID, BukkitTask> bossBarTasks = new ConcurrentHashMap<>();
 
@@ -85,6 +87,7 @@ public class ArcusMagnusManager {
                     }
 
                     ItemStack mainHand = player.getInventory().getItemInMainHand();
+
                     if (!ArcusMagnusItem.isArcusMagnus(mainHand) || !player.isHandRaised()) {
                         restoreGhostArrow(player);
                     }
@@ -115,8 +118,10 @@ public class ArcusMagnusManager {
 
         ItemStack original = inventory.getItem(replaceSlot);
         inventory.setItem(replaceSlot, createGhostArrow());
-        ghostArrows.put(player.getUniqueId(),
-                new GhostArrowState(replaceSlot, original == null ? null : original.clone()));
+        ghostArrows.put(
+                player.getUniqueId(),
+                new GhostArrowState(replaceSlot, original == null ? null : original.clone())
+        );
         player.updateInventory();
         return true;
     }
@@ -137,8 +142,9 @@ public class ArcusMagnusManager {
     public boolean isGhostArrow(ItemStack item) {
         if (item == null || item.getType() != Material.ARROW) return false;
         if (!item.hasItemMeta()) return false;
-        Byte value = item.getItemMeta().getPersistentDataContainer()
-                .get(ghostArrowKey, PersistentDataType.BYTE);
+
+        ItemMeta meta = item.getItemMeta();
+        Byte value = meta.getPersistentDataContainer().get(ghostArrowKey, PersistentDataType.BYTE);
         return value != null && value == (byte) 1;
     }
 
@@ -159,7 +165,9 @@ public class ArcusMagnusManager {
         for (ItemStack item : player.getInventory().getContents()) {
             if (item == null || item.getType().isAir()) continue;
             if (isGhostArrow(item)) continue;
-            if (item.getType() == Material.ARROW || item.getType() == Material.SPECTRAL_ARROW
+
+            if (item.getType() == Material.ARROW
+                    || item.getType() == Material.SPECTRAL_ARROW
                     || item.getType().name().endsWith("TIPPED_ARROW")) {
                 return true;
             }
@@ -179,9 +187,11 @@ public class ArcusMagnusManager {
     private int findRightmostReplaceableSlot(PlayerInventory inv, int heldSlot) {
         for (int slot = 35; slot >= 0; slot--) {
             if (slot == heldSlot) continue;
+
             ItemStack item = inv.getItem(slot);
             if (item == null || item.getType().isAir()) continue;
             if (!isReplaceableForGhostArrow(item)) continue;
+
             return slot;
         }
         return -1;
@@ -189,8 +199,11 @@ public class ArcusMagnusManager {
 
     private boolean isReplaceableForGhostArrow(ItemStack item) {
         if (item == null || item.getType().isAir()) return false;
+
         Material type = item.getType();
-        if (type == Material.ENCHANTED_GOLDEN_APPLE || type == Material.ELYTRA) return false;
+        if (type == Material.ENCHANTED_GOLDEN_APPLE) return false;
+        if (type == Material.ELYTRA) return false;
+
         if (TotemUlaskawienia.isTotemUlaskawienia(item)) return false;
         if (Excalibur.isExcalibur(item)) return false;
         if (HydroKlatka.isHydroKlatka(item)) return false;
@@ -208,6 +221,8 @@ public class ArcusMagnusManager {
         if (LopataGrinchaItem.isLopataGrincha(item)) return false;
         if (RozgaItem.isRozga(item)) return false;
         if (ArcusMagnusItem.isArcusMagnus(item)) return false;
+        if (KroliczyMieczItem.isKroliczyMiecz(item)) return false;
+
         return true;
     }
 
@@ -216,22 +231,26 @@ public class ArcusMagnusManager {
     public void fireArrow(Player shooter, float force) {
         restoreGhostArrow(shooter);
 
-        if (force < 0.9f) return; // Musi być pełne naciągnięcie
+        // tylko full charge
+        if (force < 0.9f) return;
 
         Location eye = shooter.getEyeLocation();
-        org.bukkit.util.Vector direction = eye.getDirection().normalize();
+        Vector direction = eye.getDirection().normalize();
 
-        Arrow arrow = shooter.getWorld().spawn(
-                eye.add(direction.clone().multiply(0.6)), Arrow.class, a -> {
-                    a.setShooter(shooter);
-                    a.setPickupStatus(Arrow.PickupStatus.DISALLOWED);
-                    a.setVelocity(direction.multiply(force * 3.0));
-                    a.setMetadata(META_ARCUS_ARROW,
+        shooter.getWorld().spawn(
+                eye.add(direction.clone().multiply(0.6)),
+                Arrow.class,
+                arrow -> {
+                    arrow.setShooter(shooter);
+                    arrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
+                    arrow.setVelocity(direction.multiply(force * 3.0));
+                    arrow.setMetadata(META_ARCUS_ARROW,
                             new FixedMetadataValue(plugin, shooter.getUniqueId().toString()));
-                });
+                }
+        );
 
-        shooter.playSound(shooter.getLocation(), Sound.ENTITY_ARROW_SHOOT,
-                SoundCategory.PLAYERS, 1.0f, 1.0f);
+        shooter.playSound(shooter.getLocation(),
+                Sound.ENTITY_ARROW_SHOOT, SoundCategory.PLAYERS, 1.0f, 1.0f);
     }
 
     public boolean isArcusArrow(Arrow arrow) {
@@ -240,6 +259,7 @@ public class ArcusMagnusManager {
 
     public Player getArrowShooter(Arrow arrow) {
         if (!arrow.hasMetadata(META_ARCUS_ARROW)) return null;
+
         try {
             String raw = arrow.getMetadata(META_ARCUS_ARROW).get(0).asString();
             return Bukkit.getPlayer(UUID.fromString(raw));
@@ -263,7 +283,8 @@ public class ArcusMagnusManager {
 
         ComboData combo = activeCombos.get(shooterId);
 
-        if (combo == null || !combo.getVictimId().equals(victimId)
+        if (combo == null
+                || !combo.getVictimId().equals(victimId)
                 || System.currentTimeMillis() - combo.getLastHitTime() > COMBO_TIMEOUT_MS) {
             endCombo(shooterId);
             combo = new ComboData(shooterId, victimId);
@@ -272,7 +293,8 @@ public class ArcusMagnusManager {
         }
 
         int hitIndex = combo.getHitCount() % COMBO_DAMAGE.length;
-        // ✅ COMBO_DAMAGE jest w sercach, mnożymy x2 na HP
+
+        // ✅ damage w SERCACH
         double damageHearts = COMBO_DAMAGE[hitIndex];
         double damageHP = damageHearts * 2.0;
 
@@ -304,10 +326,11 @@ public class ArcusMagnusManager {
 
         combo.registerHit();
 
-        // ✅ USUNIĘTO dźwięk trafienia
-
-        victim.getWorld().spawnParticle(Particle.CRIT, victim.getLocation().add(0, 1, 0),
-                15, 0.3, 0.5, 0.3, 0.2);
+        victim.getWorld().spawnParticle(
+                Particle.CRIT,
+                victim.getLocation().add(0, 1, 0),
+                15, 0.3, 0.5, 0.3, 0.2
+        );
 
         int nextHitIndex = combo.getHitCount() % COMBO_DAMAGE.length;
         double nextDamageHearts = COMBO_DAMAGE[nextHitIndex];
@@ -355,11 +378,9 @@ public class ArcusMagnusManager {
                     return;
                 }
 
-                float progress = Math.max(0.01f, Math.min(1.0f,
-                        (float) remaining / COMBO_TIMEOUT_MS));
+                float progress = Math.max(0.01f, Math.min(1.0f, (float) remaining / COMBO_TIMEOUT_MS));
                 bar.progress(progress);
 
-                // ✅ Wyświetlaj serca nie HP
                 String title = "&aArcus Magnus &7ma aktywne &eCOMBO&7! Traf przeciwnika w czasie &a"
                         + remaining + "ms &7aby zadać mu &c"
                         + formatDamage(nextDamageHearts) + HEART;
@@ -370,11 +391,31 @@ public class ArcusMagnusManager {
         bossBarTasks.put(shooterId, task);
     }
 
+    private void endCombo(UUID shooterId) {
+        ComboData combo = activeCombos.remove(shooterId);
+        if (combo != null) {
+            victimLocks.remove(combo.getVictimId());
+        }
+
+        BukkitTask task = bossBarTasks.remove(shooterId);
+        if (task != null) {
+            task.cancel();
+        }
+
+        BossBar bossBar = comboBossBars.remove(shooterId);
+        if (bossBar != null) {
+            Player shooter = Bukkit.getPlayer(shooterId);
+            if (shooter != null && shooter.isOnline()) {
+                shooter.hideBossBar(bossBar);
+            }
+        }
+    }
+
     // ==================== UTILS ====================
 
     private String formatDamage(double damage) {
         if (damage == (int) damage) {
-            return String.valueOf((int) damage) + ".0";
+            return ((int) damage) + ".0";
         }
         return String.valueOf(damage);
     }
@@ -392,8 +433,9 @@ public class ArcusMagnusManager {
         restoreGhostArrow(player);
         endCombo(player.getUniqueId());
 
-        // Usuń locki jeśli gracz był ofiarą
-        victimLocks.values().removeIf(shooterId -> shooterId.equals(player.getUniqueId()));
+        // usuń lock jeśli gracz był ofiarą jakiegoś combo
+        victimLocks.entrySet().removeIf(entry -> entry.getValue().equals(player.getUniqueId())
+                || entry.getKey().equals(player.getUniqueId()));
     }
 
     public void cleanup() {
@@ -402,7 +444,9 @@ public class ArcusMagnusManager {
 
         for (UUID uuid : new HashSet<>(ghostArrows.keySet())) {
             Player player = Bukkit.getPlayer(uuid);
-            if (player != null && player.isOnline()) restoreGhostArrow(player);
+            if (player != null && player.isOnline()) {
+                restoreGhostArrow(player);
+            }
         }
 
         for (UUID shooterId : new HashSet<>(activeCombos.keySet())) {
