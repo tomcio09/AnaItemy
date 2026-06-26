@@ -175,4 +175,9 @@ public class AnaItemy extends JavaPlugin {
     public PassiveItemsManager getPassiveItemsManager() { return passiveItemsManager; }
     public KukurydzaManager getKukurydzaManager() { return kukurydzaManager; }
     public ItemsConfig getItemsConfig() { return itemsConfig; }
-    public WorldGuardManager 
+    public WorldGuardManager getWorldGuardManager() { return worldGuardManager; }
+    public TotemListener getTotemListener() { return totemListener; }
+    public CombatIntegrationManager getCombatIntegrationManager() { return combatIntegrationManager; }
+    public ActionBarManager getActionBarManager() { return actionBarManager; }
+    public ItemProtectionManager getItemProtectionManager() { return itemProtectionManager; }
+}
