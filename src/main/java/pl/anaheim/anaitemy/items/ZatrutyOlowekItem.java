@@ -17,7 +17,7 @@ import java.util.List;
 public class ZatrutyOlowekItem {
 
     public static final String ITEM_NAME_STRIPPED = "Zatruty ołówek";
-    public static final int CUSTOM_MODEL_DATA = 1;
+    public static final int CUSTOM_MODEL_DATA = 14;
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
