@@ -5,9 +5,8 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
 
@@ -19,20 +18,38 @@ public class KroliczyMieczManager {
 
     private final AnaItemy plugin;
 
-    // ✅ Cooldown per-item: przechowujemy UUID ItemStacka (przez NBT marker)
-    // Ale ponieważ to ten sam item type, używamy UUID gracza
     private final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, Long> jumpBlocked = new ConcurrentHashMap<>();
+    private final Map<UUID, Location> jumpBlockedLocations = new ConcurrentHashMap<>();
+
+    private BukkitTask jumpBlockTask;
 
     public KroliczyMieczManager(AnaItemy plugin) {
         this.plugin = plugin;
+        startJumpBlockTask();
 
-        // Cleanup + utrzymywanie jump block
+        // Cooldown cleanup
         new BukkitRunnable() {
             @Override
             public void run() {
                 long now = System.currentTimeMillis();
                 cooldowns.entrySet().removeIf(e -> now >= e.getValue());
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    // ==================== JUMP BLOCK TASK ====================
+
+    /**
+     * ✅ Co tick sprawdzaj czy gracze z blokadą skoku próbują skoczyć.
+     * Zamiast efektu jump boost (który powoduje bugi z knockbackiem),
+     * po prostu blokujemy ruch w górę.
+     */
+    private void startJumpBlockTask() {
+        jumpBlockTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                long now = System.currentTimeMillis();
 
                 for (Map.Entry<UUID, Long> entry : new ArrayList<>(jumpBlocked.entrySet())) {
                     UUID uuid = entry.getKey();
@@ -40,32 +57,39 @@ public class KroliczyMieczManager {
                     if (now >= entry.getValue()) {
                         // Klątwa wygasła
                         jumpBlocked.remove(uuid);
+                        jumpBlockedLocations.remove(uuid);
 
                         Player player = Bukkit.getPlayer(uuid);
                         if (player != null && player.isOnline()) {
-                            player.removePotionEffect(PotionEffectType.JUMP);
-
                             // ✅ Nałóż 4s protection od KOŃCA klątwy
                             plugin.getItemProtectionManager().applyProtection(player, "kroliczy-miecz");
                         }
                         continue;
                     }
 
-                    // Utrzymuj efekt jump block
                     Player player = Bukkit.getPlayer(uuid);
                     if (player == null || !player.isOnline()) {
                         jumpBlocked.remove(uuid);
+                        jumpBlockedLocations.remove(uuid);
                         continue;
                     }
 
-                    // ✅ Odnawiaj efekt jump boost -128 co sekundę
-                    if (!player.hasPotionEffect(PotionEffectType.JUMP)) {
-                        player.addPotionEffect(new PotionEffect(
-                                PotionEffectType.JUMP, 100, 128, false, false, false));
+                    // ✅ Blokuj skok: jeśli gracz próbuje się wznieść ponad swoją bazową pozycję Y
+                    // i jest na ziemi lub właśnie odskoczył - anuluj velocity Y
+                    Vector vel = player.getVelocity();
+                    if (vel.getY() > 0.1 && player.isOnGround()) {
+                        // Gracz próbuje skoczyć - anuluj
+                        vel.setY(-0.08); // Lekko w dół żeby nie "lewitował"
+                        player.setVelocity(vel);
+                    } else if (vel.getY() > 0.42) {
+                        // Gracz jest w trakcie skoku (0.42 to vanilla jump velocity)
+                        // Ale TYLKO jeśli to skok, nie knockback od miecza
+                        // Knockback ma zazwyczaj mniejsze Y niż 0.42
+                        // Więc blokujemy tylko czysty skok
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 10L);
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     // ==================== COOLDOWN ====================
@@ -85,10 +109,6 @@ public class KroliczyMieczManager {
         ItemsConfig config = plugin.getItemsConfig();
         long seconds = config.getKroliczyMieczCooldown();
         cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000));
-
-        // ✅ Cooldown TYLKO na tym typie miecza - używamy setCooldown per-material
-        // Ale netherite_sword jest współdzielony z Excaliburem
-        // Więc NIE ustawiamy material cooldown - gracz widzi cooldown przez efekt
     }
 
     public void resetCooldown(Player player) {
@@ -100,17 +120,14 @@ public class KroliczyMieczManager {
     public boolean attack(Player attacker, Player victim) {
         ItemsConfig config = plugin.getItemsConfig();
 
-        // ✅ Cooldown - cicho, gracz dalej bije normalnie
         if (isOnCooldown(attacker)) {
             return false;
         }
 
-        // Region
         if (isInBlockedRegion(attacker.getLocation()) || isInBlockedRegion(victim.getLocation())) {
             return false;
         }
 
-        // 4s protection
         if (plugin.getItemProtectionManager().isProtected(victim, "kroliczy-miecz")) {
             int secondsLeft = plugin.getItemProtectionManager()
                     .getRemainingSeconds(victim, "kroliczy-miecz");
@@ -123,10 +140,7 @@ public class KroliczyMieczManager {
         int curseDuration = config.getKroliczyMieczCurseDuration();
         jumpBlocked.put(victim.getUniqueId(),
                 System.currentTimeMillis() + (curseDuration * 1000L));
-
-        // ✅ Jump boost level 128 = nie można skakać (ujemny skok)
-        victim.addPotionEffect(new PotionEffect(
-                PotionEffectType.JUMP, curseDuration * 20 + 10, 128, false, false, false));
+        jumpBlockedLocations.put(victim.getUniqueId(), victim.getLocation().clone());
 
         // ✅ 2. Subtitle dla atakującego
         String attackerSubtitle = config.getKroliczyMieczAttackerSubtitle()
@@ -192,18 +206,14 @@ public class KroliczyMieczManager {
 
     public void removeJumpBlock(Player player) {
         jumpBlocked.remove(player.getUniqueId());
-        player.removePotionEffect(PotionEffectType.JUMP);
+        jumpBlockedLocations.remove(player.getUniqueId());
     }
 
     public void cleanup() {
-        for (UUID uuid : jumpBlocked.keySet()) {
-            Player player = Bukkit.getPlayer(uuid);
-            if (player != null && player.isOnline()) {
-                player.removePotionEffect(PotionEffectType.JUMP);
-            }
-        }
-        cooldowns.clear();
+        if (jumpBlockTask != null) jumpBlockTask.cancel();
         jumpBlocked.clear();
+        jumpBlockedLocations.clear();
+        cooldowns.clear();
     }
 
     public void cleanupPlayer(Player player) {
