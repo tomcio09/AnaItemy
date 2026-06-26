@@ -20,7 +20,7 @@ import java.util.List;
 public class KukurydzaItem {
 
     public static final String ITEM_NAME_STRIPPED = "Rozgotowana kukurydza";
-    public static final int CUSTOM_MODEL_DATA = 3;
+    public static final int CUSTOM_MODEL_DATA = 1;
     private static final NamespacedKey KUKURYDZA_KEY = new NamespacedKey(AnaItemy.getInstance(), "kukurydza_item");
 
     public static ItemStack create() {
