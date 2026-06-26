@@ -734,26 +734,56 @@ kroliczy-miecz:
   protection-messages:
     title: '&c&lNie zadziałało!'
     subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
-    // ==================== PIEKIELNY MIECZ ====================
+# ==========================================
+#         PIEKIELNY MIECZ
+# ==========================================
+piekielny-miecz:
+  material: NETHERITE_SWORD
+  name: '&c&lPiekielny miecz'
+  lore:
+    - ''
+    - ' &8» &7Po uderzeniu przeciwnika podpalasz'
+    - ' &8» &7go &cpiekielnym ogniem&7, który'
+    - ' &8» &7ignoruje &fodporność na ogień&7!'
+  custom-model-data: 666
+  gui-slot: 18
+  enchants:
+    sharpness: 6
+    fire-aspect: 2
 
-    public int getPiekielnyMieczFireDuration() {
-        return config.getInt("piekielny-miecz.fire-duration", 20);
-    }
+  # Czas podpalenia (sekundy)
+  fire-duration: 20
 
-    // ==================== SMOCZY MIECZ ====================
+  respects-protection: false
+  notify-attacker: false
 
-    public long getSmoczyMieczCooldown() {
-        return config.getLong("smoczy-miecz.cooldown", 60);
-    }
+# ==========================================
+#         SMOCZY MIECZ
+# ==========================================
+smoczy-miecz:
+  material: NETHERITE_SWORD
+  name: '&d&lSmoczy miecz'
+  lore:
+    - '&7Posiada on możliwość strzelania'
+    - '&dperłami kresu&7!'
+  custom-model-data: 1
+  gui-slot: 19
+  enchants:
+    sharpness: 6
+    fire-aspect: 2
 
-    public List<String> getSmoczyMieczBlockedRegions() {
-        return config.getStringList("smoczy-miecz.blocked-regions");
-    }
+  cooldown: 60
 
-    public String getSmoczyMieczCooldownSubtitle() {
-        return config.getString("smoczy-miecz.messages.cooldown-subtitle",
-                "&dSmoczy miecz &7możesz użyć za: &d{seconds_left}");
-    }
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+
+  messages:
+    cooldown-subtitle: '&dSmoczy miecz &7możesz użyć za: &d{seconds_left}'
+
+  respects-protection: false
+  notify-attacker: false
 # ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
