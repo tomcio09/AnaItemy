@@ -969,4 +969,36 @@ public class ItemsConfig {
     public List<String> getArcusMagnusBlockedRegions() {
         return config.getStringList("arcus-magnus.blocked-regions");
     }
+        // ==================== KRÓLICZY MIECZ ====================
+
+    public int getKroliczyMieczGuiSlot() {
+        return config.getInt("kroliczy-miecz.gui-slot", 17);
+    }
+
+    public long getKroliczyMieczCooldown() {
+        return config.getLong("kroliczy-miecz.cooldown", 60);
+    }
+
+    public int getKroliczyMieczCurseDuration() {
+        return config.getInt("kroliczy-miecz.curse-duration", 4);
+    }
+
+    public List<String> getKroliczyMieczBlockedRegions() {
+        return config.getStringList("kroliczy-miecz.blocked-regions");
+    }
+
+    public String getKroliczyMieczAttackerSubtitle() {
+        return config.getString("kroliczy-miecz.messages.attacker-subtitle",
+                "&7Zablokowałeś &3skakanie &7graczowi &f{nick_victim}&7!");
+    }
+
+    public String getKroliczyMieczVictimTitle() {
+        return config.getString("kroliczy-miecz.messages.victim-title",
+                "&3Królicza klątwa");
+    }
+
+    public String getKroliczyMieczVictimSubtitle() {
+        return config.getString("kroliczy-miecz.messages.victim-subtitle",
+                "&7Nie możesz skakać przez 4 sekundy!");
+    }
 }
