@@ -882,6 +882,119 @@ marchewkowa-kusza:
   respects-protection: false
   notify-attacker: false
 # ==========================================
+#         WĘDKA SURFERKA
+# ==========================================
+wedka-surferka:
+  material: FISHING_ROD
+  name: '&b&lWędka surferka'
+  custom-model-data: 1
+  gui-slot: 24
+  cooldown: 15
+  power: 2.0
+  messages:
+    cooldown-subtitle: '&bSurferkę &7możesz użyć za: &f{seconds_left}&7!'
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         ZATRUTY OŁÓWEK
+# ==========================================
+zatruty-olowek:
+  material: LIME_CANDLE
+  name: '&aZatruty ołówek'
+  custom-model-data: 1
+  gui-slot: 25
+  cooldown: 60
+  weakness-duration: 10
+  poison-duration: 10
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+  messages:
+    attacker-subtitle: '&7Zatrułeś gracza &f{victim}&7!'
+    victim-subtitle: '&7Zostałeś otruty!'
+    cooldown-subtitle: '&aOtrucie &7możesz użyć za: &f{seconds_left}&7!'
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+
+# ==========================================
+#         KORONA ANARCHII
+# ==========================================
+korona-anarchii:
+  material: GOLDEN_HELMET
+  name: '&6Korona ANARCHII'
+  custom-model-data: 1
+  gui-slot: 26
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         PIEKIELNA TARCZA
+# ==========================================
+piekielna-tarcza:
+  material: SHIELD
+  name: '&6Piekielna tarcza'
+  gui-slot: 27
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+  messages:
+    attacker-subtitle: '&7Gracz &f{shield_handler} &7odbił twój cios!'
+    defender-subtitle: '&7Odbiłeś cios gracza &f{attacker_bez_tarczy}&7!'
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         RÓŻA KUPIDYNA
+# ==========================================
+roza-kupidyna:
+  material: POPPY
+  name: '&c&lRóża kupidyna'
+  custom-model-data: 1
+  gui-slot: 28
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         LIZAK
+# ==========================================
+lizak:
+  material: ALLIUM
+  name: '&d&lLizak'
+  custom-model-data: 1
+  gui-slot: 29
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         ROZGOTOWANA KUKURYDZA
+# ==========================================
+kukurydza:
+  material: BLAZE_ROD
+  name: '&a&lRozgotowana kukurydza'
+  custom-model-data: 3
+  gui-slot: 30
+  cooldown: 60
+  radius: 5.0
+  durability-damage: 30
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+  messages:
+    attacker-subtitle: '&7Wystrzeliłeś &akukurydzą&7!'
+    cooldown-subtitle: '&7Użyć &akukurydzy &7możesz za: &f{seconds_left}&7!'
+  respects-protection: true
+  notify-attacker: false
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
