@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
 import org.bukkit.*;
+import org.bukkit.World;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -207,50 +208,117 @@ public class MarchewkowaKuszaManager {
 
                     if (!victimLoc.getWorld().equals(target.getWorld())) { activePulls.remove(victimId); continue; }
 
-                    double distance = victimLoc.distance(target);
+                    // ✅ Oblicz dystans tylko w poziomie (X/Z)
+                    double horizontalDistance = Math.sqrt(
+                            Math.pow(victimLoc.getX() - target.getX(), 2) +
+                            Math.pow(victimLoc.getZ() - target.getZ(), 2)
+                    );
 
-                    // Dotarł lub blisko
-                    if (distance < 1.5) { activePulls.remove(victimId); continue; }
+                    // Dotarł
+                    if (horizontalDistance < 1.5) { activePulls.remove(victimId); continue; }
 
                     // Gracz rusza się w innym kierunku - szybciej zakończ
                     if (data.lastLocation != null) {
-                        double victimMoved = victimLoc.distance(data.lastLocation);
-                        Vector toTarget = target.toVector().subtract(data.lastLocation.toVector()).normalize();
-                        Vector actualMove = victimLoc.toVector().subtract(data.lastLocation.toVector());
+                        Vector toTarget2D = new Vector(
+                                target.getX() - data.lastLocation.getX(),
+                                0,
+                                target.getZ() - data.lastLocation.getZ()
+                        ).normalize();
+
+                        Vector actualMove = new Vector(
+                                victimLoc.getX() - data.lastLocation.getX(),
+                                0,
+                                victimLoc.getZ() - data.lastLocation.getZ()
+                        );
+
                         if (actualMove.length() > 0.1) {
-                            double dot = actualMove.normalize().dot(toTarget);
+                            double dot = actualMove.normalize().dot(toTarget2D);
                             if (dot < -0.3) {
-                                // Gracz rusza się od celu - zakończ wcześniej
                                 activePulls.remove(victimId);
                                 continue;
                             }
                         }
                     }
 
-                    // Ciągnij gracza
-                    Vector direction = target.toVector().subtract(victimLoc.toVector());
-                    direction.setY(0);
+                    // ✅ Kierunek ciągnięcia - TYLKO poziomo (X/Z), bez Y
+                    Vector direction = new Vector(
+                            target.getX() - victimLoc.getX(),
+                            0,
+                            target.getZ() - victimLoc.getZ()
+                    );
+
                     if (direction.lengthSquared() < 0.01) { activePulls.remove(victimId); continue; }
                     direction.normalize().multiply(0.4);
 
-                    // Sprawdź czy nie przeniknie przez blok
+                    // ✅ Sprawdź czy następna pozycja nie jest w bloku
                     Location nextLoc = victimLoc.clone().add(direction);
-                    if (nextLoc.getBlock().getType().isSolid()) {
-                        // Blok na drodze - zatrzymaj
+
+                    // ✅ Znajdź ziemię pod następną pozycją
+                    Location groundLoc = findGround(nextLoc);
+
+                    if (groundLoc == null) {
+                        // Brak ziemi (void?) - zatrzymaj
                         activePulls.remove(victimId);
                         continue;
                     }
 
-                    // Blokuj latanie
+                    // ✅ Sprawdź czy ściana nie blokuje
+                    int groundY = groundLoc.getBlockY();
+                    org.bukkit.block.Block feetBlock = victim.getWorld().getBlockAt(
+                            groundLoc.getBlockX(), groundY, groundLoc.getBlockZ());
+                    org.bukkit.block.Block headBlock = victim.getWorld().getBlockAt(
+                            groundLoc.getBlockX(), groundY + 1, groundLoc.getBlockZ());
+
+                    if (feetBlock.getType().isSolid() && headBlock.getType().isSolid()) {
+                        // Ściana 2 bloki wysoka - nie da się przejść
+                        activePulls.remove(victimId);
+                        continue;
+                    }
+
+                    // ✅ Blokuj latanie
                     if (victim.isGliding()) {
                         victim.setGliding(false);
                     }
 
+                    // ✅ Ustaw velocity - tylko poziomo, lekko w dół żeby trzymać na ziemi
+                    direction.setY(-0.1);
                     victim.setVelocity(direction);
+
                     data.lastLocation = victimLoc.clone();
                 }
             }
         }.runTaskTimer(plugin, 0L, 2L);
+    }
+
+    /**
+     * ✅ Znajduje poziom ziemi pod daną lokalizacją.
+     * Zwraca lokalizację na szczycie solid bloku, lub null jeśli void.
+     */
+    private Location findGround(Location loc) {
+        World world = loc.getWorld();
+        int startY = loc.getBlockY();
+
+        // Sprawdź w dół (max 10 bloków)
+        for (int y = startY; y >= startY - 10 && y >= world.getMinHeight(); y--) {
+            org.bukkit.block.Block block = world.getBlockAt(loc.getBlockX(), y, loc.getBlockZ());
+            org.bukkit.block.Block above = world.getBlockAt(loc.getBlockX(), y + 1, loc.getBlockZ());
+
+            if (block.getType().isSolid() && !above.getType().isSolid()) {
+                return new Location(world, loc.getX(), y + 1, loc.getZ());
+            }
+        }
+
+        // Sprawdź w górę (max 5 bloków - schody/góra)
+        for (int y = startY + 1; y <= startY + 5 && y <= world.getMaxHeight(); y++) {
+            org.bukkit.block.Block block = world.getBlockAt(loc.getBlockX(), y, loc.getBlockZ());
+            org.bukkit.block.Block above = world.getBlockAt(loc.getBlockX(), y + 1, loc.getBlockZ());
+
+            if (block.getType().isSolid() && !above.getType().isSolid()) {
+                return new Location(world, loc.getX(), y + 1, loc.getZ());
+            }
+        }
+
+        return null;
     }
 
     public void startPull(Player shooter, Player victim, Location shooterLocation) {
