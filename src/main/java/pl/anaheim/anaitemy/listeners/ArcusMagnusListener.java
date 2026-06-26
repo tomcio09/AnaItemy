@@ -1,7 +1,6 @@
 package pl.anaheim.anaitemy.listeners;
 
-import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
+import org.bukkit.Material;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -11,6 +10,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.EquipmentSlot;
@@ -52,20 +52,17 @@ public class ArcusMagnusListener implements Listener {
 
         ArcusMagnusManager manager = plugin.getArcusMagnusManager();
 
-        // Przywróć ghost arrow
         manager.restoreGhostArrow(player);
 
-        // Anuluj vanilla strzałę
         event.setCancelled(true);
         if (event.getProjectile() != null) event.getProjectile().remove();
 
         if (manager.isInBlockedRegion(player.getLocation())) return;
 
-        // Wystrzal custom strzałę
         manager.fireArrow(player, event.getForce());
     }
 
-    // ==================== TRAFIENIE ====================
+    // ==================== TRAFIENIE W GRACZA ====================
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onArrowHit(EntityDamageByEntityEvent event) {
@@ -76,18 +73,33 @@ public class ArcusMagnusListener implements Listener {
 
         if (!manager.isArcusArrow(arrow)) return;
 
-        // ✅ Anuluj vanilla damage
         event.setCancelled(true);
 
         Player shooter = manager.getArrowShooter(arrow);
         if (shooter == null || !shooter.isOnline()) return;
         if (shooter.equals(victim)) return;
 
-        // Usuń strzałę
         arrow.remove();
 
-        // Obsłuż hit combo
         manager.handleHit(shooter, victim);
+    }
+
+    // ==================== TRAFIENIE W BLOK - STRZAŁA ZNIKA ====================
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onProjectileHit(ProjectileHitEvent event) {
+        if (!(event.getEntity() instanceof Arrow arrow)) return;
+
+        ArcusMagnusManager manager = plugin.getArcusMagnusManager();
+        if (!manager.isArcusArrow(arrow)) return;
+
+        // ✅ Jeśli trafiła w blok (nie w entity)
+        if (event.getHitBlock() != null) {
+            // ✅ Nie usuwaj jeśli trafiła w cobweb
+            if (event.getHitBlock().getType() == Material.COBWEB) return;
+
+            arrow.remove();
+        }
     }
 
     // ==================== GHOST ARROW PROTECTION ====================
