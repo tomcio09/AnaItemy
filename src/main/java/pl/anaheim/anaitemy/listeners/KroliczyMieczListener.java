@@ -1,5 +1,6 @@
 package pl.anaheim.anaitemy.listeners;
 
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -36,8 +37,7 @@ public class KroliczyMieczListener implements Listener {
 
     /**
      * ✅ Blokada skoku przez PlayerMoveEvent.
-     * Anuluje ruch w górę gdy gracz jest na ziemi i próbuje skoczyć.
-     * NIE blokuje knockbacku ani spadania.
+     * Manager decyduje czy ruch powinien być zablokowany.
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
@@ -46,12 +46,17 @@ public class KroliczyMieczListener implements Listener {
 
         if (!manager.isJumpBlocked(player)) return;
 
-        // ✅ Tylko blokuj skok (ruch w górę gdy gracz jest na ziemi)
-        if (event.getFrom().getY() < event.getTo().getY() && player.isOnGround()) {
-            // Gracz próbuje skoczyć - anuluj pionowy ruch
-            event.getTo().setY(event.getFrom().getY());
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        if (to == null) return;
 
-            // Anuluj velocity Y
+        if (manager.shouldBlockJump(player, from, to)) {
+            // ✅ Anuluj skok - trzymaj gracza na tej samej wysokości
+            Location blocked = to.clone();
+            blocked.setY(from.getY());
+            event.setTo(blocked);
+
+            // ✅ Zeruj velocity w górę
             Vector vel = player.getVelocity();
             if (vel.getY() > 0) {
                 vel.setY(0);
