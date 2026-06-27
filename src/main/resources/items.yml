@@ -1013,6 +1013,35 @@ sniezka-zamiany:
   respects-protection: false
   notify-attacker: false
 # ==========================================
+#         TURBO-TRAP
+# ==========================================
+turbotrap:
+  material: EGG
+  name: '&a&lTurbo-Trap'
+  custom-model-data: 64363124
+  gui-slot: 2
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+    - endpvp
+    - spawnpvp
+    - netherspawnpvp
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         KREW WAMPIRA
+# ==========================================
+krew-wampira:
+  material: HONEY_BOTTLE
+  name: '&c&lKrew wampira'
+  custom-model-data: 1
+  gui-slot: 3
+  max-stack: 8
+  respects-protection: false
+  notify-attacker: false
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
