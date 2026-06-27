@@ -32,7 +32,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             "topor", "marchewka", "lopata", "rozga", "arcus", "kroliczy",
             "piekielny", "smoczy", "kosa", "lukkupidyna", "marchewkowymiecz", "kusza",
             "surferka", "olowek", "korona", "tarcza", "roza", "lizak", "kukurydza",
-            "kostka", "sniezka"
+            "kostka", "sniezka", "turbotrap", "krew"
     );
 
     public ItemyEventoweCommand(AnaItemy plugin) { this.plugin = plugin; }
@@ -129,6 +129,8 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "kukurydza" -> KukurydzaItem.create();
             case "kostka" -> KostkaRubikaItem.create();
             case "sniezka" -> SniezkaZamianyItem.create();
+            case "turbotrap" -> TurbotrapItem.create();
+            case "krew" -> KrewWampiraItem.create();
             default -> null;
         };
     }
@@ -168,6 +170,8 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "kukurydza" -> "&aRozgotowana Kukurydza";
             case "kostka" -> "&eKostka Rubika";
             case "sniezka" -> "&fŚnieżka Zamiany";
+            case "turbotrap" -> "&aTurbo-Trap";
+            case "krew" -> "&cKrew Wampira";
             default -> id;
         };
     }
