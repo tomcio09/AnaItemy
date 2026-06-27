@@ -118,6 +118,8 @@ public class EventoweGUI {
         List<ItemStack> items = new ArrayList<>();
         items.add(KostkaRubikaItem.create());
         items.add(SniezkaZamianyItem.create());
+        items.add(TurbotrapItem.create());
+        items.add(KrewWampiraItem.create());
         return items;
     }
 
