@@ -861,7 +861,7 @@ marchewkowy-miecz:
   notify-attacker: true
   protection-messages:
     title: '&c&lNie zadziałało!'
-    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 
 # ==========================================
 #         MARCHEWKOWA KUSZA
@@ -919,7 +919,7 @@ zatruty-olowek:
   notify-attacker: true
   protection-messages:
     title: '&c&lNie zadziałało!'
-    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 
 # ==========================================
 #         KORONA ANARCHII
@@ -993,7 +993,25 @@ kukurydza:
   notify-attacker: false
   protection-messages:
     title: '&c&lNie zadziałało!'
-    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
+# ==========================================
+#         KOSTKA RUBIKA
+# ==========================================
+kostka-rubika:
+  gui-slot: 0
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
+
+# ==========================================
+#         ŚNIEŻKA ZAMIANY
+# ==========================================
+sniezka-zamiany:
+  gui-slot: 1
+  respects-protection: false
+  notify-attacker: false
 # ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
