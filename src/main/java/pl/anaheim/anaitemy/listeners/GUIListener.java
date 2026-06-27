@@ -4,10 +4,12 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.ItemStack;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.gui.EventoweGUI;
@@ -25,33 +27,72 @@ public class GUIListener implements Listener {
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
-        // Sprawdź tytuł GUI
         Component inventoryTitle = event.getView().title();
         String plainTitle = PlainTextComponentSerializer.plainText().serialize(inventoryTitle);
 
-        if (!plainTitle.equals(EventoweGUI.GUI_TITLE_PLAIN)) return;
+        if (!EventoweGUI.isGUITitle(plainTitle)) return;
 
-        // Anuluj domyślne klikanie
         event.setCancelled(true);
 
-        // Sprawdź czy kliknięto na item
         ItemStack clickedItem = event.getCurrentItem();
         if (clickedItem == null || clickedItem.getType().isAir()) return;
 
-        // ✅ NOWA LOGIKA - sprawdź czy to sakiewka
-        if (SakiewkaDropu.isSakiewka(clickedItem)) {
-            // Generuj NOWĄ unikalną sakiewkę zamiast klonować
-            ItemStack newSakiewka = SakiewkaDropu.create();
-            giveItem(player, newSakiewka);
+        int slot = event.getRawSlot();
+
+        // ✅ Filtr (hopper) - slot 49
+        if (slot == 49 && clickedItem.getType() == Material.HOPPER) {
+            EventoweGUI.GUIState state = EventoweGUI.getState(player);
+            if (state == null) return;
+
+            EventoweGUI.Category nextCategory = EventoweGUI.getNextCategory(state.getCategory());
+            EventoweGUI.open(player, plugin, nextCategory, 1);
             return;
         }
 
-        // Spróbuj dać graczowi item (clone dla innych itemów)
-        giveItem(player, clickedItem.clone());
+        // ✅ Następna strona (lime dye) - slot 53
+        if (slot == 53 && clickedItem.getType() == Material.LIME_DYE) {
+            EventoweGUI.GUIState state = EventoweGUI.getState(player);
+            if (state == null) return;
+
+            EventoweGUI.open(player, plugin, state.getCategory(), state.getPage() + 1);
+            return;
+        }
+
+        // ✅ Poprzednia strona (red dye) - slot 45
+        if (slot == 45 && clickedItem.getType() == Material.RED_DYE) {
+            EventoweGUI.GUIState state = EventoweGUI.getState(player);
+            if (state == null) return;
+
+            EventoweGUI.open(player, plugin, state.getCategory(), state.getPage() - 1);
+            return;
+        }
+
+        // ✅ Kliknięcie na item (sloty 0-35)
+        if (slot >= 0 && slot <= 35) {
+            // Sakiewka - generuj nową unikalną
+            if (SakiewkaDropu.isSakiewka(clickedItem)) {
+                ItemStack newSakiewka = SakiewkaDropu.create();
+                giveItem(player, newSakiewka);
+                return;
+            }
+
+            giveItem(player, clickedItem.clone());
+        }
+    }
+
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) return;
+
+        String plainTitle = PlainTextComponentSerializer.plainText()
+                .serialize(event.getView().title());
+
+        if (EventoweGUI.isGUITitle(plainTitle)) {
+            EventoweGUI.removeState(player);
+        }
     }
 
     private void giveItem(Player player, ItemStack item) {
-        // Sprawdź czy gracz ma miejsce
         if (player.getInventory().firstEmpty() == -1) {
             player.sendMessage(color("&cNie masz miejsca w ekwipunku!"));
             return;
