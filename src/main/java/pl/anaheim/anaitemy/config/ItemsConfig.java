@@ -330,4 +330,8 @@ public class ItemsConfig {
     public List<String> getKukurydzaBlockedRegions() { return config.getStringList("kukurydza.blocked-regions"); }
     public String getKukurydzaAttackerSubtitle() { return config.getString("kukurydza.messages.attacker-subtitle", "&7Wystrzeliłeś &akukurydzą&7!"); }
     public String getKukurydzaCooldownSubtitle() { return config.getString("kukurydza.messages.cooldown-subtitle", "&7Użyć &akukurydzy &7możesz za: &f{seconds_left}&7!"); }
+        // ==================== TURBOTRAP ====================
+    public List<String> getTurbotrapBlockedRegions() {
+        return config.getStringList("turbotrap.blocked-regions");
+    }
 }
