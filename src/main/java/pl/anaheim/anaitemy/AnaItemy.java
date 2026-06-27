@@ -118,6 +118,8 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PassiveItemsListener(this), this);
         getServer().getPluginManager().registerEvents(new PiekielnaTarczaListener(this), this);
         getServer().getPluginManager().registerEvents(new KukurydzaListener(this), this);
+        getServer().getPluginManager().registerEvents(new KostkaRubikaListener(this), this);
+        getServer().getPluginManager().registerEvents(new SniezkaZamianyListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
