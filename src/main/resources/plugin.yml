@@ -4,7 +4,7 @@ main: pl.anaheim.anaitemy.AnaItemy
 api-version: '1.20'
 authors: [ ]
 description: Plugin dodający customowe przedmioty eventowe.
-softdepend: [WorldGuard, Citizens, AnacodeAntylogout]
+softdepend: [WorldGuard, Citizens, AnacodeAntylogout, WorldEdit]
 
 commands:
   itemyeventowe:
