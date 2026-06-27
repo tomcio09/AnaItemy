@@ -3,7 +3,6 @@ package pl.anaheim.anaitemy.gui;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -13,25 +12,16 @@ import org.bukkit.inventory.meta.ItemMeta;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class EventoweGUI {
 
     public static final String GUI_TITLE_PREFIX = "Przedmioty z wydarzeń";
 
-    // Kategorie
-    public enum Category {
-        ALL, STALE, ZUZYWALNE, ZBROJE
-    }
+    public enum Category { ALL, STALE, ZUZYWALNE, ZBROJE }
 
-    // Stan GUI gracza
     private static final Map<UUID, GUIState> playerStates = new HashMap<>();
-
-    private static final int ITEMS_PER_PAGE = 36; // 4 rzędy × 9
+    private static final int ITEMS_PER_PAGE = 36;
     private static final int FILTER_SLOT = 49;
     private static final int NEXT_PAGE_SLOT = 53;
     private static final int PREV_PAGE_SLOT = 45;
@@ -47,17 +37,14 @@ public class EventoweGUI {
         if (page > totalPages) page = totalPages;
         if (page < 1) page = 1;
 
-        // Zapisz stan
         playerStates.put(player.getUniqueId(), new GUIState(category, page));
 
         String titleText = "&8Przedmioty z wydarzeń &7(" + page + "/" + totalPages + ")";
         Component title = LegacyComponentSerializer.legacyAmpersand()
-                .deserialize(titleText)
-                .decoration(TextDecoration.ITALIC, false);
+                .deserialize(titleText).decoration(TextDecoration.ITALIC, false);
 
         Inventory gui = Bukkit.createInventory(null, 54, title);
 
-        // ✅ Wypełnij itemy (sloty 0-35)
         int startIndex = (page - 1) * ITEMS_PER_PAGE;
         for (int i = 0; i < ITEMS_PER_PAGE; i++) {
             int itemIndex = startIndex + i;
@@ -65,21 +52,13 @@ public class EventoweGUI {
             gui.setItem(i, items.get(itemIndex));
         }
 
-        // ✅ Hopper filtracji (slot 49)
         gui.setItem(FILTER_SLOT, createFilterItem(category));
 
-        // ✅ Nawigacja stron
-        if (page < totalPages) {
-            gui.setItem(NEXT_PAGE_SLOT, createNextPageItem());
-        }
-        if (page > 1) {
-            gui.setItem(PREV_PAGE_SLOT, createPrevPageItem());
-        }
+        if (page < totalPages) gui.setItem(NEXT_PAGE_SLOT, createNextPageItem());
+        if (page > 1) gui.setItem(PREV_PAGE_SLOT, createPrevPageItem());
 
         player.openInventory(gui);
     }
-
-    // ==================== KATEGORIE ITEMÓW ====================
 
     private static List<ItemStack> getItemsForCategory(Category category, AnaItemy plugin) {
         List<ItemStack> items = new ArrayList<>();
@@ -101,7 +80,6 @@ public class EventoweGUI {
 
     private static List<ItemStack> getStaleItems(int maxKills) {
         List<ItemStack> items = new ArrayList<>();
-
         items.add(TotemUlaskawienia.create());
         items.add(Excalibur.create(maxKills));
         items.add(HydroKlatka.create());
@@ -133,40 +111,31 @@ public class EventoweGUI {
         items.add(RozaKupidynaItem.create());
         items.add(LizakItem.create());
         items.add(KukurydzaItem.create());
-
         return items;
     }
 
     private static List<ItemStack> getZuzywalneItems() {
-        // Puste na razie - dodamy później
-        return new ArrayList<>();
+        List<ItemStack> items = new ArrayList<>();
+        items.add(KostkaRubikaItem.create());
+        items.add(SniezkaZamianyItem.create());
+        return items;
     }
 
     private static List<ItemStack> getZbrojeItems() {
-        // Puste na razie - dodamy później
         return new ArrayList<>();
     }
-
-    // ==================== ELEMENTY GUI ====================
 
     private static ItemStack createFilterItem(Category currentCategory) {
         ItemStack hopper = new ItemStack(Material.HOPPER);
         ItemMeta meta = hopper.getItemMeta();
-
         meta.displayName(colorize("&6Filtracja"));
 
         List<Component> lore = new ArrayList<>();
         lore.add(colorize(" &8» &7Wyświetlaj według&8:"));
-
-        lore.add(colorize(currentCategory == Category.ALL
-                ? " &7 ➤ &e&nWszystkie" : " &7 ➤ &fWszystkie"));
-        lore.add(colorize(currentCategory == Category.STALE
-                ? " &7 ➤ &e&nStałe" : " &7 ➤ &fStałe"));
-        lore.add(colorize(currentCategory == Category.ZUZYWALNE
-                ? " &7 ➤ &e&nZużywalne" : " &7 ➤ &fZużywalne"));
-        lore.add(colorize(currentCategory == Category.ZBROJE
-                ? " &7 ➤ &e&nZbroje" : " &7 ➤ &fZbroje"));
-
+        lore.add(colorize(currentCategory == Category.ALL ? " &7 ➤ &e&nWszystkie" : " &7 ➤ &fWszystkie"));
+        lore.add(colorize(currentCategory == Category.STALE ? " &7 ➤ &e&nStałe" : " &7 ➤ &fStałe"));
+        lore.add(colorize(currentCategory == Category.ZUZYWALNE ? " &7 ➤ &e&nZużywalne" : " &7 ➤ &fZużywalne"));
+        lore.add(colorize(currentCategory == Category.ZBROJE ? " &7 ➤ &e&nZbroje" : " &7 ➤ &fZbroje"));
         lore.add(colorize(""));
         lore.add(colorize(" &8» &aKliknij, aby &2przełączyć&a!"));
 
@@ -191,15 +160,8 @@ public class EventoweGUI {
         return item;
     }
 
-    // ==================== STAN GRACZA ====================
-
-    public static GUIState getState(Player player) {
-        return playerStates.get(player.getUniqueId());
-    }
-
-    public static void removeState(Player player) {
-        playerStates.remove(player.getUniqueId());
-    }
+    public static GUIState getState(Player player) { return playerStates.get(player.getUniqueId()); }
+    public static void removeState(Player player) { playerStates.remove(player.getUniqueId()); }
 
     public static Category getNextCategory(Category current) {
         return switch (current) {
@@ -214,25 +176,15 @@ public class EventoweGUI {
         return plainTitle.startsWith("Przedmioty z wydarzeń");
     }
 
-    // ==================== UTILS ====================
-
     private static Component colorize(String text) {
         return LegacyComponentSerializer.legacyAmpersand()
-                .deserialize(text)
-                .decoration(TextDecoration.ITALIC, false);
+                .deserialize(text).decoration(TextDecoration.ITALIC, false);
     }
-
-    // ==================== INNER CLASS ====================
 
     public static class GUIState {
         private final Category category;
         private final int page;
-
-        public GUIState(Category category, int page) {
-            this.category = category;
-            this.page = page;
-        }
-
+        public GUIState(Category category, int page) { this.category = category; this.page = page; }
         public Category getCategory() { return category; }
         public int getPage() { return page; }
     }
