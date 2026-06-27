@@ -31,6 +31,7 @@ public class AnaItemy extends JavaPlugin {
     private ZatrutyOlowekManager zatrutyOlowekManager;
     private PassiveItemsManager passiveItemsManager;
     private KukurydzaManager kukurydzaManager;
+    private TurbotrapManager turbotrapManager;
     private ItemsConfig itemsConfig;
     private WorldGuardManager worldGuardManager;
     private CombatIntegrationManager combatIntegrationManager;
@@ -70,6 +71,7 @@ public class AnaItemy extends JavaPlugin {
         zatrutyOlowekManager = new ZatrutyOlowekManager(this);
         passiveItemsManager = new PassiveItemsManager(this);
         kukurydzaManager = new KukurydzaManager(this);
+        turbotrapManager = new TurbotrapManager(this);
 
         if (!getServer().getPluginManager().isPluginEnabled("Citizens"))
             getLogger().warning("Citizens nie znaleziono - Różdżka Iluzjonisty działa bez NPC!");
@@ -120,6 +122,8 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new KukurydzaListener(this), this);
         getServer().getPluginManager().registerEvents(new KostkaRubikaListener(this), this);
         getServer().getPluginManager().registerEvents(new SniezkaZamianyListener(this), this);
+        getServer().getPluginManager().registerEvents(new TurbotrapListener(this), this);
+        getServer().getPluginManager().registerEvents(new KrewWampiraListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
@@ -148,6 +152,7 @@ public class AnaItemy extends JavaPlugin {
         if (zatrutyOlowekManager != null) zatrutyOlowekManager.cleanup();
         if (passiveItemsManager != null) passiveItemsManager.cleanup();
         if (kukurydzaManager != null) kukurydzaManager.cleanup();
+        if (turbotrapManager != null) turbotrapManager.cleanup();
         if (actionBarManager != null) actionBarManager.cleanup();
         if (itemProtectionManager != null) itemProtectionManager.cleanup();
         getLogger().info("AnaItemy zostal wylaczony!");
@@ -176,6 +181,7 @@ public class AnaItemy extends JavaPlugin {
     public ZatrutyOlowekManager getZatrutyOlowekManager() { return zatrutyOlowekManager; }
     public PassiveItemsManager getPassiveItemsManager() { return passiveItemsManager; }
     public KukurydzaManager getKukurydzaManager() { return kukurydzaManager; }
+    public TurbotrapManager getTurbotrapManager() { return turbotrapManager; }
     public ItemsConfig getItemsConfig() { return itemsConfig; }
     public WorldGuardManager getWorldGuardManager() { return worldGuardManager; }
     public TotemListener getTotemListener() { return totemListener; }
