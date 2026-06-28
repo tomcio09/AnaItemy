@@ -1034,11 +1034,10 @@ turbotrap:
 #         KREW WAMPIRA
 # ==========================================
 krew-wampira:
-  material: HONEY_BOTTLE
+  material: BEETROOT_SOUP
   name: '&c&lKrew wampira'
   custom-model-data: 1
   gui-slot: 3
-  max-stack: 8
   respects-protection: false
   notify-attacker: false
 # ==========================================
