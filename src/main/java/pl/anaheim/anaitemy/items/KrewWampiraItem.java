@@ -16,7 +16,6 @@ public class KrewWampiraItem {
 
     public static final String ITEM_NAME_STRIPPED = "Krew wampira";
     public static final int CUSTOM_MODEL_DATA = 1;
-    public static final int MAX_STACK = 8;
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
@@ -27,7 +26,7 @@ public class KrewWampiraItem {
                 " &8» &7do &cpełnego HP&7!"
         );
 
-        ItemStack item = new ItemStack(Material.HONEY_BOTTLE);
+        ItemStack item = new ItemStack(Material.BEETROOT_SOUP);
         ItemMeta meta = item.getItemMeta();
 
         Component nameComponent = LegacyComponentSerializer.legacyAmpersand()
@@ -49,7 +48,7 @@ public class KrewWampiraItem {
     }
 
     public static boolean isKrewWampira(ItemStack item) {
-        if (item == null || item.getType() != Material.HONEY_BOTTLE) return false;
+        if (item == null || item.getType() != Material.BEETROOT_SOUP) return false;
         if (!item.hasItemMeta()) return false;
         if (!item.getItemMeta().hasCustomModelData()) return false;
         if (item.getItemMeta().getCustomModelData() != CUSTOM_MODEL_DATA) return false;
