@@ -132,6 +132,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "turbotrap" -> TurbotrapItem.create();
             case "krew" -> KrewWampiraItem.create();
             case "balonik" -> BalonikItem.create();
+            case "wata" -> WataCukrowaItem.create();
             default -> null;
         };
     }
