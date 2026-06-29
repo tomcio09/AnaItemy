@@ -5,11 +5,13 @@ import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
@@ -56,7 +58,6 @@ public class KrewWampiraListener implements Listener {
 
         if (plugin.getBlokWidmoManager().isAffected(player)) {
             plugin.getBlokWidmoManager().forceRemoveEffect(player);
-
             maxHealthAttr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
             if (maxHealthAttr != null) {
                 player.setHealth(maxHealthAttr.getValue());
@@ -75,6 +76,8 @@ public class KrewWampiraListener implements Listener {
 
         player.updateInventory();
     }
+
+    // ==================== INVENTORY CLICK ====================
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
     public void onInventoryClick(InventoryClickEvent event) {
@@ -117,50 +120,147 @@ public class KrewWampiraListener implements Listener {
             return;
         }
 
+        // ✅ LPM: krew na pusty slot = postaw wszystko
+        if (cursorBlood && (current == null || current.getType().isAir()) && event.getClick() == ClickType.LEFT) {
+            // Vanilla obsłuży to normalnie
+            return;
+        }
+
         // ✅ PPM: krew na pusty slot = postaw 1
         if (cursorBlood && (current == null || current.getType().isAir()) && event.getClick() == ClickType.RIGHT) {
-            if (cursor.getAmount() > 1) {
+            if (cursor.getAmount() >= 1) {
                 event.setCancelled(true);
                 ItemStack single = KrewWampiraItem.create(1);
                 if (event.getClickedInventory() != null) {
                     event.getClickedInventory().setItem(event.getSlot(), single);
                 }
-                cursor.setAmount(cursor.getAmount() - 1);
+                if (cursor.getAmount() > 1) {
+                    cursor.setAmount(cursor.getAmount() - 1);
+                } else {
+                    event.getView().setCursor(null);
+                }
             }
             return;
         }
 
-        // ✅ Shift click - pilnuj limitu 8
-        if ((event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT) && currentBlood) {
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                capBloodStacks(player.getInventory());
-                player.updateInventory();
-            }, 1L);
+        // ✅ LPM: pusty cursor na krew = podnieś
+        if (!cursorBlood && currentBlood && (cursor == null || cursor.getType().isAir()) && event.getClick() == ClickType.LEFT) {
+            // Vanilla obsłuży
+            return;
         }
 
-        // ✅ Double click - zbieraj do max 8
-        if (event.getClick() == ClickType.DOUBLE_CLICK && cursorBlood) {
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                // Po vanilla double click cap do max 8
-                ItemStack newCursor = event.getView().getCursor();
-                if (KrewWampiraItem.isKrewWampira(newCursor) && newCursor.getAmount() > KrewWampiraItem.MAX_STACK) {
-                    int overflow = newCursor.getAmount() - KrewWampiraItem.MAX_STACK;
-                    newCursor.setAmount(KrewWampiraItem.MAX_STACK);
+        // ✅ PPM: pusty cursor na krew = podnieś połowę
+        if (!cursorBlood && currentBlood && (cursor == null || cursor.getType().isAir()) && event.getClick() == ClickType.RIGHT) {
+            if (current.getAmount() > 1) {
+                event.setCancelled(true);
+                int half = (int) Math.ceil(current.getAmount() / 2.0);
+                int remaining = current.getAmount() - half;
 
-                    ItemStack overflowItem = KrewWampiraItem.create(overflow);
-                    Map<Integer, ItemStack> leftover = player.getInventory().addItem(overflowItem);
-                    for (ItemStack left : leftover.values()) {
-                        player.getWorld().dropItemNaturally(player.getLocation(), left);
+                ItemStack picked = KrewWampiraItem.create(half);
+                event.getView().setCursor(picked);
+
+                if (remaining > 0) {
+                    current.setAmount(remaining);
+                } else {
+                    event.setCurrentItem(null);
+                }
+            }
+            return;
+        }
+
+        // ✅ Shift click — szukaj stacka do połączenia
+        if ((event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT) && currentBlood) {
+            event.setCancelled(true);
+
+            int amountToMove = current.getAmount();
+
+            // Szukaj stacka krwi w drugim inventory
+            Inventory targetInv = (event.getClickedInventory() == player.getInventory())
+                    ? event.getView().getTopInventory()
+                    : player.getInventory();
+
+            // Najpierw szukaj istniejących stacków
+            for (int i = 0; i < targetInv.getSize() && amountToMove > 0; i++) {
+                ItemStack slot = targetInv.getItem(i);
+                if (!KrewWampiraItem.isKrewWampira(slot)) continue;
+                if (slot.getAmount() >= KrewWampiraItem.MAX_STACK) continue;
+
+                int canAdd = KrewWampiraItem.MAX_STACK - slot.getAmount();
+                int toAdd = Math.min(canAdd, amountToMove);
+                slot.setAmount(slot.getAmount() + toAdd);
+                amountToMove -= toAdd;
+            }
+
+            // Potem szukaj pustych slotów
+            while (amountToMove > 0) {
+                int firstEmpty = targetInv.firstEmpty();
+                if (firstEmpty == -1) break;
+
+                int give = Math.min(KrewWampiraItem.MAX_STACK, amountToMove);
+                targetInv.setItem(firstEmpty, KrewWampiraItem.create(give));
+                amountToMove -= give;
+            }
+
+            if (amountToMove > 0) {
+                current.setAmount(amountToMove);
+            } else {
+                event.setCurrentItem(null);
+            }
+            return;
+        }
+
+        // ✅ Double click — zbierz wszystkie do jednego stacka (max 8)
+        if (event.getClick() == ClickType.DOUBLE_CLICK && cursorBlood) {
+            event.setCancelled(true);
+
+            int cursorAmount = cursor.getAmount();
+            if (cursorAmount >= KrewWampiraItem.MAX_STACK) return;
+
+            // Zbieraj z inventory gracza
+            for (int i = 0; i < player.getInventory().getSize() && cursorAmount < KrewWampiraItem.MAX_STACK; i++) {
+                ItemStack slot = player.getInventory().getItem(i);
+                if (!KrewWampiraItem.isKrewWampira(slot)) continue;
+
+                int canTake = KrewWampiraItem.MAX_STACK - cursorAmount;
+                int slotAmount = slot.getAmount();
+
+                if (slotAmount <= canTake) {
+                    cursorAmount += slotAmount;
+                    player.getInventory().setItem(i, null);
+                } else {
+                    cursorAmount = KrewWampiraItem.MAX_STACK;
+                    slot.setAmount(slotAmount - canTake);
+                }
+            }
+
+            // Zbieraj z top inventory (jeśli otwarte)
+            Inventory topInv = player.getOpenInventory().getTopInventory();
+            if (topInv != null) {
+                for (int i = 0; i < topInv.getSize() && cursorAmount < KrewWampiraItem.MAX_STACK; i++) {
+                    ItemStack slot = topInv.getItem(i);
+                    if (!KrewWampiraItem.isKrewWampira(slot)) continue;
+
+                    int canTake = KrewWampiraItem.MAX_STACK - cursorAmount;
+                    int slotAmount = slot.getAmount();
+
+                    if (slotAmount <= canTake) {
+                        cursorAmount += slotAmount;
+                        topInv.setItem(i, null);
+                    } else {
+                        cursorAmount = KrewWampiraItem.MAX_STACK;
+                        slot.setAmount(slotAmount - canTake);
                     }
                 }
-                player.updateInventory();
-            }, 1L);
+            }
+
+            cursor.setAmount(cursorAmount);
+            player.updateInventory();
+            return;
         }
     }
 
-    /**
-     * ✅ Drag — pozwól vanilla rozłożyć, potem tylko cap do 8.
-     */
+    // ==================== DRAG ====================
+
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
     public void onInventoryDrag(InventoryDragEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -168,36 +268,152 @@ public class KrewWampiraListener implements Listener {
         ItemStack oldCursor = event.getOldCursor();
         if (!KrewWampiraItem.isKrewWampira(oldCursor)) return;
 
-        // ✅ Pozwól vanilla rozłożyć — potem po ticku sprawdź limity
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            capBloodStacks(player.getInventory());
+        // ✅ Anuluj vanilla drag — robimy własny
+        event.setCancelled(true);
 
-            // Sprawdź też top inventory (np. skrzynka)
-            Inventory topInv = player.getOpenInventory().getTopInventory();
-            if (topInv != null) {
-                capBloodStacks(topInv);
+        int totalAmount = oldCursor.getAmount();
+        java.util.Set<Integer> slots = event.getRawSlots();
+        int slotCount = slots.size();
+
+        if (slotCount == 0) return;
+
+        if (event.getType() == DragType.EVEN) {
+            // ✅ LPM drag = dziel równo
+            int perSlot = totalAmount / slotCount;
+            int remainder = totalAmount % slotCount;
+
+            if (perSlot < 1) {
+                // Za mało itemów na tyle slotów
+                perSlot = 1;
             }
 
-            player.updateInventory();
-        }, 1L);
-    }
+            int distributed = 0;
 
-    /**
-     * ✅ Przycina stacki krwi do max 8. NIE łączy — tylko cap.
-     */
-    private void capBloodStacks(Inventory inventory) {
-        for (int i = 0; i < inventory.getSize(); i++) {
-            ItemStack item = inventory.getItem(i);
-            if (!KrewWampiraItem.isKrewWampira(item)) continue;
+            for (int rawSlot : slots) {
+                if (distributed >= totalAmount) break;
 
-            if (item.getAmount() > KrewWampiraItem.MAX_STACK) {
-                int overflow = item.getAmount() - KrewWampiraItem.MAX_STACK;
-                item.setAmount(KrewWampiraItem.MAX_STACK);
+                Inventory inv = getInventoryForSlot(event, rawSlot);
+                int localSlot = getLocalSlot(event, rawSlot);
+                if (inv == null) continue;
 
-                ItemStack overflowItem = KrewWampiraItem.create(overflow);
-                Map<Integer, ItemStack> leftover = inventory.addItem(overflowItem);
-                // Jeśli nie zmieściło się — nic, cap zrobił swoje
+                ItemStack existing = inv.getItem(localSlot);
+
+                if (existing != null && !existing.getType().isAir()) {
+                    if (!KrewWampiraItem.isKrewWampira(existing)) continue;
+                    int canAdd = KrewWampiraItem.MAX_STACK - existing.getAmount();
+                    int toAdd = Math.min(canAdd, perSlot);
+                    if (toAdd <= 0) continue;
+                    existing.setAmount(existing.getAmount() + toAdd);
+                    distributed += toAdd;
+                } else {
+                    int give = Math.min(perSlot, totalAmount - distributed);
+                    if (give <= 0) continue;
+                    inv.setItem(localSlot, KrewWampiraItem.create(give));
+                    distributed += give;
+                }
+            }
+
+            int leftover = totalAmount - distributed;
+            if (leftover > 0) {
+                event.getView().setCursor(KrewWampiraItem.create(leftover));
+            } else {
+                event.getView().setCursor(null);
+            }
+        } else {
+            // ✅ PPM drag = po 1 na slot
+            int distributed = 0;
+
+            for (int rawSlot : slots) {
+                if (distributed >= totalAmount) break;
+
+                Inventory inv = getInventoryForSlot(event, rawSlot);
+                int localSlot = getLocalSlot(event, rawSlot);
+                if (inv == null) continue;
+
+                ItemStack existing = inv.getItem(localSlot);
+
+                if (existing != null && !existing.getType().isAir()) {
+                    if (!KrewWampiraItem.isKrewWampira(existing)) continue;
+                    if (existing.getAmount() >= KrewWampiraItem.MAX_STACK) continue;
+                    existing.setAmount(existing.getAmount() + 1);
+                    distributed++;
+                } else {
+                    inv.setItem(localSlot, KrewWampiraItem.create(1));
+                    distributed++;
+                }
+            }
+
+            int leftover = totalAmount - distributed;
+            if (leftover > 0) {
+                event.getView().setCursor(KrewWampiraItem.create(leftover));
+            } else {
+                event.getView().setCursor(null);
             }
         }
+
+        player.updateInventory();
+    }
+
+    // ==================== PICKUP Z ZIEMI ====================
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPickup(EntityPickupItemEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+
+        Item itemEntity = event.getItem();
+        ItemStack item = itemEntity.getItemStack();
+        if (!KrewWampiraItem.isKrewWampira(item)) return;
+
+        event.setCancelled(true);
+
+        int amountToAdd = item.getAmount();
+
+        // Szukaj istniejących stacków krwi
+        for (int i = 0; i < player.getInventory().getSize() && amountToAdd > 0; i++) {
+            ItemStack slot = player.getInventory().getItem(i);
+            if (!KrewWampiraItem.isKrewWampira(slot)) continue;
+            if (slot.getAmount() >= KrewWampiraItem.MAX_STACK) continue;
+
+            int canAdd = KrewWampiraItem.MAX_STACK - slot.getAmount();
+            int toAdd = Math.min(canAdd, amountToAdd);
+            slot.setAmount(slot.getAmount() + toAdd);
+            amountToAdd -= toAdd;
+        }
+
+        // Potem szukaj pustych slotów
+        while (amountToAdd > 0) {
+            int firstEmpty = player.getInventory().firstEmpty();
+            if (firstEmpty == -1) break;
+
+            int give = Math.min(KrewWampiraItem.MAX_STACK, amountToAdd);
+            player.getInventory().setItem(firstEmpty, KrewWampiraItem.create(give));
+            amountToAdd -= give;
+        }
+
+        if (amountToAdd <= 0) {
+            itemEntity.remove();
+            player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP,
+                    SoundCategory.PLAYERS, 0.3f, 1.0f);
+        } else {
+            item.setAmount(amountToAdd);
+            itemEntity.setItemStack(item);
+        }
+
+        player.updateInventory();
+    }
+
+    // ==================== UTILS ====================
+
+    private Inventory getInventoryForSlot(InventoryDragEvent event, int rawSlot) {
+        int topSize = event.getView().getTopInventory().getSize();
+        if (rawSlot < topSize) return event.getView().getTopInventory();
+        if (rawSlot < topSize + 36) return event.getView().getBottomInventory();
+        return null;
+    }
+
+    private int getLocalSlot(InventoryDragEvent event, int rawSlot) {
+        int topSize = event.getView().getTopInventory().getSize();
+        if (rawSlot < topSize) return rawSlot;
+        return rawSlot - topSize;
     }
 }
