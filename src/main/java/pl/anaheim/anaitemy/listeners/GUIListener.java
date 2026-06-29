@@ -24,7 +24,7 @@ public class GUIListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
@@ -33,22 +33,22 @@ public class GUIListener implements Listener {
 
         if (!EventoweGUI.isGUITitle(plainTitle)) return;
 
+        // ✅ Anuluj WSZYSTKO w tym GUI
         event.setCancelled(true);
+
+        int slot = event.getRawSlot();
+
+        // ✅ Kliknięcia w inventory gracza (poniżej GUI) — ignoruj
+        if (slot >= 54 || slot < 0) return;
 
         ItemStack clickedItem = event.getCurrentItem();
         if (clickedItem == null || clickedItem.getType().isAir()) return;
 
-        int slot = event.getRawSlot();
-
-        // ✅ Kliknięcie w dolną część (inventory gracza) — ignoruj
-        if (slot >= 54) return;
-
         // ✅ Filtr (hopper) — slot 49
         if (slot == 49 && clickedItem.getType() == Material.HOPPER) {
             EventoweGUI.GUIState state = EventoweGUI.getState(player);
-            if (state == null) state = new EventoweGUI.GUIState(EventoweGUI.Category.ALL, 1);
-
-            EventoweGUI.Category nextCategory = EventoweGUI.getNextCategory(state.getCategory());
+            EventoweGUI.Category currentCategory = (state != null) ? state.getCategory() : EventoweGUI.Category.ALL;
+            EventoweGUI.Category nextCategory = EventoweGUI.getNextCategory(currentCategory);
             EventoweGUI.open(player, plugin, nextCategory, 1);
             return;
         }
@@ -57,7 +57,6 @@ public class GUIListener implements Listener {
         if (slot == 53 && clickedItem.getType() == Material.LIME_DYE) {
             EventoweGUI.GUIState state = EventoweGUI.getState(player);
             if (state == null) return;
-
             EventoweGUI.open(player, plugin, state.getCategory(), state.getPage() + 1);
             return;
         }
@@ -66,21 +65,21 @@ public class GUIListener implements Listener {
         if (slot == 45 && clickedItem.getType() == Material.RED_DYE) {
             EventoweGUI.GUIState state = EventoweGUI.getState(player);
             if (state == null) return;
-
             EventoweGUI.open(player, plugin, state.getCategory(), state.getPage() - 1);
             return;
         }
 
-        // ✅ Kliknięcie na item (sloty 0-35)
-        if (slot >= 0 && slot <= 35) {
-            if (SakiewkaDropu.isSakiewka(clickedItem)) {
-                ItemStack newSakiewka = SakiewkaDropu.create();
-                giveItem(player, newSakiewka);
-                return;
-            }
+        // ✅ Sloty 36-53 (przedostatni i ostatni rząd) — nie dawaj itemów
+        if (slot >= 36) return;
 
-            giveItem(player, clickedItem.clone());
+        // ✅ Kliknięcie na item (sloty 0-35) — daj graczowi
+        if (SakiewkaDropu.isSakiewka(clickedItem)) {
+            ItemStack newSakiewka = SakiewkaDropu.create();
+            giveItem(player, newSakiewka);
+            return;
         }
+
+        giveItem(player, clickedItem.clone());
     }
 
     @EventHandler
