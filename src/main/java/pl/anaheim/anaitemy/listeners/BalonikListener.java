@@ -28,7 +28,7 @@ public class BalonikListener implements Listener {
 
     private static final String BALLOON_TEXTURE = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYTFiZTQ0ZTg0ZjAxMmY0M2ZhODExNzI3ZDJkNzQ2YTEwYjc1ZGQ5MjQzNzZkZDgwZmJjYjE3NzY4M2QzNTNjZSJ9fX0=";
     private static final UUID BALLOON_PROFILE_UUID = UUID.fromString("C3C4C5C6-D7D8-E9E0-F1F2-A3A4A5A6A7A8");
-    private static final int MAX_HEIGHT = 200;
+    private static final int MAX_HEIGHT = 400;
     private static final double SPEED = 5.0; // bloków na sekundę
 
     public BalonikListener(AnaItemy plugin) {
