@@ -21,7 +21,6 @@ import pl.anaheim.anaitemy.items.KrewWampiraItem;
 
 public class KrewWampiraListener implements Listener {
 
-    private static final int MAX_STACK = 8;
     private final AnaItemy plugin;
 
     public KrewWampiraListener(AnaItemy plugin) {
@@ -29,7 +28,7 @@ public class KrewWampiraListener implements Listener {
     }
 
     /**
-     * ✅ Blokuj vanilla jedzenie beetroot soup.
+     * ✅ Blokuj vanilla jedzenie.
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onConsume(PlayerItemConsumeEvent event) {
@@ -60,11 +59,10 @@ public class KrewWampiraListener implements Listener {
             player.setHealth(maxHealthAttr.getValue());
         }
 
-        // ✅ Anuluj efekt bloku widmo (jeśli aktywny)
+        // ✅ Anuluj efekt bloku widmo
         if (plugin.getBlokWidmoManager().isAffected(player)) {
             plugin.getBlokWidmoManager().forceRemoveEffect(player);
 
-            // Ulecz ponownie po przywróceniu max health
             maxHealthAttr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
             if (maxHealthAttr != null) {
                 player.setHealth(maxHealthAttr.getValue());
@@ -76,20 +74,16 @@ public class KrewWampiraListener implements Listener {
                 SoundCategory.PLAYERS, 1.0f, 1.0f);
 
         // ✅ Zużyj 1 sztukę
-        // Beetroot soup nie stackuje się vanilla - obsługujemy ręcznie
-        int currentAmount = getKrewCount(player.getInventory(), player.getInventory().getHeldItemSlot());
-
-        if (currentAmount > 1) {
-            // Mamy "ręczny stack" - zmniejsz NBT counter
-            setKrewCount(item, currentAmount - 1);
-            updateLoreCount(item, currentAmount - 1);
+        int count = KrewWampiraItem.getCount(item);
+        if (count > 1) {
+            KrewWampiraItem.setCount(item, count - 1);
         } else {
             player.getInventory().setItemInMainHand(null);
         }
     }
 
     /**
-     * ✅ Obsługa ręcznego stackowania w inventory.
+     * ✅ Ręczne stackowanie w inventory.
      */
     @EventHandler(priority = EventPriority.HIGH)
     public void onInventoryClick(InventoryClickEvent event) {
@@ -98,126 +92,118 @@ public class KrewWampiraListener implements Listener {
         ItemStack cursor = event.getCursor();
         ItemStack current = event.getCurrentItem();
 
-        // ✅ Kliknięcie z krwią na krew = stackuj
-        if (KrewWampiraItem.isKrewWampira(cursor) && KrewWampiraItem.isKrewWampira(current)) {
-            event.setCancelled(true);
+        // ✅ Normalne kliknięcie: krew na krew = stackuj
+        if (event.getClick() == ClickType.LEFT || event.getClick() == ClickType.RIGHT) {
+            if (KrewWampiraItem.isKrewWampira(cursor) && KrewWampiraItem.isKrewWampira(current)) {
+                event.setCancelled(true);
 
-            int cursorCount = getKrewCount(cursor);
-            int currentCount = getKrewCount(current);
-            int total = cursorCount + currentCount;
+                int cursorCount = KrewWampiraItem.getCount(cursor);
+                int currentCount = KrewWampiraItem.getCount(current);
 
-            if (total <= MAX_STACK) {
-                // Wszystko się mieści
-                setKrewCount(current, total);
-                updateLoreCount(current, total);
-                event.getView().setCursor(null);
-            } else {
-                // Częściowe stackowanie
-                setKrewCount(current, MAX_STACK);
-                updateLoreCount(current, MAX_STACK);
-                setKrewCount(cursor, total - MAX_STACK);
-                updateLoreCount(cursor, total - MAX_STACK);
-            }
-            return;
-        }
-
-        // ✅ Shift-click z krwią
-        if (event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT) {
-            if (KrewWampiraItem.isKrewWampira(current) && current != null) {
-                // Szukaj istniejącego stacka w docelowym inventory
-                Inventory targetInv = event.getClickedInventory() == player.getInventory()
-                        ? event.getView().getTopInventory()
-                        : player.getInventory();
-
-                for (int i = 0; i < targetInv.getSize(); i++) {
-                    ItemStack slot = targetInv.getItem(i);
-                    if (KrewWampiraItem.isKrewWampira(slot)) {
-                        int slotCount = getKrewCount(slot);
-                        int currentCount = getKrewCount(current);
-
-                        if (slotCount < MAX_STACK) {
-                            event.setCancelled(true);
-                            int total = slotCount + currentCount;
-
-                            if (total <= MAX_STACK) {
-                                setKrewCount(slot, total);
-                                updateLoreCount(slot, total);
-                                event.setCurrentItem(null);
-                            } else {
-                                setKrewCount(slot, MAX_STACK);
-                                updateLoreCount(slot, MAX_STACK);
-                                setKrewCount(current, total - MAX_STACK);
-                                updateLoreCount(current, total - MAX_STACK);
-                            }
-                            return;
+                if (event.getClick() == ClickType.RIGHT) {
+                    // PPM = dodaj 1
+                    if (currentCount < KrewWampiraItem.MAX_STACK) {
+                        KrewWampiraItem.setCount(current, currentCount + 1);
+                        if (cursorCount > 1) {
+                            KrewWampiraItem.setCount(cursor, cursorCount - 1);
+                        } else {
+                            event.getView().setCursor(null);
                         }
                     }
+                } else {
+                    // LPM = dodaj wszystko
+                    int total = cursorCount + currentCount;
+                    if (total <= KrewWampiraItem.MAX_STACK) {
+                        KrewWampiraItem.setCount(current, total);
+                        event.getView().setCursor(null);
+                    } else {
+                        KrewWampiraItem.setCount(current, KrewWampiraItem.MAX_STACK);
+                        KrewWampiraItem.setCount(cursor, total - KrewWampiraItem.MAX_STACK);
+                    }
+                }
+                return;
+            }
+
+            // ✅ PPM na pustym slocie z krwią = rozdziel
+            if (event.getClick() == ClickType.RIGHT
+                    && KrewWampiraItem.isKrewWampira(cursor)
+                    && (current == null || current.getType().isAir())) {
+
+                int cursorCount = KrewWampiraItem.getCount(cursor);
+                if (cursorCount > 1) {
+                    event.setCancelled(true);
+
+                    ItemStack single = KrewWampiraItem.create(1);
+                    if (event.getClickedInventory() != null) {
+                        event.getClickedInventory().setItem(event.getSlot(), single);
+                    }
+                    KrewWampiraItem.setCount(cursor, cursorCount - 1);
+                }
+                return;
+            }
+        }
+
+        // ✅ Shift-click: szukaj stacka do połączenia
+        if (event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT) {
+            if (!KrewWampiraItem.isKrewWampira(current)) return;
+
+            int currentCount = KrewWampiraItem.getCount(current);
+
+            Inventory targetInv = (event.getClickedInventory() == player.getInventory())
+                    ? event.getView().getTopInventory()
+                    : player.getInventory();
+
+            // Szukaj istniejącego stacka
+            for (int i = 0; i < targetInv.getSize(); i++) {
+                ItemStack slot = targetInv.getItem(i);
+                if (!KrewWampiraItem.isKrewWampira(slot)) continue;
+
+                int slotCount = KrewWampiraItem.getCount(slot);
+                if (slotCount >= KrewWampiraItem.MAX_STACK) continue;
+
+                event.setCancelled(true);
+
+                int total = slotCount + currentCount;
+                if (total <= KrewWampiraItem.MAX_STACK) {
+                    KrewWampiraItem.setCount(slot, total);
+                    event.setCurrentItem(null);
+                } else {
+                    KrewWampiraItem.setCount(slot, KrewWampiraItem.MAX_STACK);
+                    KrewWampiraItem.setCount(current, total - KrewWampiraItem.MAX_STACK);
+                }
+                return;
+            }
+
+            // Nie znaleziono stacka - pozwól vanilla przenieść do pustego slotu
+        }
+
+        // ✅ Double click - zbieranie itemów
+        if (event.getClick() == ClickType.DOUBLE_CLICK && KrewWampiraItem.isKrewWampira(cursor)) {
+            event.setCancelled(true);
+
+            int cursorCount = KrewWampiraItem.getCount(cursor);
+            if (cursorCount >= KrewWampiraItem.MAX_STACK) return;
+
+            // Szukaj w inventory gracza
+            for (int i = 0; i < player.getInventory().getSize(); i++) {
+                if (cursorCount >= KrewWampiraItem.MAX_STACK) break;
+
+                ItemStack slot = player.getInventory().getItem(i);
+                if (!KrewWampiraItem.isKrewWampira(slot)) continue;
+
+                int slotCount = KrewWampiraItem.getCount(slot);
+                int canTake = KrewWampiraItem.MAX_STACK - cursorCount;
+
+                if (slotCount <= canTake) {
+                    cursorCount += slotCount;
+                    player.getInventory().setItem(i, null);
+                } else {
+                    cursorCount = KrewWampiraItem.MAX_STACK;
+                    KrewWampiraItem.setCount(slot, slotCount - canTake);
                 }
             }
+
+            KrewWampiraItem.setCount(cursor, cursorCount);
         }
-    }
-
-    // ==================== RĘCZNE STACKOWANIE ====================
-
-    private int getKrewCount(ItemStack item) {
-        if (!KrewWampiraItem.isKrewWampira(item)) return 0;
-
-        // Używamy amount itemu jako counter (mimo że vanilla nie pozwala >1 dla soup)
-        // Ale to nie zadziała bo vanilla ogranicza
-        // Zamiast tego używamy lore jako wskaźnik ilości
-
-        // Sprawdź lore na końcu
-        if (item.hasItemMeta() && item.getItemMeta().lore() != null) {
-            var lore = item.getItemMeta().lore();
-            if (!lore.isEmpty()) {
-                String lastLine = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
-                        .plainText().serialize(lore.get(lore.size() - 1));
-                if (lastLine.startsWith("Ilość: ")) {
-                    try {
-                        return Integer.parseInt(lastLine.replace("Ilość: ", "").trim());
-                    } catch (NumberFormatException ignored) {}
-                }
-            }
-        }
-        return 1;
-    }
-
-    private int getKrewCount(Inventory inv, int slot) {
-        ItemStack item = inv.getItem(slot);
-        return getKrewCount(item);
-    }
-
-    private void setKrewCount(ItemStack item, int count) {
-        // Count jest przechowywany w lore
-        // updateLoreCount zaktualizuje
-    }
-
-    private void updateLoreCount(ItemStack item, int count) {
-        if (!KrewWampiraItem.isKrewWampira(item)) return;
-
-        var meta = item.getItemMeta();
-        var lore = meta.lore();
-        if (lore == null) lore = new java.util.ArrayList<>();
-        else lore = new java.util.ArrayList<>(lore);
-
-        // Usuń starą linię ilości jeśli istnieje
-        if (!lore.isEmpty()) {
-            String lastLine = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
-                    .plainText().serialize(lore.get(lore.size() - 1));
-            if (lastLine.startsWith("Ilość: ")) {
-                lore.remove(lore.size() - 1);
-            }
-        }
-
-        // Dodaj nową linię ilości (tylko jeśli >1)
-        if (count > 1) {
-            lore.add(net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
-                    .legacyAmpersand()
-                    .deserialize("&7Ilość: &f" + count)
-                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-        }
-
-        meta.lore(lore);
-        item.setItemMeta(meta);
     }
 }
