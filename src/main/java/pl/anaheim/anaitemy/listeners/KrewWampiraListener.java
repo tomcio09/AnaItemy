@@ -234,24 +234,41 @@ public class KrewWampiraListener implements Listener {
         java.util.List<Integer> slots = new java.util.ArrayList<>(event.getRawSlots());
         int slotCount = slots.size();
 
-        if (slotCount == 0) return;
+        if (slotCount == 0) {
+            // Nic nie dragujemy - przywróć cursor
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                player.getOpenInventory().setCursor(KrewWampiraItem.create(totalAmount));
+                player.updateInventory();
+            }, 1L);
+            return;
+        }
+
+        final int distributed;
 
         if (event.getType() == DragType.EVEN) {
             // ✅ LPM drag = dziel równo
-            int perSlot = totalAmount / slotCount;
-            if (perSlot < 1) perSlot = 1;
-
-            int distributed = 0;
+            int perSlot = Math.max(1, totalAmount / slotCount);
+            int dist = 0;
 
             for (int rawSlot : slots) {
-                if (distributed >= totalAmount) break;
+                if (dist >= totalAmount) break;
 
-                Inventory inv = getInventoryForSlot(event, rawSlot);
-                int localSlot = getLocalSlot(event, rawSlot);
-                if (inv == null) continue;
+                int topSize = event.getView().getTopInventory().getSize();
+                Inventory inv;
+                int localSlot;
+
+                if (rawSlot < topSize) {
+                    inv = event.getView().getTopInventory();
+                    localSlot = rawSlot;
+                } else {
+                    inv = player.getInventory();
+                    localSlot = rawSlot - topSize;
+                    if (localSlot < 0 || localSlot >= player.getInventory().getSize()) continue;
+                }
 
                 ItemStack existing = inv.getItem(localSlot);
-                int give = Math.min(perSlot, totalAmount - distributed);
+                int give = Math.min(perSlot, totalAmount - dist);
+                if (give <= 0) continue;
 
                 if (existing != null && !existing.getType().isAir()) {
                     if (!KrewWampiraItem.isKrewWampira(existing)) continue;
@@ -259,28 +276,33 @@ public class KrewWampiraListener implements Listener {
                     int toAdd = Math.min(canAdd, give);
                     if (toAdd <= 0) continue;
                     existing.setAmount(existing.getAmount() + toAdd);
-                    distributed += toAdd;
+                    dist += toAdd;
                 } else {
-                    if (give <= 0) continue;
                     inv.setItem(localSlot, KrewWampiraItem.create(give));
-                    distributed += give;
+                    dist += give;
                 }
             }
 
-            int leftover = totalAmount - distributed;
-            if (leftover > 0) event.getView().setCursor(KrewWampiraItem.create(leftover));
-            else event.getView().setCursor(null);
-
+            distributed = dist;
         } else {
             // ✅ PPM drag = po 1 na slot
-            int distributed = 0;
+            int dist = 0;
 
             for (int rawSlot : slots) {
-                if (distributed >= totalAmount) break;
+                if (dist >= totalAmount) break;
 
-                Inventory inv = getInventoryForSlot(event, rawSlot);
-                int localSlot = getLocalSlot(event, rawSlot);
-                if (inv == null) continue;
+                int topSize = event.getView().getTopInventory().getSize();
+                Inventory inv;
+                int localSlot;
+
+                if (rawSlot < topSize) {
+                    inv = event.getView().getTopInventory();
+                    localSlot = rawSlot;
+                } else {
+                    inv = player.getInventory();
+                    localSlot = rawSlot - topSize;
+                    if (localSlot < 0 || localSlot >= player.getInventory().getSize()) continue;
+                }
 
                 ItemStack existing = inv.getItem(localSlot);
 
@@ -288,19 +310,29 @@ public class KrewWampiraListener implements Listener {
                     if (!KrewWampiraItem.isKrewWampira(existing)) continue;
                     if (existing.getAmount() >= KrewWampiraItem.MAX_STACK) continue;
                     existing.setAmount(existing.getAmount() + 1);
-                    distributed++;
+                    dist++;
                 } else {
                     inv.setItem(localSlot, KrewWampiraItem.create(1));
-                    distributed++;
+                    dist++;
                 }
             }
 
-            int leftover = totalAmount - distributed;
-            if (leftover > 0) event.getView().setCursor(KrewWampiraItem.create(leftover));
-            else event.getView().setCursor(null);
+            distributed = dist;
         }
 
-        player.updateInventory();
+        // ✅ Ustaw cursor po ticku (po anulowaniu vanilla draga)
+        final int leftover = totalAmount - distributed;
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) return;
+
+            if (leftover > 0) {
+                player.getOpenInventory().setCursor(KrewWampiraItem.create(leftover));
+            } else {
+                player.getOpenInventory().setCursor(null);
+            }
+            player.updateInventory();
+        }, 1L);
     }
 
     // ==================== PICKUP ====================
