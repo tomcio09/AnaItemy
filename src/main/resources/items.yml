@@ -1048,6 +1048,16 @@ balonik:
   respects-protection: false
   notify-attacker: false
 # ==========================================
+#         WATA CUKROWA
+# ==========================================
+wata-cukrowa:
+  material: PINK_DYE
+  name: '&b&lWata cukrowa'
+  custom-model-data: 1000
+  gui-slot: 5
+  respects-protection: false
+  notify-attacker: false
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
