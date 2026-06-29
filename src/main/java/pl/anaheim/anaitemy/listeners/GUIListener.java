@@ -11,6 +11,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.ItemStack;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.gui.EventoweGUI;
@@ -24,22 +25,19 @@ public class GUIListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
-        Component inventoryTitle = event.getView().title();
-        String plainTitle = PlainTextComponentSerializer.plainText().serialize(inventoryTitle);
+        String plainTitle = PlainTextComponentSerializer.plainText()
+                .serialize(event.getView().title());
 
         if (!EventoweGUI.isGUITitle(plainTitle)) return;
 
-        // ✅ Anuluj WSZYSTKO w tym GUI
         event.setCancelled(true);
 
         int slot = event.getRawSlot();
-
-        // ✅ Kliknięcia w inventory gracza (poniżej GUI) — ignoruj
-        if (slot >= 54 || slot < 0) return;
+        if (slot < 0 || slot >= 54) return;
 
         ItemStack clickedItem = event.getCurrentItem();
         if (clickedItem == null || clickedItem.getType().isAir()) return;
@@ -47,39 +45,70 @@ public class GUIListener implements Listener {
         // ✅ Filtr (hopper) — slot 49
         if (slot == 49 && clickedItem.getType() == Material.HOPPER) {
             EventoweGUI.GUIState state = EventoweGUI.getState(player);
-            EventoweGUI.Category currentCategory = (state != null) ? state.getCategory() : EventoweGUI.Category.ALL;
-            EventoweGUI.Category nextCategory = EventoweGUI.getNextCategory(currentCategory);
-            EventoweGUI.open(player, plugin, nextCategory, 1);
+            EventoweGUI.Category currentCat = (state != null) ? state.getCategory() : EventoweGUI.Category.ALL;
+            EventoweGUI.Category nextCat = EventoweGUI.getNextCategory(currentCat);
+
+            // ✅ Zamknij i otwórz ponownie z opóźnieniem
+            player.closeInventory();
+            org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) {
+                    EventoweGUI.open(player, plugin, nextCat, 1);
+                }
+            }, 1L);
             return;
         }
 
-        // ✅ Następna strona (lime dye) — slot 53
+        // ✅ Następna strona — slot 53
         if (slot == 53 && clickedItem.getType() == Material.LIME_DYE) {
             EventoweGUI.GUIState state = EventoweGUI.getState(player);
             if (state == null) return;
-            EventoweGUI.open(player, plugin, state.getCategory(), state.getPage() + 1);
+            player.closeInventory();
+            org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) {
+                    EventoweGUI.open(player, plugin, state.getCategory(), state.getPage() + 1);
+                }
+            }, 1L);
             return;
         }
 
-        // ✅ Poprzednia strona (red dye) — slot 45
+        // ✅ Poprzednia strona — slot 45
         if (slot == 45 && clickedItem.getType() == Material.RED_DYE) {
             EventoweGUI.GUIState state = EventoweGUI.getState(player);
             if (state == null) return;
-            EventoweGUI.open(player, plugin, state.getCategory(), state.getPage() - 1);
+            player.closeInventory();
+            org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) {
+                    EventoweGUI.open(player, plugin, state.getCategory(), state.getPage() - 1);
+                }
+            }, 1L);
             return;
         }
 
-        // ✅ Sloty 36-53 (przedostatni i ostatni rząd) — nie dawaj itemów
+        // ✅ Sloty 36+ — nie dawaj itemów
         if (slot >= 36) return;
 
-        // ✅ Kliknięcie na item (sloty 0-35) — daj graczowi
+        // ✅ Daj item graczowi
         if (SakiewkaDropu.isSakiewka(clickedItem)) {
-            ItemStack newSakiewka = SakiewkaDropu.create();
-            giveItem(player, newSakiewka);
+            giveItem(player, SakiewkaDropu.create());
             return;
         }
 
         giveItem(player, clickedItem.clone());
+    }
+
+    /**
+     * ✅ Blokuj drag w naszym GUI.
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+
+        String plainTitle = PlainTextComponentSerializer.plainText()
+                .serialize(event.getView().title());
+
+        if (EventoweGUI.isGUITitle(plainTitle)) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler
