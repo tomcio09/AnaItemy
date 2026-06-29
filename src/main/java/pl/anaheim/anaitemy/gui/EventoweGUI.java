@@ -120,6 +120,7 @@ public class EventoweGUI {
         items.add(SniezkaZamianyItem.create());
         items.add(TurbotrapItem.create());
         items.add(KrewWampiraItem.create());
+        items.add(BalonikItem.create());
         return items;
     }
 
