@@ -124,6 +124,7 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SniezkaZamianyListener(this), this);
         getServer().getPluginManager().registerEvents(new TurbotrapListener(this), this);
         getServer().getPluginManager().registerEvents(new KrewWampiraListener(this), this);
+        getServer().getPluginManager().registerEvents(new BalonikListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
