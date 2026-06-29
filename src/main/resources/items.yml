@@ -1041,6 +1041,13 @@ krew-wampira:
   respects-protection: false
   notify-attacker: false
 # ==========================================
+#         BALONIK Z HELEM
+# ==========================================
+balonik:
+  gui-slot: 4
+  respects-protection: false
+  notify-attacker: false
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
