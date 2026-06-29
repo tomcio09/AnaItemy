@@ -131,6 +131,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "sniezka" -> SniezkaZamianyItem.create();
             case "turbotrap" -> TurbotrapItem.create();
             case "krew" -> KrewWampiraItem.create();
+            case "balonik" -> BalonikItem.create();
             default -> null;
         };
     }
@@ -172,6 +173,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "sniezka" -> "&fŚnieżka Zamiany";
             case "turbotrap" -> "&aTurbo-Trap";
             case "krew" -> "&cKrew Wampira";
+            case "balonik" -> "&3Balonik z Helem";
             default -> id;
         };
     }
