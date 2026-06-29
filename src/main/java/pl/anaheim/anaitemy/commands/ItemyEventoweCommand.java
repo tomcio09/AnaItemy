@@ -175,6 +175,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "turbotrap" -> "&aTurbo-Trap";
             case "krew" -> "&cKrew Wampira";
             case "balonik" -> "&3Balonik z Helem";
+            case "wata" -> "&bWata Cukrowa";
             default -> id;
         };
     }
