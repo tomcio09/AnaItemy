@@ -7,6 +7,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
@@ -23,7 +24,7 @@ public class GUIListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGH)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
@@ -39,17 +40,20 @@ public class GUIListener implements Listener {
 
         int slot = event.getRawSlot();
 
-        // ✅ Filtr (hopper) - slot 49
+        // ✅ Kliknięcie w dolną część (inventory gracza) — ignoruj
+        if (slot >= 54) return;
+
+        // ✅ Filtr (hopper) — slot 49
         if (slot == 49 && clickedItem.getType() == Material.HOPPER) {
             EventoweGUI.GUIState state = EventoweGUI.getState(player);
-            if (state == null) return;
+            if (state == null) state = new EventoweGUI.GUIState(EventoweGUI.Category.ALL, 1);
 
             EventoweGUI.Category nextCategory = EventoweGUI.getNextCategory(state.getCategory());
             EventoweGUI.open(player, plugin, nextCategory, 1);
             return;
         }
 
-        // ✅ Następna strona (lime dye) - slot 53
+        // ✅ Następna strona (lime dye) — slot 53
         if (slot == 53 && clickedItem.getType() == Material.LIME_DYE) {
             EventoweGUI.GUIState state = EventoweGUI.getState(player);
             if (state == null) return;
@@ -58,7 +62,7 @@ public class GUIListener implements Listener {
             return;
         }
 
-        // ✅ Poprzednia strona (red dye) - slot 45
+        // ✅ Poprzednia strona (red dye) — slot 45
         if (slot == 45 && clickedItem.getType() == Material.RED_DYE) {
             EventoweGUI.GUIState state = EventoweGUI.getState(player);
             if (state == null) return;
@@ -69,7 +73,6 @@ public class GUIListener implements Listener {
 
         // ✅ Kliknięcie na item (sloty 0-35)
         if (slot >= 0 && slot <= 35) {
-            // Sakiewka - generuj nową unikalną
             if (SakiewkaDropu.isSakiewka(clickedItem)) {
                 ItemStack newSakiewka = SakiewkaDropu.create();
                 giveItem(player, newSakiewka);
