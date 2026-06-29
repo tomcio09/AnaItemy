@@ -121,6 +121,7 @@ public class EventoweGUI {
         items.add(TurbotrapItem.create());
         items.add(KrewWampiraItem.create());
         items.add(BalonikItem.create());
+        items.add(WataCukrowaItem.create());
         return items;
     }
 
