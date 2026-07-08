@@ -45,16 +45,21 @@ public class TurbotrapManager {
     }
 
     private void loadSchematic() {
-        File schematicFile = new File(plugin.getDataFolder(), "schematics/turbotrap.schem");
+        // ✅ Stwórz folder schematics jeśli nie istnieje
+        File schematicsFolder = new File(plugin.getDataFolder(), "schematics");
+        if (!schematicsFolder.exists()) {
+            schematicsFolder.mkdirs();
+        }
 
+        // ✅ Kopiuj schemat z zasobów pluginu jeśli nie istnieje
+        File schematicFile = new File(schematicsFolder, "turbotrap.schem");
         if (!schematicFile.exists()) {
-            // Spróbuj .schematic
-            schematicFile = new File(plugin.getDataFolder(), "schematics/turbotrap.schematic");
+            plugin.saveResource("schematics/turbotrap.schem", false);
         }
 
         if (!schematicFile.exists()) {
             plugin.getLogger().warning("[Turbotrap] Nie znaleziono pliku schematu! Umieść go w: "
-                    + plugin.getDataFolder().getPath() + "/schematics/turbotrap.schem");
+                    + schematicFile.getPath());
             return;
         }
 
