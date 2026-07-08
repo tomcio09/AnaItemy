@@ -334,4 +334,23 @@ public class ItemsConfig {
     public List<String> getTurbotrapBlockedRegions() {
         return config.getStringList("turbotrap.blocked-regions");
     }
+        // ==================== PIERNIK ====================
+    public int getPiernikHasteDuration() { return config.getInt("piernik.haste-duration", 15); }
+    public int getPiernikHasteLevel() { return config.getInt("piernik.haste-level", 11); }
+
+    // ==================== ZŁAMANE SERCE ====================
+    public int getZlamaneSerceSlowFallingDuration() { return config.getInt("zlamane-serce.slow-falling-duration", 10); }
+    public String getZlamaneSerceAttackerSubtitle() { return config.getString("zlamane-serce.messages.attacker-subtitle", "&7Złamałeś &dserce &7gracza &f{victim}&7!"); }
+    public String getZlamaneSerceVictimSubtitle() { return config.getString("zlamane-serce.messages.victim-subtitle", "&7Twoje &dserduszko &7zostało złamane!"); }
+
+    // ==================== WAMPIRZE JABŁKO ====================
+    public int getWampirzeJablkoStrengthDuration() { return config.getInt("wampirze-jablko.strength-duration", 6); }
+    public int getWampirzeJablkoStrengthLevel() { return config.getInt("wampirze-jablko.strength-level", 2); }
+
+    // ==================== SPLEŚNIAŁA KANAPKA ====================
+    public int getSplesnialaKanapkaGlowingDuration() { return config.getInt("splesniale-kanapka.glowing-duration", 20); }
+
+    // ==================== BOMBARDA MAXIMA ====================
+    public int getBombardaRadius() { return config.getInt("bombarda-maxima.radius", 4); }
+    public List<String> getBombardaBlockedRegions() { return config.getStringList("bombarda-maxima.blocked-regions"); }
 }
