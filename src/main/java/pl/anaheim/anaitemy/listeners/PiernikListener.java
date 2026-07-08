@@ -1,7 +1,6 @@
 package pl.anaheim.anaitemy.listeners;
 
-import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -13,37 +12,20 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
-import org.bukkit.scheduler.BukkitRunnable;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.PiernikItem;
-
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class PiernikListener implements Listener {
 
     private final AnaItemy plugin;
-    private final Set<UUID> eatingPlayers = ConcurrentHashMap.newKeySet();
 
-    public PiernikListener(AnaItemy plugin) {
-        this.plugin = plugin;
-    }
+    public PiernikListener(AnaItemy plugin) { this.plugin = plugin; }
 
     /**
-     * ✅ Blokuj vanilla jedzenie cookie.
+     * ✅ Gdy gracz klika PPM trzymając piernika i ma pełny głód —
+     * obniż głód o 1 punkt żeby klient pozwolił zacząć jedzenie.
      */
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onConsume(PlayerItemConsumeEvent event) {
-        if (PiernikItem.isPiernik(event.getItem())) {
-            event.setCancelled(true);
-        }
-    }
-
-    /**
-     * ✅ PPM = rozpocznij jedzenie (animacja + dźwięk + efekt po 1.5s).
-     */
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.LOW)
     public void onInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR
                 && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
@@ -53,67 +35,31 @@ public class PiernikListener implements Listener {
         ItemStack item = player.getInventory().getItemInMainHand();
         if (!PiernikItem.isPiernik(item)) return;
 
-        event.setCancelled(true);
+        if (player.getFoodLevel() >= 20) {
+            player.setFoodLevel(19);
+        }
+    }
 
-        // ✅ Zapobiegnij spamowaniu
-        if (eatingPlayers.contains(player.getUniqueId())) return;
-        eatingPlayers.add(player.getUniqueId());
+    /**
+     * ✅ Po zjedzeniu — daj efekt i przywróć pełny głód.
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onConsume(PlayerItemConsumeEvent event) {
+        Player player = event.getPlayer();
+        if (!PiernikItem.isPiernik(event.getItem())) return;
 
-        // ✅ Dźwięki jedzenia (3 razy w trakcie)
-        new BukkitRunnable() {
-            int ticks = 0;
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) return;
 
-            @Override
-            public void run() {
-                if (!player.isOnline() || ticks >= 30) {
-                    cancel();
-                    return;
-                }
+            int duration = plugin.getItemsConfig().getPiernikHasteDuration() * 20;
+            int level = plugin.getItemsConfig().getPiernikHasteLevel() - 1;
 
-                // Sprawdź czy gracz nadal trzyma piernika
-                if (!PiernikItem.isPiernik(player.getInventory().getItemInMainHand())) {
-                    eatingPlayers.remove(player.getUniqueId());
-                    cancel();
-                    return;
-                }
+            player.addPotionEffect(new PotionEffect(
+                    PotionEffectType.FAST_DIGGING, duration, level, false, true, true));
 
-                if (ticks % 8 == 0) {
-                    player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_EAT,
-                            SoundCategory.PLAYERS, 1.0f, 1.0f);
-                }
-
-                ticks += 2;
-            }
-        }.runTaskTimer(plugin, 0L, 2L);
-
-        // ✅ Po 1.5 sekundy — efekt + zużycie
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                eatingPlayers.remove(player.getUniqueId());
-
-                if (!player.isOnline()) return;
-
-                ItemStack currentItem = player.getInventory().getItemInMainHand();
-                if (!PiernikItem.isPiernik(currentItem)) return;
-
-                // ✅ Daj efekt haste
-                int duration = plugin.getItemsConfig().getPiernikHasteDuration() * 20;
-                int level = plugin.getItemsConfig().getPiernikHasteLevel() - 1;
-                player.addPotionEffect(new PotionEffect(
-                        PotionEffectType.FAST_DIGGING, duration, level, false, true, true));
-
-                // ✅ Dźwięk zjedzenia
-                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_BURP,
-                        SoundCategory.PLAYERS, 1.0f, 1.0f);
-
-                // ✅ Zużyj
-                if (currentItem.getAmount() > 1) {
-                    currentItem.setAmount(currentItem.getAmount() - 1);
-                } else {
-                    player.getInventory().setItemInMainHand(null);
-                }
-            }
-        }.runTaskLater(plugin, 30L); // 1.5 sekundy
+            // ✅ Przywróć pełny głód
+            player.setFoodLevel(20);
+            player.setSaturation(20.0f);
+        }, 1L);
     }
 }
