@@ -122,6 +122,16 @@ public class EventoweGUI {
         items.add(KrewWampiraItem.create());
         items.add(BalonikItem.create());
         items.add(WataCukrowaItem.create());
+        items.add(PiernikItem.create());
+        items.add(ZlamaneSerceItem.create());
+        items.add(WampirzeJablkoItem.create());
+        items.add(CiepleMlekoItem.create());
+        items.add(ParawanItem.create());
+        items.add(SplesnialaKanapkaItem.create());
+        items.add(LeweJajkoItem.create());
+        items.add(PrzeterminowanyTrunekItem.create());
+        items.add(BombardaMaximaItem.create());
+        items.add(DynamitItem.create());
         return items;
     }
 
