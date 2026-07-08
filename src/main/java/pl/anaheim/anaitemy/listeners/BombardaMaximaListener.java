@@ -80,8 +80,8 @@ public class BombardaMaximaListener implements Listener {
                     if (block.getType() == Material.BEDROCK) continue;
                     if (block.getType().isAir()) continue;
 
-                    // ✅ breakNaturally() = bloki wypadają jako itemy
-                    block.breakNaturally();
+                    // ✅ setType(AIR) = bloki PO PROSTU ZNIKAJĄ (bez dropu)
+                    block.setType(Material.AIR, false);
                 }
             }
         }
@@ -92,9 +92,6 @@ public class BombardaMaximaListener implements Listener {
         fireball.remove();
     }
 
-    /**
-     * ✅ Blokuj vanilla damage od fireball bombardy.
-     */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onFireballDamage(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Fireball fireball)) return;
