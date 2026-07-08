@@ -1058,6 +1058,131 @@ wata-cukrowa:
   respects-protection: false
   notify-attacker: false
 # ==========================================
+#         PIERNIK
+# ==========================================
+piernik:
+  material: COOKIE
+  name: '&6&lPiernik'
+  custom-model-data: 346521
+  gui-slot: 6
+  haste-duration: 15
+  haste-level: 11
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         ZŁAMANE SERCE
+# ==========================================
+zlamane-serce:
+  material: PURPLE_DYE
+  name: '&5&lZłamane serce'
+  custom-model-data: 56463534
+  gui-slot: 7
+  slow-falling-duration: 10
+  messages:
+    attacker-subtitle: '&7Złamałeś &dserce &7gracza &f{victim}&7!'
+    victim-subtitle: '&7Twoje &dserduszko &7zostało złamane!'
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         WAMPIRZE JABŁKO
+# ==========================================
+wampirze-jablko:
+  material: ENCHANTED_GOLDEN_APPLE
+  name: '&6&lWampirze jabłko'
+  custom-model-data: 1
+  gui-slot: 8
+  strength-duration: 6
+  strength-level: 2
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         CIEPŁE MLEKO
+# ==========================================
+cieple-mleko:
+  material: BOWL
+  name: '&1&lCiepłe mleko'
+  custom-model-data: 43634712
+  gui-slot: 9
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         PARAWAN
+# ==========================================
+parawan:
+  material: FEATHER
+  name: '&e&lParawan'
+  custom-model-data: 1
+  gui-slot: 10
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         SPLEŚNIAŁA KANAPKA
+# ==========================================
+splesniale-kanapka:
+  material: POISONOUS_POTATO
+  name: '&2&lSpleśniała kanapka'
+  custom-model-data: 53
+  gui-slot: 11
+  glowing-duration: 20
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         LEWE JAJKO
+# ==========================================
+lewe-jajko:
+  material: EGG
+  name: '&eLewe jajko'
+  gui-slot: 12
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         PRZETERMINOWANY TRUNEK
+# ==========================================
+przeterminowany-trunek:
+  material: HONEY_BOTTLE
+  name: '&2&lPrzeterminowany trunek'
+  custom-model-data: 4325325
+  gui-slot: 13
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         BOMBARDA MAXIMA
+# ==========================================
+bombarda-maxima:
+  material: FIRE_CHARGE
+  name: '&5&lBombarda maxima'
+  custom-model-data: 1
+  gui-slot: 14
+  radius: 4
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+    - endpvp
+    - spawnpvp
+    - netherspawnpvp
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         DYNAMIT
+# ==========================================
+dynamit:
+  material: RED_CANDLE
+  name: '&4&lDynamit'
+  custom-model-data: 523
+  gui-slot: 15
+  respects-protection: false
+  notify-attacker: false
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
