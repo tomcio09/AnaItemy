@@ -8,6 +8,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -35,7 +36,6 @@ public class BombardaMaximaListener implements Listener {
 
         event.setCancelled(true);
 
-        // Sprawdź region
         if (plugin.getWorldGuardManager().isInNamedRegion(player.getLocation(),
                 plugin.getItemsConfig().getBombardaBlockedRegions())) return;
 
@@ -49,7 +49,6 @@ public class BombardaMaximaListener implements Listener {
         fireball.setIsIncendiary(false);
         fireball.setMetadata(META_BOMBARDA, new FixedMetadataValue(plugin, true));
 
-        // Zużyj
         if (item.getAmount() > 1) item.setAmount(item.getAmount() - 1);
         else player.getInventory().setItemInMainHand(null);
     }
@@ -65,14 +64,12 @@ public class BombardaMaximaListener implements Listener {
         World world = impact.getWorld();
         int radius = plugin.getItemsConfig().getBombardaRadius();
 
-        // Sprawdź region
         if (plugin.getWorldGuardManager().isInNamedRegion(impact,
                 plugin.getItemsConfig().getBombardaBlockedRegions())) {
             fireball.remove();
             return;
         }
 
-        // Niszcz bloki
         for (int x = -radius; x <= radius; x++) {
             for (int y = -radius; y <= radius; y++) {
                 for (int z = -radius; z <= radius; z++) {
@@ -83,6 +80,7 @@ public class BombardaMaximaListener implements Listener {
                     if (block.getType() == Material.BEDROCK) continue;
                     if (block.getType().isAir()) continue;
 
+                    // ✅ breakNaturally() = bloki wypadają jako itemy
                     block.breakNaturally();
                 }
             }
@@ -92,5 +90,16 @@ public class BombardaMaximaListener implements Listener {
         world.playSound(impact, Sound.ENTITY_GENERIC_EXPLODE, SoundCategory.BLOCKS, 2.0f, 1.0f);
 
         fireball.remove();
+    }
+
+    /**
+     * ✅ Blokuj vanilla damage od fireball bombardy.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onFireballDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Fireball fireball)) return;
+        if (fireball.hasMetadata(META_BOMBARDA)) {
+            event.setCancelled(true);
+        }
     }
 }
