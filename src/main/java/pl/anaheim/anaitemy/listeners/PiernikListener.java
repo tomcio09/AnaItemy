@@ -1,16 +1,15 @@
 package pl.anaheim.anaitemy.listeners;
 
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitRunnable;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.PiernikItem;
 
@@ -18,41 +17,51 @@ public class PiernikListener implements Listener {
 
     private final AnaItemy plugin;
 
-    public PiernikListener(AnaItemy plugin) { this.plugin = plugin; }
+    public PiernikListener(AnaItemy plugin) {
+        this.plugin = plugin;
 
-    /**
-     * ✅ Blokuj vanilla jedzenie (bo nie pozwala jeść przy pełnym głodzie).
-     */
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onConsume(PlayerItemConsumeEvent event) {
-        if (PiernikItem.isPiernik(event.getItem())) {
-            event.setCancelled(true);
-        }
+        // ✅ Co tick sprawdzaj graczy i pozwalaj jeść piernika nawet przy pełnym głodzie
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                for (Player player : plugin.getServer().getOnlinePlayers()) {
+                    if (player.getFoodLevel() >= 20) {
+                        ItemStack mainHand = player.getInventory().getItemInMainHand();
+                        if (PiernikItem.isPiernik(mainHand)) {
+                            // ✅ Tymczasowo obniż głód żeby pozwolić na jedzenie
+                            if (player.isHandRaised()) {
+                                player.setFoodLevel(19);
+                            }
+                        }
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 5L);
     }
 
     /**
-     * ✅ PPM = zjedz piernika (działa zawsze, nawet przy pełnym głodzie).
+     * ✅ Po zjedzeniu piernika — daj haste i przywróć głód.
      */
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onInteract(PlayerInteractEvent event) {
-        if (event.getAction() != Action.RIGHT_CLICK_AIR
-                && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-        if (event.getHand() == EquipmentSlot.OFF_HAND) return;
-
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onConsume(PlayerItemConsumeEvent event) {
         Player player = event.getPlayer();
-        ItemStack item = player.getInventory().getItemInMainHand();
+        ItemStack item = event.getItem();
+
         if (!PiernikItem.isPiernik(item)) return;
 
-        event.setCancelled(true);
+        // ✅ Po zjedzeniu daj efekt
+        org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) return;
 
-        int duration = plugin.getItemsConfig().getPiernikHasteDuration() * 20;
-        int level = plugin.getItemsConfig().getPiernikHasteLevel() - 1;
+            int duration = plugin.getItemsConfig().getPiernikHasteDuration() * 20;
+            int level = plugin.getItemsConfig().getPiernikHasteLevel() - 1;
 
-        player.addPotionEffect(new PotionEffect(
-                PotionEffectType.FAST_DIGGING, duration, level, false, true, true));
+            player.addPotionEffect(new PotionEffect(
+                    PotionEffectType.FAST_DIGGING, duration, level, false, true, true));
 
-        // Zużyj
-        if (item.getAmount() > 1) item.setAmount(item.getAmount() - 1);
-        else player.getInventory().setItemInMainHand(null);
+            // ✅ Przywróć pełny głód (żeby nie tracił głodu z jedzenia)
+            player.setFoodLevel(20);
+            player.setSaturation(20.0f);
+        }, 1L);
     }
 }
