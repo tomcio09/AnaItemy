@@ -968,9 +968,12 @@ lizak:
   name: '&d&lLizak'
   custom-model-data: 1
   gui-slot: 29
+
+  # Mnożnik rozmiaru gracza (0.9 = 90% normalnego rozmiaru)
+  scale-multiplier: 0.9
+
   respects-protection: false
   notify-attacker: false
-
 # ==========================================
 #         ROZGOTOWANA KUKURYDZA
 # ==========================================
