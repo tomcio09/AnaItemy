@@ -21,6 +21,39 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Fix deprecated API names for 1.21.4
+        run: |
+          find src -name "*.java" -exec sed -i \
+            -e 's/Enchantment\.DURABILITY/Enchantment.UNBREAKING/g' \
+            -e 's/Enchantment\.DAMAGE_ALL/Enchantment.SHARPNESS/g' \
+            -e 's/Enchantment\.DIG_SPEED/Enchantment.EFFICIENCY/g' \
+            -e 's/Enchantment\.PROTECTION_PROJECTILE/Enchantment.PROJECTILE_PROTECTION/g' \
+            -e 's/Enchantment\.PROTECTION_FIRE/Enchantment.FIRE_PROTECTION/g' \
+            -e 's/Enchantment\.PROTECTION_ENVIRONMENTAL/Enchantment.PROTECTION/g' \
+            -e 's/Enchantment\.WATER_WORKER/Enchantment.AQUA_AFFINITY/g' \
+            -e 's/Enchantment\.OXYGEN/Enchantment.RESPIRATION/g' \
+            -e 's/Enchantment\.ARROW_DAMAGE/Enchantment.POWER/g' \
+            -e 's/Enchantment\.ARROW_FIRE/Enchantment.FLAME/g' \
+            -e 's/Enchantment\.ARROW_INFINITE/Enchantment.INFINITY/g' \
+            -e 's/PotionEffectType\.FAST_DIGGING/PotionEffectType.HASTE/g' \
+            -e 's/PotionEffectType\.SLOW_DIGGING/PotionEffectType.MINING_FATIGUE/g' \
+            -e 's/PotionEffectType\.SLOW\b/PotionEffectType.SLOWNESS/g' \
+            -e 's/PotionEffectType\.INCREASE_DAMAGE/PotionEffectType.STRENGTH/g' \
+            -e 's/PotionEffectType\.DAMAGE_RESISTANCE/PotionEffectType.RESISTANCE/g' \
+            -e 's/PotionEffectType\.CONFUSION/PotionEffectType.NAUSEA/g' \
+            -e 's/Particle\.WATER_SPLASH/Particle.SPLASH/g' \
+            -e 's/Particle\.SPELL_WITCH/Particle.WITCH/g' \
+            -e 's/Particle\.SMOKE_LARGE/Particle.LARGE_SMOKE/g' \
+            -e 's/Particle\.EXPLOSION_LARGE/Particle.EXPLOSION/g' \
+            -e 's/Particle\.BLOCK_CRACK/Particle.BLOCK/g' \
+            -e 's/Attribute\.GENERIC_MAX_HEALTH/Attribute.MAX_HEALTH/g' \
+            -e 's/Attribute\.GENERIC_ATTACK_DAMAGE/Attribute.ATTACK_DAMAGE/g' \
+            -e 's/Attribute\.GENERIC_ATTACK_SPEED/Attribute.ATTACK_SPEED/g' \
+            -e 's/Attribute\.GENERIC_MOVEMENT_SPEED/Attribute.MOVEMENT_SPEED/g' \
+            -e 's/Attribute\.GENERIC_SCALE/Attribute.SCALE/g' \
+            -e 's/Attribute\.HORSE_JUMP_STRENGTH/Attribute.JUMP_STRENGTH/g' \
+            {} \;
+
       - name: Build with Maven
         run: mvn clean package
 
