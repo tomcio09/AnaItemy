@@ -1,5 +1,5 @@
 name: AnaItemy
-version: '${project.version}'
+version: '1.0.0'
 main: pl.anaheim.anaitemy.AnaItemy
 api-version: '1.21'
 authors: [ ]
