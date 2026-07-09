@@ -1,6 +1,7 @@
 package pl.anaheim.anaitemy.managers;
 
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
@@ -15,9 +16,7 @@ import pl.anaheim.anaitemy.items.KoronaAnarchiiItem;
 import pl.anaheim.anaitemy.items.LizakItem;
 import pl.anaheim.anaitemy.items.RozaKupidynaItem;
 
-import java.util.ArrayList;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PassiveItemsManager {
@@ -25,10 +24,11 @@ public class PassiveItemsManager {
     private final AnaItemy plugin;
     private BukkitTask tickTask;
 
-    private static final UUID ROZA_HEALTH_UUID = UUID.fromString("D4E5F6A7-B8C9-0123-DEF0-123456789ABC");
-    private static final String ROZA_HEALTH_NAME = "roza_kupidyna_health";
+    private static final NamespacedKey ROZA_HEALTH_KEY = new NamespacedKey("anaitemy", "roza_kupidyna_health");
+    private static final NamespacedKey LIZAK_SCALE_KEY = new NamespacedKey("anaitemy", "lizak_scale");
 
     private final Set<UUID> hadRozaLastTick = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> hadLizakLastTick = ConcurrentHashMap.newKeySet();
 
     public PassiveItemsManager(AnaItemy plugin) {
         this.plugin = plugin;
@@ -44,19 +44,19 @@ public class PassiveItemsManager {
                     boolean hasRoza = checkRoza(player);
                     boolean hasLizak = checkLizak(player);
 
-                    // ✅ Korona - działa tylko gdy założona na głowie
+                    // ✅ Korona - efekty na głowie
                     if (hasKorona) {
-                        applyEffect(player, PotionEffectType.SPEED, 1);             // Speed II
-                        applyEffect(player, PotionEffectType.FIRE_RESISTANCE, 0);   // Fire Resistance I
-                        applyEffect(player, PotionEffectType.INCREASE_DAMAGE, 1);   // Strength II
-                        applyEffect(player, PotionEffectType.DAMAGE_RESISTANCE, 2); // Resistance III
-                        applyEffect(player, PotionEffectType.LUCK, 0);              // Luck I
+                        applyEffect(player, PotionEffectType.SPEED, 1);
+                        applyEffect(player, PotionEffectType.FIRE_RESISTANCE, 0);
+                        applyEffect(player, PotionEffectType.INCREASE_DAMAGE, 1);
+                        applyEffect(player, PotionEffectType.DAMAGE_RESISTANCE, 2);
+                        applyEffect(player, PotionEffectType.LUCK, 0);
                     }
 
                     // ✅ Róża kupidyna - ręka/offhand
                     if (hasRoza) {
-                        applyEffect(player, PotionEffectType.DAMAGE_RESISTANCE, 0); // Resistance I
-                        applyEffect(player, PotionEffectType.REGENERATION, 1);      // Regeneration II
+                        applyEffect(player, PotionEffectType.DAMAGE_RESISTANCE, 0);
+                        applyEffect(player, PotionEffectType.REGENERATION, 1);
                         applyRozaHealth(player);
                     } else {
                         if (hadRozaLastTick.contains(player.getUniqueId())) {
@@ -64,32 +64,29 @@ public class PassiveItemsManager {
                         }
                     }
 
-                    if (hasRoza) {
-                        hadRozaLastTick.add(player.getUniqueId());
-                    } else {
-                        hadRozaLastTick.remove(player.getUniqueId());
-                    }
+                    if (hasRoza) hadRozaLastTick.add(player.getUniqueId());
+                    else hadRozaLastTick.remove(player.getUniqueId());
 
                     // ✅ Lizak - ręka/offhand
                     if (hasLizak) {
-                        applyEffect(player, PotionEffectType.INCREASE_DAMAGE, 0);   // Strength I
+                        applyEffect(player, PotionEffectType.INCREASE_DAMAGE, 0);
+                        applyLizakScale(player);
+                    } else {
+                        if (hadLizakLastTick.contains(player.getUniqueId())) {
+                            removeLizakScale(player);
+                        }
                     }
+
+                    if (hasLizak) hadLizakLastTick.add(player.getUniqueId());
+                    else hadLizakLastTick.remove(player.getUniqueId());
                 }
             }
         }.runTaskTimer(plugin, 0L, 16L); // co 0.8 sekundy
     }
 
-    /**
-     * Nadaj efekt tylko jeśli gracz nie ma silniejszego.
-     * Jeśli ma taki sam lub słabszy - odnawiamy.
-     */
     private void applyEffect(Player player, PotionEffectType type, int amplifier) {
         PotionEffect current = player.getPotionEffect(type);
-
-        if (current != null && current.getAmplifier() > amplifier) {
-            return;
-        }
-
+        if (current != null && current.getAmplifier() > amplifier) return;
         player.addPotionEffect(new PotionEffect(type, 30, amplifier, false, false, true));
     }
 
@@ -116,13 +113,11 @@ public class PassiveItemsManager {
         AttributeInstance maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
         if (maxHealth == null) return;
 
-        for (AttributeModifier mod : maxHealth.getModifiers()) {
-            if (mod.getUniqueId().equals(ROZA_HEALTH_UUID)) return;
-        }
+        // Sprawdź czy już ma modifier
+        if (maxHealth.getModifier(ROZA_HEALTH_KEY) != null) return;
 
         maxHealth.addModifier(new AttributeModifier(
-                ROZA_HEALTH_UUID,
-                ROZA_HEALTH_NAME,
+                ROZA_HEALTH_KEY,
                 10.0, // +5 serc = +10 HP
                 AttributeModifier.Operation.ADD_NUMBER
         ));
@@ -132,20 +127,46 @@ public class PassiveItemsManager {
         AttributeInstance maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
         if (maxHealth == null) return;
 
-        for (AttributeModifier mod : new ArrayList<>(maxHealth.getModifiers())) {
-            if (mod.getUniqueId().equals(ROZA_HEALTH_UUID) || ROZA_HEALTH_NAME.equals(mod.getName())) {
-                maxHealth.removeModifier(mod);
-            }
-        }
+        maxHealth.removeModifier(ROZA_HEALTH_KEY);
 
         if (player.getHealth() > maxHealth.getValue()) {
             player.setHealth(maxHealth.getValue());
         }
     }
 
+    // ==================== LIZAK POMNIEJSZENIE ====================
+
+    private void applyLizakScale(Player player) {
+        AttributeInstance scaleAttr = player.getAttribute(Attribute.GENERIC_SCALE);
+        if (scaleAttr == null) return;
+
+        if (scaleAttr.getModifier(LIZAK_SCALE_KEY) != null) return;
+
+        double scaleMultiplier = plugin.getItemsConfig().getLizakScaleMultiplier();
+        // scaleMultiplier = 0.9 oznacza 90% rozmiaru, więc modifier = -0.1
+        double modifier = scaleMultiplier - 1.0;
+
+        scaleAttr.addModifier(new AttributeModifier(
+                LIZAK_SCALE_KEY,
+                modifier,
+                AttributeModifier.Operation.ADD_SCALAR
+        ));
+    }
+
+    private void removeLizakScale(Player player) {
+        AttributeInstance scaleAttr = player.getAttribute(Attribute.GENERIC_SCALE);
+        if (scaleAttr == null) return;
+
+        scaleAttr.removeModifier(LIZAK_SCALE_KEY);
+    }
+
+    // ==================== CLEANUP ====================
+
     public void cleanupPlayer(Player player) {
         removeRozaHealth(player);
+        removeLizakScale(player);
         hadRozaLastTick.remove(player.getUniqueId());
+        hadLizakLastTick.remove(player.getUniqueId());
     }
 
     public void cleanup() {
@@ -153,8 +174,10 @@ public class PassiveItemsManager {
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             removeRozaHealth(player);
+            removeLizakScale(player);
         }
 
         hadRozaLastTick.clear();
+        hadLizakLastTick.clear();
     }
 }
