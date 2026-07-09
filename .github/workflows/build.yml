@@ -52,6 +52,7 @@ jobs:
             -e 's/Attribute\.GENERIC_MOVEMENT_SPEED/Attribute.MOVEMENT_SPEED/g' \
             -e 's/Attribute\.GENERIC_SCALE/Attribute.SCALE/g' \
             -e 's/Attribute\.HORSE_JUMP_STRENGTH/Attribute.JUMP_STRENGTH/g' \
+            -e 's/Attribute\.GENERIC_ARMOR\b/Attribute.ARMOR/g' \
             {} \;
 
       - name: Build with Maven
