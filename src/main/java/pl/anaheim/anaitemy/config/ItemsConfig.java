@@ -353,4 +353,9 @@ public class ItemsConfig {
     // ==================== BOMBARDA MAXIMA ====================
     public int getBombardaRadius() { return config.getInt("bombarda-maxima.radius", 4); }
     public List<String> getBombardaBlockedRegions() { return config.getStringList("bombarda-maxima.blocked-regions"); }
+        // ==================== LIZAK ====================
+
+    public double getLizakScaleMultiplier() {
+        return config.getDouble("lizak.scale-multiplier", 0.9);
+    }
 }
