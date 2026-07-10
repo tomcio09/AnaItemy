@@ -88,7 +88,24 @@ public class EventoweGUI {
         return i;
     }
 
-    private static List<ItemStack> getZbrojeItems() { return new ArrayList<>(); }
+    private static List<ItemStack> getZbrojeItems() {
+        List<ItemStack> i = new ArrayList<>();
+        // Set 2
+        i.add(AnarchicznySetItem.createHelm2());
+        i.add(AnarchicznySetItem.createKlata2());
+        i.add(AnarchicznySetItem.createSpodnie2());
+        i.add(AnarchicznySetItem.createButy2());
+        // Set 1
+        i.add(AnarchicznySetItem.createHelm1());
+        i.add(AnarchicznySetItem.createKlata1());
+        i.add(AnarchicznySetItem.createSpodnie1());
+        i.add(AnarchicznySetItem.createButy1());
+        // Narzędzia
+        i.add(AnarchicznySetItem.createKilof());
+        i.add(AnarchicznySetItem.createMiecz());
+        i.add(AnarchicznySetItem.createLuk());
+        return i;
+    }
 
     private static ItemStack createFilterItem(Category c) {
         ItemStack h = new ItemStack(Material.HOPPER); ItemMeta m = h.getItemMeta();
