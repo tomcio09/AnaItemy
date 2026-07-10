@@ -27,6 +27,12 @@ public class HydroKlatkaManager {
     private static final Material INNER = Material.LIGHT_BLUE_CONCRETE;
     private static final Material INNER_POWDER = Material.LIGHT_BLUE_CONCRETE_POWDER;
 
+    // ✅ Bloki których klatka nigdy nie zamienia
+    private static final Set<Material> PROTECTED_BLOCKS = Set.of(
+            Material.BEDROCK,
+            Material.BEACON
+    );
+
     public HydroKlatkaManager(AnaItemy plugin) {
         this.plugin = plugin;
         startCleanupTask();
@@ -116,11 +122,6 @@ public class HydroKlatkaManager {
 
     // ==================== FORMAT CZASU ====================
 
-    /**
-     * ✅ Formatuje sekundy do czytelnego formatu:
-     * - poniżej 60s: "45s"
-     * - 60s i więcej: "2m03s"
-     */
     private String formatTime(long totalSeconds) {
         if (totalSeconds < 60) {
             return totalSeconds + "s";
@@ -154,7 +155,6 @@ public class HydroKlatkaManager {
                 }
 
                 ItemsConfig config = plugin.getItemsConfig();
-                // ✅ Użyj formatTime zamiast surowych sekund
                 String message = config.getHydroKlatkaActionBarFormat()
                         .replace("{time}", formatTime(remaining));
 
@@ -300,7 +300,7 @@ public class HydroKlatkaManager {
                     config.getHydroKlatkaExplodeVolume(),
                     config.getHydroKlatkaExplodePitch());
         } catch (IllegalArgumentException e) {
-            plugin.getLogger().warning("Nieprawidłowy dźwięk wybuchu: " + config.getHydroKlatkaExplodeSound());
+            plugin.getLogger().warning("Nieprawidlowy dzwiek wybuchu: " + config.getHydroKlatkaExplodeSound());
         }
 
         try {
@@ -309,7 +309,7 @@ public class HydroKlatkaManager {
                     config.getHydroKlatkaSplashVolume(),
                     config.getHydroKlatkaSplashPitch());
         } catch (IllegalArgumentException e) {
-            plugin.getLogger().warning("Nieprawidłowy dźwięk splash: " + config.getHydroKlatkaSplashSound());
+            plugin.getLogger().warning("Nieprawidlowy dzwiek splash: " + config.getHydroKlatkaSplashSound());
         }
 
         int animationDuration = config.getHydroKlatkaAnimationDuration();
@@ -325,7 +325,7 @@ public class HydroKlatkaManager {
                     }
                 }
             } catch (IllegalArgumentException e) {
-                plugin.getLogger().warning("Nieprawidłowy dźwięk ambient: " + config.getHydroKlatkaAmbientSound());
+                plugin.getLogger().warning("Nieprawidlowy dzwiek ambient: " + config.getHydroKlatkaAmbientSound());
             }
         }, animationDuration - 10L);
     }
@@ -386,6 +386,9 @@ public class HydroKlatkaManager {
 
                 Block block = blockLoc.getBlock();
                 Material originalType = block.getType();
+
+                // ✅ Nie zamieniaj bedrocka ani beacona
+                if (PROTECTED_BLOCKS.contains(originalType)) continue;
 
                 klatka.addOriginalBlock(blockLoc, block.getBlockData());
 
@@ -486,10 +489,10 @@ public class HydroKlatkaManager {
                     config.getHydroKlatkaRemoveVolume(),
                     config.getHydroKlatkaRemovePitch());
         } catch (IllegalArgumentException e) {
-            plugin.getLogger().warning("Nieprawidłowy dźwięk usunięcia: " + config.getHydroKlatkaRemoveSound());
+            plugin.getLogger().warning("Nieprawidlowy dzwiek usuniecia: " + config.getHydroKlatkaRemoveSound());
         }
 
-        world.spawnParticle(Particle.WATER_SPLASH, center, 150, 4, 4, 4, 0.5);
+        world.spawnParticle(Particle.SPLASH, center, 150, 4, 4, 4, 0.5);
         world.spawnParticle(Particle.CLOUD, center, 40, 3, 3, 3, 0.1);
 
         activeKlatki.remove(klatka.getId());
@@ -521,7 +524,7 @@ public class HydroKlatkaManager {
             try {
                 blockedMaterials.add(Material.valueOf(itemName));
             } catch (IllegalArgumentException e) {
-                plugin.getLogger().warning("Nieprawidłowy materiał w blocked-items: " + itemName);
+                plugin.getLogger().warning("Nieprawidlowy material w blocked-items: " + itemName);
             }
         }
 
