@@ -31,7 +31,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             "kostka", "sniezka", "turbotrap", "krew", "balonik", "wata",
             "piernik", "zlamaneserce", "wampirze", "mleko", "parawan",
             "kanapka", "lewejajko", "trunek", "bombarda", "dynamit",
-            "kamien", "przepustka", "creeper", "olaf", "rozszerzenieec"
+            "kamien", "przepustka", "creeper", "olaf", "rozszerzenieec", "helm2", "klata2", "spodnie2", "buty2", "helm1", "klata1", "spodnie1", "buty1", "anakilof", "anamiecz", "analuk"
     );
 
     public ItemyEventoweCommand(AnaItemy plugin) { this.plugin = plugin; }
@@ -91,6 +91,17 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "dynamit" -> DynamitItem.create(); case "kamien" -> KamienKowalskiItem.create();
             case "przepustka" -> PrzepustkaNeteruItem.create(); case "creeper" -> CreeperZmutowanyItem.create();
             case "olaf" -> OlafItem.create(); case "rozszerzenieec" -> RozszerzenieECItem.create();
+            case "helm2" -> AnarchicznySetItem.createHelm2();
+            case "klata2" -> AnarchicznySetItem.createKlata2();
+            case "spodnie2" -> AnarchicznySetItem.createSpodnie2();
+            case "buty2" -> AnarchicznySetItem.createButy2();
+            case "helm1" -> AnarchicznySetItem.createHelm1();
+            case "klata1" -> AnarchicznySetItem.createKlata1();
+            case "spodnie1" -> AnarchicznySetItem.createSpodnie1();
+            case "buty1" -> AnarchicznySetItem.createButy1();
+            case "anakilof" -> AnarchicznySetItem.createKilof();
+            case "anamiecz" -> AnarchicznySetItem.createMiecz();
+            case "analuk" -> AnarchicznySetItem.createLuk();
             default -> null;
         };
     }
@@ -123,6 +134,17 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "dynamit" -> "&4Dynamit"; case "kamien" -> "&cKamień Kowalski";
             case "przepustka" -> "&4Przepustka Netheru"; case "creeper" -> "&aZmutowany Creeper";
             case "olaf" -> "&bOlaf"; case "rozszerzenieec" -> "&5Rozszerzenie EC";
+            case "helm2" -> "&4Anarchiczny Helm II";
+            case "klata2" -> "&4Anarchiczna Klata II";
+            case "spodnie2" -> "&4Anarchiczne Spodnie II";
+            case "buty2" -> "&4Anarchiczne Buty II";
+            case "helm1" -> "&4Anarchiczny Helm";
+            case "klata1" -> "&4Anarchiczna Klata";
+            case "spodnie1" -> "&4Anarchiczne Spodnie";
+            case "buty1" -> "&4Anarchiczne Buty";
+            case "anakilof" -> "&4Anarchiczny Kilof";
+            case "anamiecz" -> "&4Anarchiczny Miecz";
+            case "analuk" -> "&4Anarchiczny Luk";
             default -> id;
         };
     }
