@@ -1,6 +1,7 @@
 package pl.anaheim.anaitemy;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import pl.anaheim.anaitemy.commands.EnderchestCommand;
 import pl.anaheim.anaitemy.commands.ItemyEventoweCommand;
 import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.listeners.*;
@@ -32,6 +33,8 @@ public class AnaItemy extends JavaPlugin {
     private PassiveItemsManager passiveItemsManager;
     private KukurydzaManager kukurydzaManager;
     private TurbotrapManager turbotrapManager;
+    private OlafManager olafManager;
+    private EnderchestManager enderchestManager;
     private ItemsConfig itemsConfig;
     private WorldGuardManager worldGuardManager;
     private CombatIntegrationManager combatIntegrationManager;
@@ -72,6 +75,8 @@ public class AnaItemy extends JavaPlugin {
         passiveItemsManager = new PassiveItemsManager(this);
         kukurydzaManager = new KukurydzaManager(this);
         turbotrapManager = new TurbotrapManager(this);
+        olafManager = new OlafManager(this);
+        enderchestManager = new EnderchestManager(this);
 
         if (!getServer().getPluginManager().isPluginEnabled("Citizens"))
             getLogger().warning("Citizens nie znaleziono - Różdżka Iluzjonisty działa bez NPC!");
@@ -80,6 +85,16 @@ public class AnaItemy extends JavaPlugin {
         if (getCommand("itemyeventowe") != null) {
             getCommand("itemyeventowe").setExecutor(cmd);
             getCommand("itemyeventowe").setTabCompleter(cmd);
+        }
+
+        EnderchestCommand ecCmd = new EnderchestCommand(this);
+        if (getCommand("ec") != null) {
+            getCommand("ec").setExecutor(ecCmd);
+            getCommand("ec").setTabCompleter(ecCmd);
+        }
+        if (getCommand("ecsee") != null) {
+            getCommand("ecsee").setExecutor(ecCmd);
+            getCommand("ecsee").setTabCompleter(ecCmd);
         }
 
         totemListener = new TotemListener(this);
@@ -137,6 +152,8 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new BombardaMaximaListener(this), this);
         getServer().getPluginManager().registerEvents(new DynamitListener(this), this);
         getServer().getPluginManager().registerEvents(new CreeperZmutowanyListener(this), this);
+        getServer().getPluginManager().registerEvents(new OlafListener(this), this);
+        getServer().getPluginManager().registerEvents(new EnderchestListener(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
@@ -166,6 +183,8 @@ public class AnaItemy extends JavaPlugin {
         if (passiveItemsManager != null) passiveItemsManager.cleanup();
         if (kukurydzaManager != null) kukurydzaManager.cleanup();
         if (turbotrapManager != null) turbotrapManager.cleanup();
+        if (olafManager != null) olafManager.cleanup();
+        if (enderchestManager != null) enderchestManager.cleanup();
         if (actionBarManager != null) actionBarManager.cleanup();
         if (itemProtectionManager != null) itemProtectionManager.cleanup();
         getLogger().info("AnaItemy zostal wylaczony!");
@@ -195,6 +214,8 @@ public class AnaItemy extends JavaPlugin {
     public PassiveItemsManager getPassiveItemsManager() { return passiveItemsManager; }
     public KukurydzaManager getKukurydzaManager() { return kukurydzaManager; }
     public TurbotrapManager getTurbotrapManager() { return turbotrapManager; }
+    public OlafManager getOlafManager() { return olafManager; }
+    public EnderchestManager getEnderchestManager() { return enderchestManager; }
     public ItemsConfig getItemsConfig() { return itemsConfig; }
     public WorldGuardManager getWorldGuardManager() { return worldGuardManager; }
     public TotemListener getTotemListener() { return totemListener; }
