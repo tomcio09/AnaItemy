@@ -213,18 +213,22 @@ public class HydroKlatkaManager {
         Player creator = Bukkit.getPlayer(klatka.getCreatorId());
 
         ItemsConfig config = plugin.getItemsConfig();
+        List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
 
         for (Player player : world.getPlayers()) {
             if (player.getLocation().distance(center) <= klatka.getRadius()) {
-                if (!isInBlockedRegion(player.getLocation())) {
-                    klatka.addTrappedPlayer(player.getUniqueId());
+                // ✅ Nie trapuj graczy na zablokowanych regionach
+                if (plugin.getWorldGuardManager().isInBlockedRegion(player.getLocation(), blockedRegions)) {
+                    continue;
+                }
 
-                    if (config.isHydroKlatkaTagPlayers() &&
-                            plugin.getCombatIntegrationManager().isEnabled() &&
-                            plugin.getCombatIntegrationManager().hasTagPlayerMethod()) {
+                klatka.addTrappedPlayer(player.getUniqueId());
 
-                        plugin.getCombatIntegrationManager().tagPlayer(player, creator);
-                    }
+                if (config.isHydroKlatkaTagPlayers() &&
+                        plugin.getCombatIntegrationManager().isEnabled() &&
+                        plugin.getCombatIntegrationManager().hasTagPlayerMethod()) {
+
+                    plugin.getCombatIntegrationManager().tagPlayer(player, creator);
                 }
             }
         }
@@ -232,12 +236,23 @@ public class HydroKlatkaManager {
 
     private void checkTrappedPlayers(ActiveHydroKlatka klatka) {
         Location center = klatka.getCenter();
+        ItemsConfig config = plugin.getItemsConfig();
+        List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
 
         for (UUID playerId : new ArrayList<>(klatka.getTrappedPlayers())) {
             Player player = Bukkit.getPlayer(playerId);
             if (player == null || !player.isOnline()) continue;
 
             Location loc = player.getLocation();
+
+            // ✅ Jeśli gracz jest na zablokowanym regionie — wypuść go
+            if (plugin.getWorldGuardManager().isInBlockedRegion(loc, blockedRegions)) {
+                klatka.removeTrappedPlayer(playerId);
+                BossBar bossBar = playerBossBars.remove(playerId);
+                if (bossBar != null) player.hideBossBar(bossBar);
+                continue;
+            }
+
             Block feet = loc.getBlock();
             Block head = loc.clone().add(0, 1, 0).getBlock();
 
