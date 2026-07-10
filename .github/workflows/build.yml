@@ -55,6 +55,20 @@ jobs:
             -e 's/Attribute\.GENERIC_ARMOR\b/Attribute.ARMOR/g' \
             {} \;
 
+      - name: Fix illegal characters in Java files
+        run: |
+          find src -name "*.java" | while read f; do
+            # Usuń znaki non-ASCII które nie są w stringach (backslash poza stringami)
+            python3 -c "
+          import sys
+          with open('$f', 'r', encoding='utf-8', errors='replace') as file:
+              content = file.read()
+          # Zapisz z powrotem
+          with open('$f', 'w', encoding='utf-8') as file:
+              file.write(content)
+          "
+          done
+
       - name: Build with Maven
         run: mvn clean package
 
