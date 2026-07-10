@@ -1,5 +1,6 @@
 package pl.anaheim.anaitemy.listeners;
 
+import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
@@ -28,7 +29,9 @@ public class HydroTrojzabListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
+    // ==================== GHOST ARROW - PPM ====================
+
+    @EventHandler(priority = EventPriority.LOW)
     public void onInteract(PlayerInteractEvent event) {
         if (event.getHand() == EquipmentSlot.OFF_HAND) return;
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
@@ -40,19 +43,14 @@ public class HydroTrojzabListener implements Listener {
 
         HydroTrojzabManager manager = plugin.getHydroTrojzabManager();
 
-        if (manager.isInBlockedRegion(player.getLocation())) {
-            return;
-        }
+        if (manager.isInBlockedRegion(player.getLocation())) return;
 
-        boolean prepared = manager.prepareGhostArrow(player);
-        if (!prepared) {
-            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, SoundCategory.PLAYERS, 1.0f, 1.0f);
-            player.sendMessage(net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
-                    .legacyAmpersand().deserialize("&cBrak miejsca na tymczasową strzałę!"));
-        }
+        manager.prepareGhostArrow(player);
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
+    // ==================== STRZAŁ ====================
+
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = false)
     public void onShootBow(EntityShootBowEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
         if (event.getBow() == null) return;
@@ -60,18 +58,14 @@ public class HydroTrojzabListener implements Listener {
 
         HydroTrojzabManager manager = plugin.getHydroTrojzabManager();
 
-        // ✅ Przywróć ghost arrow niezależnie od wyniku
+        // ✅ Przywróć ghost arrow
         manager.restoreGhostArrow(player);
 
-        // ✅ Nie używamy vanilla projectile
+        // ✅ Anuluj vanilla strzałę
         event.setCancelled(true);
-        if (event.getProjectile() != null) {
-            event.getProjectile().remove();
-        }
+        if (event.getProjectile() != null) event.getProjectile().remove();
 
-        if (manager.isInBlockedRegion(player.getLocation())) {
-            return;
-        }
+        if (manager.isInBlockedRegion(player.getLocation())) return;
 
         // SHIFT = launch
         if (player.isSneaking()) {
@@ -79,7 +73,6 @@ public class HydroTrojzabListener implements Listener {
                 manager.sendLaunchCooldownSubtitle(player);
                 return;
             }
-
             manager.useLaunch(player);
             return;
         }
@@ -93,6 +86,8 @@ public class HydroTrojzabListener implements Listener {
         manager.fireHydroTrident(player, event.getForce());
     }
 
+    // ==================== TRAFIENIE TRIDENTU ====================
+
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onProjectileHit(ProjectileHitEvent event) {
         if (!(event.getEntity() instanceof Trident trident)) return;
@@ -100,7 +95,8 @@ public class HydroTrojzabListener implements Listener {
         plugin.getHydroTrojzabManager().handleImpact(trident);
     }
 
-    // ✅ Żeby trident nie zadawał vanilla damage przy bezpośrednim trafieniu
+    // ==================== BLOKADA VANILLA DAMAGE OD TRIDENTU ====================
+
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onTridentDirectDamage(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Trident trident)) return;
@@ -110,25 +106,7 @@ public class HydroTrojzabListener implements Listener {
         }
     }
 
-    @EventHandler
-    public void onQuit(PlayerQuitEvent event) {
-        plugin.getHydroTrojzabManager().cleanupPlayer(event.getPlayer());
-    }
-
-    @EventHandler
-    public void onDeath(PlayerDeathEvent event) {
-        plugin.getHydroTrojzabManager().cleanupPlayer(event.getEntity());
-    }
-
-    @EventHandler
-    public void onHeld(PlayerItemHeldEvent event) {
-        plugin.getHydroTrojzabManager().cleanupPlayer(event.getPlayer());
-    }
-
-    @EventHandler
-    public void onSwap(PlayerSwapHandItemsEvent event) {
-        plugin.getHydroTrojzabManager().cleanupPlayer(event.getPlayer());
-    }
+    // ==================== GHOST ARROW PROTECTION ====================
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryClick(InventoryClickEvent event) {
@@ -137,7 +115,8 @@ public class HydroTrojzabListener implements Listener {
         HydroTrojzabManager manager = plugin.getHydroTrojzabManager();
         int ghostSlot = manager.getGhostArrowSlot(player);
 
-        if (ghostSlot != -1 && event.getClickedInventory() == player.getInventory() && event.getSlot() == ghostSlot) {
+        if (ghostSlot != -1 && event.getClickedInventory() == player.getInventory()
+                && event.getSlot() == ghostSlot) {
             event.setCancelled(true);
             manager.restoreGhostArrow(player);
             return;
@@ -156,5 +135,27 @@ public class HydroTrojzabListener implements Listener {
             event.setCancelled(true);
             manager.restoreGhostArrow(event.getPlayer());
         }
+    }
+
+    // ==================== CLEANUP ====================
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        plugin.getHydroTrojzabManager().cleanupPlayer(event.getPlayer());
+    }
+
+    @EventHandler
+    public void onDeath(PlayerDeathEvent event) {
+        plugin.getHydroTrojzabManager().cleanupPlayer(event.getEntity());
+    }
+
+    @EventHandler
+    public void onHeld(PlayerItemHeldEvent event) {
+        plugin.getHydroTrojzabManager().restoreGhostArrow(event.getPlayer());
+    }
+
+    @EventHandler
+    public void onSwap(PlayerSwapHandItemsEvent event) {
+        plugin.getHydroTrojzabManager().restoreGhostArrow(event.getPlayer());
     }
 }
