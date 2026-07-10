@@ -93,6 +93,9 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "kanapka" -> SplesnialaKanapkaItem.create(); case "lewejajko" -> LeweJajkoItem.create();
             case "trunek" -> PrzeterminowanyTrunekItem.create(); case "bombarda" -> BombardaMaximaItem.create();
             case "dynamit" -> DynamitItem.create();
+            case "kamien" -> KamienKowalskiItem.create();
+            case "przepustka" -> PrzepustkaNeteruItem.create();
+            case "creeper" -> CreeperZmutowanyItem.create();
             default -> null;
         };
     }
