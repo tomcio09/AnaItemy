@@ -15,9 +15,7 @@ import pl.anaheim.anaitemy.items.*;
 import java.util.*;
 
 public class EventoweGUI {
-
     public static final String GUI_TITLE_PREFIX = "Przedmioty z wydarzeń";
-
     public enum Category { ALL, STALE, ZUZYWALNE, ZBROJE }
 
     private static final Map<UUID, GUIState> playerStates = new HashMap<>();
@@ -26,182 +24,106 @@ public class EventoweGUI {
     private static final int NEXT_PAGE_SLOT = 53;
     private static final int PREV_PAGE_SLOT = 45;
 
-    public static void open(Player player, AnaItemy plugin) {
-        open(player, plugin, Category.ALL, 1);
-    }
+    public static void open(Player player, AnaItemy plugin) { open(player, plugin, Category.ALL, 1); }
 
     public static void open(Player player, AnaItemy plugin, Category category, int page) {
         List<ItemStack> items = getItemsForCategory(category, plugin);
-
         int totalPages = Math.max(1, (int) Math.ceil((double) items.size() / ITEMS_PER_PAGE));
         if (page > totalPages) page = totalPages;
         if (page < 1) page = 1;
-
         playerStates.put(player.getUniqueId(), new GUIState(category, page));
-
-        String titleText = "&8Przedmioty z wydarzeń &7(" + page + "/" + totalPages + ")";
         Component title = LegacyComponentSerializer.legacyAmpersand()
-                .deserialize(titleText).decoration(TextDecoration.ITALIC, false);
-
+                .deserialize("&8Przedmioty z wydarzeń &7(" + page + "/" + totalPages + ")")
+                .decoration(TextDecoration.ITALIC, false);
         Inventory gui = Bukkit.createInventory(null, 54, title);
-
         int startIndex = (page - 1) * ITEMS_PER_PAGE;
         for (int i = 0; i < ITEMS_PER_PAGE; i++) {
-            int itemIndex = startIndex + i;
-            if (itemIndex >= items.size()) break;
-            gui.setItem(i, items.get(itemIndex));
+            int idx = startIndex + i;
+            if (idx >= items.size()) break;
+            gui.setItem(i, items.get(idx));
         }
-
         gui.setItem(FILTER_SLOT, createFilterItem(category));
-
         if (page < totalPages) gui.setItem(NEXT_PAGE_SLOT, createNextPageItem());
         if (page > 1) gui.setItem(PREV_PAGE_SLOT, createPrevPageItem());
-
         player.openInventory(gui);
     }
 
     private static List<ItemStack> getItemsForCategory(Category category, AnaItemy plugin) {
         List<ItemStack> items = new ArrayList<>();
         int maxKills = plugin.getItemsConfig().getExcaliburMaxKills();
-
         switch (category) {
-            case ALL -> {
-                items.addAll(getStaleItems(maxKills));
-                items.addAll(getZuzywalneItems());
-                items.addAll(getZbrojeItems());
-            }
+            case ALL -> { items.addAll(getStaleItems(maxKills)); items.addAll(getZuzywalneItems()); items.addAll(getZbrojeItems()); }
             case STALE -> items.addAll(getStaleItems(maxKills));
             case ZUZYWALNE -> items.addAll(getZuzywalneItems());
             case ZBROJE -> items.addAll(getZbrojeItems());
         }
-
         return items;
     }
 
     private static List<ItemStack> getStaleItems(int maxKills) {
-        List<ItemStack> items = new ArrayList<>();
-        items.add(TotemUlaskawienia.create());
-        items.add(Excalibur.create(maxKills));
-        items.add(HydroKlatka.create());
-        items.add(RozdzkailuzjonistyItem.create());
-        items.add(WedkaNielotaItem.create());
-        items.add(SakiewkaDropu.create());
-        items.add(WzmocnianaElytra.create());
-        items.add(BlokWidmoItem.create());
-        items.add(SiekieraGrinchaItem.create());
-        items.add(HydroTrojzabItem.create());
-        items.add(CudownaLatarniaItem.create());
-        items.add(RogJednorozcaItem.create());
-        items.add(BoskiToporItem.create());
-        items.add(SuperMarchewkaItem.create());
-        items.add(LopataGrinchaItem.create());
-        items.add(RozgaItem.create());
-        items.add(ArcusMagnusItem.create());
-        items.add(KroliczyMieczItem.create());
-        items.add(PiekielnyMieczItem.create());
-        items.add(SmoczyMieczItem.create());
-        items.add(KosaItem.create());
-        items.add(LukKupidynaItem.create());
-        items.add(MarchewkowyMieczItem.create());
-        items.add(MarchewkowaKuszaItem.create());
-        items.add(WedkaSurferkaItem.create());
-        items.add(ZatrutyOlowekItem.create());
-        items.add(KoronaAnarchiiItem.create());
-        items.add(PiekielnaTarczaItem.create());
-        items.add(RozaKupidynaItem.create());
-        items.add(LizakItem.create());
-        items.add(KukurydzaItem.create());
-        return items;
+        List<ItemStack> i = new ArrayList<>();
+        i.add(TotemUlaskawienia.create()); i.add(Excalibur.create(maxKills)); i.add(HydroKlatka.create());
+        i.add(RozdzkailuzjonistyItem.create()); i.add(WedkaNielotaItem.create()); i.add(SakiewkaDropu.create());
+        i.add(WzmocnianaElytra.create()); i.add(BlokWidmoItem.create()); i.add(SiekieraGrinchaItem.create());
+        i.add(HydroTrojzabItem.create()); i.add(CudownaLatarniaItem.create()); i.add(RogJednorozcaItem.create());
+        i.add(BoskiToporItem.create()); i.add(SuperMarchewkaItem.create()); i.add(LopataGrinchaItem.create());
+        i.add(RozgaItem.create()); i.add(ArcusMagnusItem.create()); i.add(KroliczyMieczItem.create());
+        i.add(PiekielnyMieczItem.create()); i.add(SmoczyMieczItem.create()); i.add(KosaItem.create());
+        i.add(LukKupidynaItem.create()); i.add(MarchewkowyMieczItem.create()); i.add(MarchewkowaKuszaItem.create());
+        i.add(WedkaSurferkaItem.create()); i.add(ZatrutyOlowekItem.create()); i.add(KoronaAnarchiiItem.create());
+        i.add(PiekielnaTarczaItem.create()); i.add(RozaKupidynaItem.create()); i.add(LizakItem.create());
+        i.add(KukurydzaItem.create());
+        return i;
     }
 
     private static List<ItemStack> getZuzywalneItems() {
-        List<ItemStack> items = new ArrayList<>();
-        items.add(KostkaRubikaItem.create());
-        items.add(SniezkaZamianyItem.create());
-        items.add(TurbotrapItem.create());
-        items.add(KrewWampiraItem.create());
-        items.add(BalonikItem.create());
-        items.add(WataCukrowaItem.create());
-        items.add(PiernikItem.create());
-        items.add(ZlamaneSerceItem.create());
-        items.add(WampirzeJablkoItem.create());
-        items.add(CiepleMlekoItem.create());
-        items.add(ParawanItem.create());
-        items.add(SplesnialaKanapkaItem.create());
-        items.add(LeweJajkoItem.create());
-        items.add(PrzeterminowanyTrunekItem.create());
-        items.add(BombardaMaximaItem.create());
-        items.add(DynamitItem.create());
-        items.add(KamienKowalskiItem.create());
-        items.add(PrzepustkaNeteruItem.create());
-        items.add(CreeperZmutowanyItem.create());
-        return items;
+        List<ItemStack> i = new ArrayList<>();
+        i.add(KostkaRubikaItem.create()); i.add(SniezkaZamianyItem.create()); i.add(TurbotrapItem.create());
+        i.add(KrewWampiraItem.create()); i.add(BalonikItem.create()); i.add(WataCukrowaItem.create());
+        i.add(PiernikItem.create()); i.add(ZlamaneSerceItem.create()); i.add(WampirzeJablkoItem.create());
+        i.add(CiepleMlekoItem.create()); i.add(ParawanItem.create()); i.add(SplesnialaKanapkaItem.create());
+        i.add(LeweJajkoItem.create()); i.add(PrzeterminowanyTrunekItem.create()); i.add(BombardaMaximaItem.create());
+        i.add(DynamitItem.create()); i.add(KamienKowalskiItem.create()); i.add(PrzepustkaNeteruItem.create());
+        i.add(CreeperZmutowanyItem.create()); i.add(OlafItem.create()); i.add(RozszerzenieECItem.create());
+        return i;
     }
 
-    private static List<ItemStack> getZbrojeItems() {
-        return new ArrayList<>();
-    }
+    private static List<ItemStack> getZbrojeItems() { return new ArrayList<>(); }
 
-    private static ItemStack createFilterItem(Category currentCategory) {
-        ItemStack hopper = new ItemStack(Material.HOPPER);
-        ItemMeta meta = hopper.getItemMeta();
-        meta.displayName(colorize("&6Filtracja"));
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(colorize(" &8» &7Wyświetlaj według&8:"));
-        lore.add(colorize(currentCategory == Category.ALL ? " &7 ➤ &e&nWszystkie" : " &7 ➤ &fWszystkie"));
-        lore.add(colorize(currentCategory == Category.STALE ? " &7 ➤ &e&nStałe" : " &7 ➤ &fStałe"));
-        lore.add(colorize(currentCategory == Category.ZUZYWALNE ? " &7 ➤ &e&nZużywalne" : " &7 ➤ &fZużywalne"));
-        lore.add(colorize(currentCategory == Category.ZBROJE ? " &7 ➤ &e&nZbroje" : " &7 ➤ &fZbroje"));
-        lore.add(colorize(""));
-        lore.add(colorize(" &8» &aKliknij, aby &2przełączyć&a!"));
-
-        meta.lore(lore);
-        hopper.setItemMeta(meta);
-        return hopper;
+    private static ItemStack createFilterItem(Category c) {
+        ItemStack h = new ItemStack(Material.HOPPER); ItemMeta m = h.getItemMeta();
+        m.displayName(col("&6Filtracja"));
+        List<Component> l = new ArrayList<>();
+        l.add(col(" &8» &7Wyświetlaj według&8:"));
+        l.add(col(c == Category.ALL ? " &7 ➤ &e&nWszystkie" : " &7 ➤ &fWszystkie"));
+        l.add(col(c == Category.STALE ? " &7 ➤ &e&nStałe" : " &7 ➤ &fStałe"));
+        l.add(col(c == Category.ZUZYWALNE ? " &7 ➤ &e&nZużywalne" : " &7 ➤ &fZużywalne"));
+        l.add(col(c == Category.ZBROJE ? " &7 ➤ &e&nZbroje" : " &7 ➤ &fZbroje"));
+        l.add(col("")); l.add(col(" &8» &aKliknij, aby &2przełączyć&a!"));
+        m.lore(l); h.setItemMeta(m); return h;
     }
 
     private static ItemStack createNextPageItem() {
-        ItemStack item = new ItemStack(Material.LIME_DYE);
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(colorize("&aNastępna strona"));
-        item.setItemMeta(meta);
-        return item;
+        ItemStack i = new ItemStack(Material.LIME_DYE); ItemMeta m = i.getItemMeta();
+        m.displayName(col("&aNastępna strona")); i.setItemMeta(m); return i;
     }
 
     private static ItemStack createPrevPageItem() {
-        ItemStack item = new ItemStack(Material.RED_DYE);
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(colorize("&cPoprzednia strona"));
-        item.setItemMeta(meta);
-        return item;
+        ItemStack i = new ItemStack(Material.RED_DYE); ItemMeta m = i.getItemMeta();
+        m.displayName(col("&cPoprzednia strona")); i.setItemMeta(m); return i;
     }
 
-    public static GUIState getState(Player player) { return playerStates.get(player.getUniqueId()); }
-    public static void removeState(Player player) { playerStates.remove(player.getUniqueId()); }
-
-    public static Category getNextCategory(Category current) {
-        return switch (current) {
-            case ALL -> Category.STALE;
-            case STALE -> Category.ZUZYWALNE;
-            case ZUZYWALNE -> Category.ZBROJE;
-            case ZBROJE -> Category.ALL;
-        };
+    public static GUIState getState(Player p) { return playerStates.get(p.getUniqueId()); }
+    public static void removeState(Player p) { playerStates.remove(p.getUniqueId()); }
+    public static Category getNextCategory(Category c) {
+        return switch (c) { case ALL -> Category.STALE; case STALE -> Category.ZUZYWALNE; case ZUZYWALNE -> Category.ZBROJE; case ZBROJE -> Category.ALL; };
     }
-
-    public static boolean isGUITitle(String plainTitle) {
-        return plainTitle.startsWith("Przedmioty z wydarzeń");
-    }
-
-    private static Component colorize(String text) {
-        return LegacyComponentSerializer.legacyAmpersand()
-                .deserialize(text).decoration(TextDecoration.ITALIC, false);
-    }
+    public static boolean isGUITitle(String t) { return t.startsWith("Przedmioty z wydarzeń"); }
+    private static Component col(String t) { return LegacyComponentSerializer.legacyAmpersand().deserialize(t).decoration(TextDecoration.ITALIC, false); }
 
     public static class GUIState {
-        private final Category category;
-        private final int page;
-        public GUIState(Category category, int page) { this.category = category; this.page = page; }
+        private final Category category; private final int page;
+        public GUIState(Category c, int p) { this.category = c; this.page = p; }
         public Category getCategory() { return category; }
         public int getPage() { return page; }
     }
