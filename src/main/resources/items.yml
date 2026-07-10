@@ -1224,6 +1224,23 @@ creeper-zmutowany:
     title: '&c&lNie zadziałało!'
     subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
 # ==========================================
+#         OLAF
+# ==========================================
+olaf:
+  material: EGG
+  name: '&b&lOlaf'
+  custom-model-data: 155902
+  cooldown: 60
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+  messages:
+    cooldown-subtitle: '&bOlafa &7możesz użyć za: &b{seconds_left}&7!'
+    victim-subtitle: '&3Olaf! &7zostało uderzeń: &b{left}&7!'
+  respects-protection: false
+  notify-attacker: false
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
