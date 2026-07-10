@@ -28,11 +28,11 @@ public class ItemsConfig {
     public FileConfiguration getConfig() { return config; }
 
     // ==================== TOTEM ====================
-    public String getTotemName() { return config.getString("totem-ulaskawienia.name", "&5&lTotem Ułaskawienia"); }
+    public String getTotemName() { return config.getString("totem-ulaskawienia.name", "&5&lTotem Ulaskawienia"); }
     public List<String> getTotemLore() { return config.getStringList("totem-ulaskawienia.lore"); }
     public int getTotemCustomModelData() { return config.getInt("totem-ulaskawienia.custom-model-data", 1); }
     public int getTotemGuiSlot() { return config.getInt("totem-ulaskawienia.gui-slot", 0); }
-    public String getTotemDeathMessage() { return config.getString("totem-ulaskawienia.messages.death", "&cGracz &7{victim} &czginął z &eTotemem Ułaskawienia&c!"); }
+    public String getTotemDeathMessage() { return config.getString("totem-ulaskawienia.messages.death", "&cGracz &7{victim} &czginal z &eTotemem Ulaskawienia&c!"); }
     public List<String> getTotemBlockedRegions() { return config.getStringList("totem-ulaskawienia.blocked-regions"); }
 
     // ==================== EXCALIBUR ====================
@@ -47,12 +47,12 @@ public class ItemsConfig {
     public double getExcaliburMaxDamage() { return config.getDouble("excalibur.max-damage", 12.0); }
     public int getExcaliburMaxKills() { return config.getInt("excalibur.max-kills", 100); }
     public int getExcaliburBarLength() { return config.getInt("excalibur.bar-length", 20); }
-    public String getExcaliburMessageKillsSet() { return config.getString("excalibur.messages.kills-set", "&aUstawiono zabójstwa Excalibura na: &f{kills}"); }
-    public String getExcaliburMessageNotHolding() { return config.getString("excalibur.messages.not-holding", "&cMusisz trzymać Excalibur w ręku!"); }
-    public String getExcaliburMessageInvalidNumber() { return config.getString("excalibur.messages.invalid-number", "&cPodaj poprawną liczbę!"); }
-    public String getExcaliburMessageNegativeNumber() { return config.getString("excalibur.messages.negative-number", "&cLiczba zabójstw nie może być ujemna!"); }
+    public String getExcaliburMessageKillsSet() { return config.getString("excalibur.messages.kills-set", "&aUstawiono zabojstwa Excalibura na: &f{kills}"); }
+    public String getExcaliburMessageNotHolding() { return config.getString("excalibur.messages.not-holding", "&cMusisz trzymac Excalibur w reku!"); }
+    public String getExcaliburMessageInvalidNumber() { return config.getString("excalibur.messages.invalid-number", "&cPodaj poprawna liczbe!"); }
+    public String getExcaliburMessageNegativeNumber() { return config.getString("excalibur.messages.negative-number", "&cLiczba zabojstw nie moze byc ujemna!"); }
     public List<String> getExcaliburBlockedRegions() { return config.getStringList("excalibur.blocked-regions"); }
-    public String getExcaliburMessageTooFast() { return config.getString("excalibur.messages.too-fast", "&cZabójstwo nie zostało naliczone, ponieważ już zabiłeś tego gracza!"); }
+    public String getExcaliburMessageTooFast() { return config.getString("excalibur.messages.too-fast", "&cZabojstwo nie zostalo naliczone!"); }
 
     // ==================== HYDRO KLATKA ====================
     public String getHydroKlatkaName() { return config.getString("hydro-klatka.name", "&3&lWyrzutnia Hydro Klatki"); }
@@ -81,11 +81,11 @@ public class ItemsConfig {
     public String getHydroKlatkaBossBarTitle() { return config.getString("hydro-klatka.bossbar.title", "&bHydroklatka"); }
     public List<String> getHydroKlatkaBlockedItems() { return config.getStringList("hydro-klatka.blocked-items"); }
     public List<String> getHydroKlatkaBlockedRegions() { return config.getStringList("hydro-klatka.blocked-regions"); }
-    public String getHydroKlatkaMessageCooldown() { return config.getString("hydro-klatka.messages.cooldown", "&cNie możesz używać tego tak szybko!"); }
-    public String getHydroKlatkaMessageChunkBlocked() { return config.getString("hydro-klatka.messages.chunk-blocked", "&cNie możesz w tym miejscu stworzyć klatki!"); }
+    public String getHydroKlatkaMessageCooldown() { return config.getString("hydro-klatka.messages.cooldown", "&cNie mozesz uzywac tego tak szybko!"); }
+    public String getHydroKlatkaMessageChunkBlocked() { return config.getString("hydro-klatka.messages.chunk-blocked", "&cNie mozesz w tym miejscu stworzyc klatki!"); }
     public String getHydroKlatkaMessageBlockedRegion() { return config.getString("hydro-klatka.messages.blocked-region", ""); }
-    public String getHydroKlatkaMessageCannotUseInCage() { return config.getString("hydro-klatka.messages.cannot-use-in-cage", "&cNie możesz tego zrobić w Hydro Klatce!"); }
-    public String getHydroKlatkaActionBarFormat() { return config.getString("hydro-klatka.actionbar.cooldown-format", "&fStrzał z &3Hydro klatki &fza: &b{time}"); }
+    public String getHydroKlatkaMessageCannotUseInCage() { return config.getString("hydro-klatka.messages.cannot-use-in-cage", "&cNie mozesz tego robic w Hydro Klatce!"); }
+    public String getHydroKlatkaActionBarFormat() { return config.getString("hydro-klatka.actionbar.cooldown-format", "&fStrzal z &3Hydro klatki &fza: &b{time}"); }
     public String getHydroKlatkaSplashSound() { return config.getString("hydro-klatka.sounds.splash.sound", "ENTITY_GENERIC_SPLASH"); }
     public float getHydroKlatkaSplashVolume() { return (float) config.getDouble("hydro-klatka.sounds.splash.volume", 1.5); }
     public float getHydroKlatkaSplashPitch() { return (float) config.getDouble("hydro-klatka.sounds.splash.pitch", 1.0); }
@@ -93,8 +93,8 @@ public class ItemsConfig {
     public float getHydroKlatkaAmbientVolume() { return (float) config.getDouble("hydro-klatka.sounds.ambient.volume", 3.0); }
     public float getHydroKlatkaAmbientPitch() { return (float) config.getDouble("hydro-klatka.sounds.ambient.pitch", 1.0); }
 
-    // ==================== RÓŻDŻKA ILUZJONISTY ====================
-    public String getRozdzkailuzjonistyName() { return config.getString("rozdzka-iluzjonisty.name", "&5&lRóżdżka Iluzjonisty"); }
+    // ==================== ROZDZKA ILUZJONISTY ====================
+    public String getRozdzkailuzjonistyName() { return config.getString("rozdzka-iluzjonisty.name", "&5&lRozdzka Iluzjonisty"); }
     public List<String> getRozdzkailuzjonistyLore() { return config.getStringList("rozdzka-iluzjonisty.lore"); }
     public int getRozdzkailuzjonistyCustomModelData() { return config.getInt("rozdzka-iluzjonisty.custom-model-data", 1); }
     public int getRozdzkailuzjonistyGuiSlot() { return config.getInt("rozdzka-iluzjonisty.gui-slot", 3); }
@@ -105,21 +105,21 @@ public class ItemsConfig {
     public double getRozdzkailuzjonistyFangsSpacing() { return config.getDouble("rozdzka-iluzjonisty.fangs.spacing", 1.0); }
     public double getRozdzkailuzjonistyFangsDamage() { return config.getDouble("rozdzka-iluzjonisty.fangs.damage", 12.0); }
     public double getRozdzkailuzjonistyFangsSpeed() { return config.getDouble("rozdzka-iluzjonisty.fangs.speed", 0.5); }
-    public String getRozdzkailuzjonistyFangsMessageActivated() { return config.getString("rozdzka-iluzjonisty.fangs.messages.activated", "&aSzczęki Evokera &7zostały &aaktywowane&7!"); }
-    public String getRozdzkailuzjonistyFangsMessageCooldownTitle() { return config.getString("rozdzka-iluzjonisty.fangs.messages.cooldown-title", "&cUmiejętność w odnowieniu"); }
-    public String getRozdzkailuzjonistyFangsMessageCooldownSubtitle() { return config.getString("rozdzka-iluzjonisty.fangs.messages.cooldown-subtitle", "&7Do użycia za: &e{seconds_left}"); }
+    public String getRozdzkailuzjonistyFangsMessageActivated() { return config.getString("rozdzka-iluzjonisty.fangs.messages.activated", "&aSzczeki Evokera &7zostaly &aaktywowane&7!"); }
+    public String getRozdzkailuzjonistyFangsMessageCooldownTitle() { return config.getString("rozdzka-iluzjonisty.fangs.messages.cooldown-title", "&cUmiejetnosc w odnowieniu"); }
+    public String getRozdzkailuzjonistyFangsMessageCooldownSubtitle() { return config.getString("rozdzka-iluzjonisty.fangs.messages.cooldown-subtitle", "&7Do uzycia za: &e{seconds_left}"); }
     public long getRozdzkailuzjonistyVanishCooldown() { return config.getLong("rozdzka-iluzjonisty.vanish.cooldown", 60); }
     public int getRozdzkailuzjonistyVanishDuration() { return config.getInt("rozdzka-iluzjonisty.vanish.duration", 4); }
     public double getRozdzkailuzjonistyVanishNpcSpeed() { return config.getDouble("rozdzka-iluzjonisty.vanish.npc-speed", 1.0); }
     public String getRozdzkailuzjonistyVanishSoundActivate() { return config.getString("rozdzka-iluzjonisty.vanish.sounds.activate", "ENTITY_ENDERMAN_AMBIENT"); }
     public String getRozdzkailuzjonistyVanishSoundDeactivate() { return config.getString("rozdzka-iluzjonisty.vanish.sounds.deactivate", "ENTITY_ENDERMAN_TELEPORT"); }
-    public String getRozdzkailuzjonistyVanishMessageActivated() { return config.getString("rozdzka-iluzjonisty.vanish.messages.activated", "&aZniknięcie &7zostało &aaktywowane&7!"); }
-    public String getRozdzkailuzjonistyVanishMessageCooldownTitle() { return config.getString("rozdzka-iluzjonisty.vanish.messages.cooldown-title", "&cUmiejętność w odnowieniu"); }
-    public String getRozdzkailuzjonistyVanishMessageCooldownSubtitle() { return config.getString("rozdzka-iluzjonisty.vanish.messages.cooldown-subtitle", "&7Do użycia za: &e{seconds_left}"); }
+    public String getRozdzkailuzjonistyVanishMessageActivated() { return config.getString("rozdzka-iluzjonisty.vanish.messages.activated", "&aZnikniecie &7zostalo &aaktywowane&7!"); }
+    public String getRozdzkailuzjonistyVanishMessageCooldownTitle() { return config.getString("rozdzka-iluzjonisty.vanish.messages.cooldown-title", "&cUmiejetnosc w odnowieniu"); }
+    public String getRozdzkailuzjonistyVanishMessageCooldownSubtitle() { return config.getString("rozdzka-iluzjonisty.vanish.messages.cooldown-subtitle", "&7Do uzycia za: &e{seconds_left}"); }
     public List<String> getRozdzkailuzjonistyBlockedRegions() { return config.getStringList("rozdzka-iluzjonisty.blocked-regions"); }
 
-    // ==================== WĘDKA NIELOTA ====================
-    public String getWedkaNielotaName() { return config.getString("wedka-nielota.name", "&5&lWędka nielota"); }
+    // ==================== WEDKA NIELOTA ====================
+    public String getWedkaNielotaName() { return config.getString("wedka-nielota.name", "&5&lWedka nielota"); }
     public List<String> getWedkaNielotaLore() { return config.getStringList("wedka-nielota.lore"); }
     public int getWedkaNielotaCustomModelData() { return config.getInt("wedka-nielota.custom-model-data", 2); }
     public int getWedkaNielotaGuiSlot() { return config.getInt("wedka-nielota.gui-slot", 4); }
@@ -129,19 +129,19 @@ public class ItemsConfig {
     public double getWedkaNielotaBugowanieFallSpeed() { return config.getDouble("wedka-nielota.bugowanie-fall-speed", 2.0); }
     public int getWedkaNielotaBugowanieResetDuration() { return config.getInt("wedka-nielota.bugowanie-reset-duration", 4); }
     public List<String> getWedkaNielotaBlockedRegions() { return config.getStringList("wedka-nielota.blocked-regions"); }
-    public String getWedkaNielotaCaughtTitle() { return config.getString("wedka-nielota.messages.caught-title", "&c&lZłapany!"); }
-    public String getWedkaNielotaCaughtSubtitle() { return config.getString("wedka-nielota.messages.caught-subtitle", "&7Złapany przez: &e{attacker}"); }
-    public String getWedkaNielotaCatcherTitle() { return config.getString("wedka-nielota.messages.catcher-title", "&a&lZłapałeś gracza!"); }
-    public String getWedkaNielotaCatcherSubtitle() { return config.getString("wedka-nielota.messages.catcher-subtitle", "&7Złapany gracz: &e{victim}"); }
-    public String getWedkaNielotaReleasedTitle() { return config.getString("wedka-nielota.messages.released-title", "&c&lPuścił cię!"); }
-    public String getWedkaNielotaReleasedSubtitle() { return config.getString("wedka-nielota.messages.released-subtitle", "&cPuścił cię gracz!"); }
-    public String getWedkaNielotaReleaserTitle() { return config.getString("wedka-nielota.messages.releaser-title", "&c&lPuściłeś gracza!"); }
-    public String getWedkaNielotaReleaserSubtitle() { return config.getString("wedka-nielota.messages.releaser-subtitle", "&cPuściłeś gracza!"); }
+    public String getWedkaNielotaCaughtTitle() { return config.getString("wedka-nielota.messages.caught-title", "&c&lZlapany!"); }
+    public String getWedkaNielotaCaughtSubtitle() { return config.getString("wedka-nielota.messages.caught-subtitle", "&7Zlapany przez: &e{attacker}"); }
+    public String getWedkaNielotaCatcherTitle() { return config.getString("wedka-nielota.messages.catcher-title", "&a&lZlapales gracza!"); }
+    public String getWedkaNielotaCatcherSubtitle() { return config.getString("wedka-nielota.messages.catcher-subtitle", "&7Zlapany gracz: &e{victim}"); }
+    public String getWedkaNielotaReleasedTitle() { return config.getString("wedka-nielota.messages.released-title", "&c&lPuscil cie!"); }
+    public String getWedkaNielotaReleasedSubtitle() { return config.getString("wedka-nielota.messages.released-subtitle", "&cPuscil cie gracz!"); }
+    public String getWedkaNielotaReleaserTitle() { return config.getString("wedka-nielota.messages.releaser-title", "&c&lPusciles gracza!"); }
+    public String getWedkaNielotaReleaserSubtitle() { return config.getString("wedka-nielota.messages.releaser-subtitle", "&cPusciles gracza!"); }
     public String getWedkaNielotaFreedTitle() { return config.getString("wedka-nielota.messages.freed-title", "&c&lUwolniony!"); }
-    public String getWedkaNielotaFreedSubtitle() { return config.getString("wedka-nielota.messages.freed-subtitle", "&7Klątwa została zdjęta!"); }
-    public String getWedkaNielotaCooldownMessage() { return config.getString("wedka-nielota.messages.cooldown-message", "&cNie możesz użyć wędki tak szybko!"); }
-    public String getWedkaNielotaBossBarTitle() { return config.getString("wedka-nielota.bossbar.title", "&cPosiadasz klątwę! Nie możesz latać przez &e{seconds}s"); }
-    public String getWedkaNielotaBossBarTitleWaiting() { return config.getString("wedka-nielota.bossbar.title-waiting", "&cPosiadasz klątwę! Nie możesz latać przez &e<1s"); }
+    public String getWedkaNielotaFreedSubtitle() { return config.getString("wedka-nielota.messages.freed-subtitle", "&7Klatwa zostala zdjeta!"); }
+    public String getWedkaNielotaCooldownMessage() { return config.getString("wedka-nielota.messages.cooldown-message", "&cNie mozesz uzyc wedki tak szybko!"); }
+    public String getWedkaNielotaBossBarTitle() { return config.getString("wedka-nielota.bossbar.title", "&cPosiadasz klatwe! Nie mozesz latac przez &e{seconds}s"); }
+    public String getWedkaNielotaBossBarTitleWaiting() { return config.getString("wedka-nielota.bossbar.title-waiting", "&cPosiadasz klatwe! Nie mozesz latac przez &e<1s"); }
     public String getWedkaNielotaBossBarColor() { return config.getString("wedka-nielota.bossbar.color", "RED"); }
 
     // ==================== SAKIEWKA DROPU ====================
@@ -151,7 +151,7 @@ public class ItemsConfig {
     public int getSakiewkaDropuGuiSlot() { return config.getInt("sakiewka-dropu.gui-slot", 5); }
     public List<String> getSakiewkaBlockedRegions() { return config.getStringList("sakiewka-dropu.blocked-regions"); }
     public List<String> getSakiewkaBlockedRegionsNoPayout() { return config.getStringList("sakiewka-dropu.blocked-regions-no-payout"); }
-    public String getSakiewkaCombatBlockedMessage() { return config.getString("sakiewka-dropu.messages.combat-blocked", "&cNie możesz otworzyć sakiewki podczas walki!"); }
+    public String getSakiewkaCombatBlockedMessage() { return config.getString("sakiewka-dropu.messages.combat-blocked", "&cNie mozesz otworzyc sakiewki podczas walki!"); }
 
     // ==================== COMBAT INTEGRATION ====================
     public boolean isCombatIntegrationEnabled() { return config.getBoolean("combat-integration.enabled", true); }
@@ -165,8 +165,8 @@ public class ItemsConfig {
     public int getItemProtectionDuration() { return plugin.getConfig().getInt("item-protection.duration", 4); }
     public boolean doesItemRespectProtection(String itemId) { return config.getBoolean(itemId + ".respects-protection", false); }
     public boolean shouldNotifyAttacker(String itemId) { return config.getBoolean(itemId + ".notify-attacker", false); }
-    public String getProtectionTitle(String itemId) { return config.getString(itemId + ".protection-messages.title", "&c&lNie zadziałało!"); }
-    public String getProtectionSubtitle(String itemId) { return config.getString(itemId + ".protection-messages.subtitle", "&7Spróbuj ponownie za: &e{seconds_left}s&7!"); }
+    public String getProtectionTitle(String itemId) { return config.getString(itemId + ".protection-messages.title", "&c&lNie zadzialalo!"); }
+    public String getProtectionSubtitle(String itemId) { return config.getString(itemId + ".protection-messages.subtitle", "&7Sprobuj ponownie za: &e{seconds_left}s&7!"); }
 
     // ==================== BLOK WIDMO ====================
     public String getBlokWidmoName() { return config.getString("blok-widmo.name", "&c&lBlok widmo"); }
@@ -179,22 +179,22 @@ public class ItemsConfig {
     public List<String> getBlokWidmoBlockedRegions() { return config.getStringList("blok-widmo.blocked-regions"); }
     public String getBlokWidmoActivateSound() { return config.getString("blok-widmo.sounds.activate", "BLOCK_BEACON_ACTIVATE"); }
     public String getBlokWidmoDeactivateSound() { return config.getString("blok-widmo.sounds.deactivate", "BLOCK_BEACON_DEACTIVATE"); }
-    public String getBlokWidmoBossBarTitle() { return config.getString("blok-widmo.bossbar.title", "&cBlok widmo: &fPosiadasz obniżony limit serc przez {time_left}"); }
+    public String getBlokWidmoBossBarTitle() { return config.getString("blok-widmo.bossbar.title", "&cBlok widmo: &fPosiadasz obnizony limit serc przez {time_left}"); }
     public String getBlokWidmoBossBarColor() { return config.getString("blok-widmo.bossbar.color", "PURPLE"); }
     public String getBlokWidmoPlacedSubtitle() { return config.getString("blok-widmo.messages.placed-subtitle", "&cPostawiono blok widmo!"); }
     public String getBlokWidmoAffectedTitle() { return config.getString("blok-widmo.messages.affected-title", "&c&lBlok widmo"); }
-    public String getBlokWidmoAffectedSubtitle() { return config.getString("blok-widmo.messages.affected-subtitle", "&7coś się dzieje z twoim zdrowiem..."); }
-    public String getBlokWidmoCooldownMessage() { return config.getString("blok-widmo.messages.cooldown", "&cMusisz poczekać jeszcze {time_left} zanim będziesz mógł użyć tego przedmiotu ponownie!"); }
+    public String getBlokWidmoAffectedSubtitle() { return config.getString("blok-widmo.messages.affected-subtitle", "&7cos sie dzieje z twoim zdrowiem..."); }
+    public String getBlokWidmoCooldownMessage() { return config.getString("blok-widmo.messages.cooldown", "&cMusisz poczekac jeszcze {time_left}!"); }
 
     // ==================== SIEKIERA GRINCHA ====================
     public double getSiekieraGrinchaDamagePercent() { return config.getDouble("siekiera-grincha.damage-percent", 30.0); }
     public long getSiekieraGrinchaCooldown() { return config.getLong("siekiera-grincha.cooldown", 60); }
     public List<String> getSiekieraGrinchaBlockedRegions() { return config.getStringList("siekiera-grincha.blocked-regions"); }
     public String getSiekieraGrinchaAttackerSubtitle() { return config.getString("siekiera-grincha.messages.attacker-subtitle", "&7Uderzyłeś &f{nick_victim} &7siekierą &agrincha&7!"); }
-    public String getSiekieraGrinchaVictimSubtitle() { return config.getString("siekiera-grincha.messages.victim-subtitle", "&7Zostałeś uderzony &asiekierą grincha&7!"); }
-    public String getSiekieraGrinchaCooldownSubtitle() { return config.getString("siekiera-grincha.messages.cooldown-subtitle", "&2Siekierę Grincha &7możesz użyć dopiero za &a{seconds_left}"); }
+    public String getSiekieraGrinchaVictimSubtitle() { return config.getString("siekiera-grincha.messages.victim-subtitle", "&7Zostales uderzony &asiekiera grincha&7!"); }
+    public String getSiekieraGrinchaCooldownSubtitle() { return config.getString("siekiera-grincha.messages.cooldown-subtitle", "&2Siekiere Grincha &7mozesz uzyc dopiero za &a{seconds_left}"); }
 
-    // ==================== HYDRO TRÓJZĄB ====================
+    // ==================== HYDRO TROJZAB ====================
     public long getHydroTrojzabShotCooldown() { return config.getLong("hydro-trojzab.shot.cooldown", 60); }
     public long getHydroTrojzabLaunchCooldown() { return config.getLong("hydro-trojzab.launch.cooldown", 15); }
     public double getHydroTrojzabImpactDamage() { return config.getDouble("hydro-trojzab.shot.damage", 10.0); }
@@ -203,8 +203,8 @@ public class ItemsConfig {
     public double getHydroTrojzabKnockbackUpward() { return config.getDouble("hydro-trojzab.shot.knockback-upward", 0.35); }
     public double getHydroTrojzabLaunchPower() { return config.getDouble("hydro-trojzab.launch.power", 3.2); }
     public List<String> getHydroTrojzabBlockedRegions() { return config.getStringList("hydro-trojzab.blocked-regions"); }
-    public String getHydroTrojzabShotCooldownSubtitle() { return config.getString("hydro-trojzab.messages.shot-cooldown-subtitle", "&7Cios piorunem możesz użyć za: &b{seconds_left}&7!"); }
-    public String getHydroTrojzabLaunchCooldownSubtitle() { return config.getString("hydro-trojzab.messages.launch-cooldown-subtitle", "&7Wystrzelenia możesz użyć za: &b{seconds_left}&7!"); }
+    public String getHydroTrojzabShotCooldownSubtitle() { return config.getString("hydro-trojzab.messages.shot-cooldown-subtitle", "&7Cios piorunem mozesz uzyc za: &b{seconds_left}&7!"); }
+    public String getHydroTrojzabLaunchCooldownSubtitle() { return config.getString("hydro-trojzab.messages.launch-cooldown-subtitle", "&7Wystrzelenia mozesz uzyc za: &b{seconds_left}&7!"); }
 
     // ==================== CUDOWNA LATARNIA ====================
     public int getCudownaLatarniaDuration() { return config.getInt("cudowna-latarnia.duration", 30); }
@@ -222,52 +222,52 @@ public class ItemsConfig {
     public String getCudownaLatarniaBossBarTitle() { return config.getString("cudowna-latarnia.bossbar.title", "&5Cudowna Latarnia aktywna! &7(&d{seconds_left}s&7)"); }
     public String getCudownaLatarniaBossBarColor() { return config.getString("cudowna-latarnia.bossbar.color", "PURPLE"); }
 
-    // ==================== RÓG JEDNOROŻCA ====================
+    // ==================== ROG JEDNOROZCA ====================
     public long getRogJednorozcaCooldown() { return config.getLong("rog-jednorozca.cooldown", 60); }
     public int getRogJednorozcaDuration() { return config.getInt("rog-jednorozca.duration", 8); }
     public int getRogJednorozcaMaxBlocks() { return config.getInt("rog-jednorozca.max-blocks", 100); }
     public int getRogJednorozcaStunDuration() { return config.getInt("rog-jednorozca.stun-duration", 3); }
     public List<String> getRogJednorozcaBlockedRegions() { return config.getStringList("rog-jednorozca.blocked-regions"); }
-    public String getRogJednorozcaCooldownSubtitle() { return config.getString("rog-jednorozca.messages.cooldown-subtitle", "&7Możesz użyć dopiero za: &d{seconds_left}&7!"); }
-    public String getRogJednorozcaStunSubtitle() { return config.getString("rog-jednorozca.messages.stun-subtitle", "&cZostałeś ogłuszony!"); }
+    public String getRogJednorozcaCooldownSubtitle() { return config.getString("rog-jednorozca.messages.cooldown-subtitle", "&7Mozesz uzyc dopiero za: &d{seconds_left}&7!"); }
+    public String getRogJednorozcaStunSubtitle() { return config.getString("rog-jednorozca.messages.stun-subtitle", "&cZostales ogłuszony!"); }
 
-    // ==================== BOSKI TOPÓR ====================
+    // ==================== BOSKI TOPOR ====================
     public long getBoskiToporCooldown() { return config.getLong("boski-topor.cooldown", 60); }
     public int getBoskiToporInvincibilityDuration() { return config.getInt("boski-topor.invincibility-duration", 3); }
     public int getBoskiToporGlowDuration() { return config.getInt("boski-topor.glow-duration", 2); }
     public double getBoskiToporKnockbackRadius() { return config.getDouble("boski-topor.knockback-radius", 5.0); }
     public double getBoskiToporKnockbackPower() { return config.getDouble("boski-topor.knockback-power", 1.8); }
     public List<String> getBoskiToporBlockedRegions() { return config.getStringList("boski-topor.blocked-regions"); }
-    public String getBoskiToporActivatedSubtitle() { return config.getString("boski-topor.messages.activated-subtitle", "&bAktywowałeś boski topór&7!"); }
-    public String getBoskiToporCooldownSubtitle() { return config.getString("boski-topor.messages.cooldown-subtitle", "&bBoski topór &7możesz użyć dopiero za &f{seconds_left}"); }
+    public String getBoskiToporActivatedSubtitle() { return config.getString("boski-topor.messages.activated-subtitle", "&bAktywowales boski topor&7!"); }
+    public String getBoskiToporCooldownSubtitle() { return config.getString("boski-topor.messages.cooldown-subtitle", "&bBoski topor &7mozesz uzyc dopiero za &f{seconds_left}"); }
 
     // ==================== SUPER MARCHEWKA ====================
     public long getSuperMarchewkaCooldown() { return config.getLong("super-marchewka.cooldown", 60); }
     public int getSuperMarchewkaEffectDuration() { return config.getInt("super-marchewka.effect-duration", 10); }
     public List<String> getSuperMarchewkaBlockedRegions() { return config.getStringList("super-marchewka.blocked-regions"); }
-    public String getSuperMarchewkaCooldownSubtitle() { return config.getString("super-marchewka.messages.cooldown-subtitle", "&6Marchewkę &7możesz użyć za: &6{seconds_left}"); }
+    public String getSuperMarchewkaCooldownSubtitle() { return config.getString("super-marchewka.messages.cooldown-subtitle", "&6Marchewke &7mozesz uzyc za: &6{seconds_left}"); }
     public String getSuperMarchewkaSuperTitle() { return config.getString("super-marchewka.messages.super-title", "&6&lSuper Marchewka"); }
-    public String getSuperMarchewkaSuperSubtitle() { return config.getString("super-marchewka.messages.super-subtitle", "&7Zwiększony x2 na &610 sekund&7!"); }
+    public String getSuperMarchewkaSuperSubtitle() { return config.getString("super-marchewka.messages.super-subtitle", "&7Zwiekszony x2 na &610 sekund&7!"); }
     public String getSuperMarchewkaMiniTitle() { return config.getString("super-marchewka.messages.mini-title", "&b&lMini Marchewka"); }
     public String getSuperMarchewkaMiniSubtitle() { return config.getString("super-marchewka.messages.mini-subtitle", "&aZmniejszony o 50% na 10 sekund!"); }
 
-    // ==================== ŁOPATA GRINCHA ====================
+    // ==================== LOPATA GRINCHA ====================
     public long getLopataGrinchaCooldown() { return config.getLong("lopata-grincha.cooldown", 30); }
     public List<String> getLopataGrinchaBlockedRegions() { return config.getStringList("lopata-grincha.blocked-regions"); }
     public String getLopataGrinchaAttackerSubtitle() { return config.getString("lopata-grincha.messages.attacker-subtitle", "&7Uderzyłeś gracza &f{nick} &7łopatą &agrincha&7!"); }
-    public String getLopataGrinchaVictimSubtitle() { return config.getString("lopata-grincha.messages.victim-subtitle", "&7Zostałeś uderzony &ałopatą grincha&7!"); }
-    public String getLopataGrinchaCooldownSubtitle() { return config.getString("lopata-grincha.messages.cooldown-subtitle", "&aŁopatę grincha &7możesz użyć za: &a{seconds_left}&7!"); }
+    public String getLopataGrinchaVictimSubtitle() { return config.getString("lopata-grincha.messages.victim-subtitle", "&7Zostales uderzony &alopata grincha&7!"); }
+    public String getLopataGrinchaCooldownSubtitle() { return config.getString("lopata-grincha.messages.cooldown-subtitle", "&aLopate grincha &7mozesz uzyc za: &a{seconds_left}&7!"); }
 
     // ==================== ARCUS MAGNUS ====================
     public List<String> getArcusMagnusBlockedRegions() { return config.getStringList("arcus-magnus.blocked-regions"); }
 
-    // ==================== KRÓLICZY MIECZ ====================
+    // ==================== KROLICZY MIECZ ====================
     public long getKroliczyMieczCooldown() { return config.getLong("kroliczy-miecz.cooldown", 60); }
     public int getKroliczyMieczCurseDuration() { return config.getInt("kroliczy-miecz.curse-duration", 4); }
     public List<String> getKroliczyMieczBlockedRegions() { return config.getStringList("kroliczy-miecz.blocked-regions"); }
-    public String getKroliczyMieczAttackerSubtitle() { return config.getString("kroliczy-miecz.messages.attacker-subtitle", "&7Zablokowałeś &3skakanie &7graczowi &f{nick_victim}&7!"); }
-    public String getKroliczyMieczVictimTitle() { return config.getString("kroliczy-miecz.messages.victim-title", "&3Królicza klątwa"); }
-    public String getKroliczyMieczVictimSubtitle() { return config.getString("kroliczy-miecz.messages.victim-subtitle", "&7Nie możesz skakać przez 4 sekundy!"); }
+    public String getKroliczyMieczAttackerSubtitle() { return config.getString("kroliczy-miecz.messages.attacker-subtitle", "&7Zablokowales &3skakanie &7graczowi &f{nick_victim}&7!"); }
+    public String getKroliczyMieczVictimTitle() { return config.getString("kroliczy-miecz.messages.victim-title", "&3Krolicza klatwa"); }
+    public String getKroliczyMieczVictimSubtitle() { return config.getString("kroliczy-miecz.messages.victim-subtitle", "&7Nie mozesz skakac przez 4 sekundy!"); }
 
     // ==================== PIEKIELNY MIECZ ====================
     public int getPiekielnyMieczFireDuration() { return config.getInt("piekielny-miecz.fire-duration", 20); }
@@ -275,97 +275,96 @@ public class ItemsConfig {
     // ==================== SMOCZY MIECZ ====================
     public long getSmoczyMieczCooldown() { return config.getLong("smoczy-miecz.cooldown", 60); }
     public List<String> getSmoczyMieczBlockedRegions() { return config.getStringList("smoczy-miecz.blocked-regions"); }
-    public String getSmoczyMieczCooldownSubtitle() { return config.getString("smoczy-miecz.messages.cooldown-subtitle", "&dSmoczy miecz &7możesz użyć za: &d{seconds_left}"); }
+    public String getSmoczyMieczCooldownSubtitle() { return config.getString("smoczy-miecz.messages.cooldown-subtitle", "&dSmoczy miecz &7mozesz uzyc za: &d{seconds_left}"); }
 
     // ==================== KOSA ====================
     public long getKosaCooldown() { return config.getLong("kosa.cooldown", 60); }
 
-    // ==================== ŁUK KUPIDYNA ====================
+    // ==================== LUK KUPIDYNA ====================
     public long getLukKupidynaCooldown() { return config.getLong("luk-kupidyna.cooldown", 60); }
     public double getLukKupidynaBlindChance() { return config.getDouble("luk-kupidyna.blind-chance", 25.0); }
 
-    // ==================== OŚLEPIENIE (WSPÓLNE) ====================
+    // ==================== OSLEPIENIE ====================
     public int getOslepienieDuration() { return config.getInt("oslepienie.duration", 4); }
     public List<String> getOslepienieBlockedRegions() { return config.getStringList("oslepienie.blocked-regions"); }
-    public String getOslepienieVictimSubtitle() { return config.getString("oslepienie.messages.victim-subtitle", "&7Zostałeś oślepiony!"); }
-    public String getOslepienieAttackerSubtitle() { return config.getString("oslepienie.messages.attacker-subtitle", "&7Oślepiłeś gracza &f{nick_victim}&7!"); }
-    public String getOslepienieCooldownSubtitle() { return config.getString("oslepienie.messages.cooldown-subtitle", "&7Oślepienia możesz użyć za: &f{seconds_left}&7!"); }
+    public String getOslepienieVictimSubtitle() { return config.getString("oslepienie.messages.victim-subtitle", "&7Zostales oslepiony!"); }
+    public String getOslepienieAttackerSubtitle() { return config.getString("oslepienie.messages.attacker-subtitle", "&7Oslepiles gracza &f{nick_victim}&7!"); }
+    public String getOslepienieCooldownSubtitle() { return config.getString("oslepienie.messages.cooldown-subtitle", "&7Oslepienia mozesz uzyc za: &f{seconds_left}&7!"); }
 
     // ==================== MARCHEWKOWY MIECZ ====================
     public long getMarchewkowyMieczCooldown() { return config.getLong("marchewkowy-miecz.cooldown", 60); }
     public int getMarchewkowyMieczFreezeDuration() { return config.getInt("marchewkowy-miecz.freeze-duration", 1); }
     public List<String> getMarchewkowyMieczBlockedRegions() { return config.getStringList("marchewkowy-miecz.blocked-regions"); }
-    public String getMarchewkowyMieczAttackerSubtitle() { return config.getString("marchewkowy-miecz.messages.attacker-subtitle", "&bZamroziłeś &7gracza: &f{nick_victim}&7!"); }
-    public String getMarchewkowyMieczVictimSubtitle() { return config.getString("marchewkowy-miecz.messages.victim-subtitle", "&7Zostałeś &bzamrożony&7!"); }
-    public String getMarchewkowyMieczCooldownSubtitle() { return config.getString("marchewkowy-miecz.messages.cooldown-subtitle", "&bZamrożenia &7możesz użyć za: &f{seconds_left}&7!"); }
+    public String getMarchewkowyMieczAttackerSubtitle() { return config.getString("marchewkowy-miecz.messages.attacker-subtitle", "&bZamroziles &7gracza: &f{nick_victim}&7!"); }
+    public String getMarchewkowyMieczVictimSubtitle() { return config.getString("marchewkowy-miecz.messages.victim-subtitle", "&7Zostales &bzamrozony&7!"); }
+    public String getMarchewkowyMieczCooldownSubtitle() { return config.getString("marchewkowy-miecz.messages.cooldown-subtitle", "&bZamrozenia &7mozesz uzyc za: &f{seconds_left}&7!"); }
 
     // ==================== MARCHEWKOWA KUSZA ====================
     public long getMarchewkowaKuszaCooldown() { return config.getLong("marchewkowa-kusza.cooldown", 60); }
     public List<String> getMarchewkowaKuszaBlockedRegions() { return config.getStringList("marchewkowa-kusza.blocked-regions"); }
-    public String getMarchewkowaKuszaVictimSubtitle() { return config.getString("marchewkowa-kusza.messages.victim-subtitle", "&7Zostałeś przyciągnięty przez gracza &f{attacker}&7!"); }
-    public String getMarchewkowaKuszaAttackerSubtitle() { return config.getString("marchewkowa-kusza.messages.attacker-subtitle", "&7Przyciągnąłeś gracza &f{victim_name}&7!"); }
+    public String getMarchewkowaKuszaVictimSubtitle() { return config.getString("marchewkowa-kusza.messages.victim-subtitle", "&7Zostales przyciagniety przez gracza &f{attacker}&7!"); }
+    public String getMarchewkowaKuszaAttackerSubtitle() { return config.getString("marchewkowa-kusza.messages.attacker-subtitle", "&7Przyciagnales gracza &f{victim_name}&7!"); }
 
-    // ==================== WĘDKA SURFERKA ====================
+    // ==================== WEDKA SURFERKA ====================
     public long getWedkaSurferkaCooldown() { return config.getLong("wedka-surferka.cooldown", 15); }
     public double getWedkaSurferkaPower() { return config.getDouble("wedka-surferka.power", 2.0); }
-    public String getWedkaSurferkaCooldownSubtitle() { return config.getString("wedka-surferka.messages.cooldown-subtitle", "&bSurferkę &7możesz użyć za: &f{seconds_left}&7!"); }
+    public String getWedkaSurferkaCooldownSubtitle() { return config.getString("wedka-surferka.messages.cooldown-subtitle", "&bSurferke &7mozesz uzyc za: &f{seconds_left}&7!"); }
 
-    // ==================== ZATRUTY OŁÓWEK ====================
+    // ==================== ZATRUTY OLOWEK ====================
     public long getZatrutyOlowekCooldown() { return config.getLong("zatruty-olowek.cooldown", 60); }
     public int getZatrutyOlowekWeaknessDuration() { return config.getInt("zatruty-olowek.weakness-duration", 10); }
     public int getZatrutyOlowekPoisonDuration() { return config.getInt("zatruty-olowek.poison-duration", 10); }
     public List<String> getZatrutyOlowekBlockedRegions() { return config.getStringList("zatruty-olowek.blocked-regions"); }
-    public String getZatrutyOlowekAttackerSubtitle() { return config.getString("zatruty-olowek.messages.attacker-subtitle", "&7Zatrułeś gracza &f{victim}&7!"); }
-    public String getZatrutyOlowekVictimSubtitle() { return config.getString("zatruty-olowek.messages.victim-subtitle", "&7Zostałeś otruty!"); }
-    public String getZatrutyOlowekCooldownSubtitle() { return config.getString("zatruty-olowek.messages.cooldown-subtitle", "&aOtrucie &7możesz użyć za: &f{seconds_left}&7!"); }
+    public String getZatrutyOlowekAttackerSubtitle() { return config.getString("zatruty-olowek.messages.attacker-subtitle", "&7Zatrules gracza &f{victim}&7!"); }
+    public String getZatrutyOlowekVictimSubtitle() { return config.getString("zatruty-olowek.messages.victim-subtitle", "&7Zostales otruty!"); }
+    public String getZatrutyOlowekCooldownSubtitle() { return config.getString("zatruty-olowek.messages.cooldown-subtitle", "&aOtrucie &7mozesz uzyc za: &f{seconds_left}&7!"); }
 
     // ==================== PIEKIELNA TARCZA ====================
-    public String getPiekielnaTarczaAttackerSubtitle() { return config.getString("piekielna-tarcza.messages.attacker-subtitle", "&7Gracz &f{shield_handler} &7odbił twój cios!"); }
-    public String getPiekielnaTarczaDefenderSubtitle() { return config.getString("piekielna-tarcza.messages.defender-subtitle", "&7Odbiłeś cios gracza &f{attacker_bez_tarczy}&7!"); }
+    public String getPiekielnaTarczaAttackerSubtitle() { return config.getString("piekielna-tarcza.messages.attacker-subtitle", "&7Gracz &f{shield_handler} &7odbil twoj cios!"); }
+    public String getPiekielnaTarczaDefenderSubtitle() { return config.getString("piekielna-tarcza.messages.defender-subtitle", "&7Odbiles cios gracza &f{attacker_bez_tarczy}&7!"); }
 
     // ==================== KUKURYDZA ====================
     public long getKukurydzaCooldown() { return config.getLong("kukurydza.cooldown", 60); }
     public double getKukurydzaRadius() { return config.getDouble("kukurydza.radius", 5.0); }
     public int getKukurydzaDurabilityDamage() { return config.getInt("kukurydza.durability-damage", 30); }
     public List<String> getKukurydzaBlockedRegions() { return config.getStringList("kukurydza.blocked-regions"); }
-    public String getKukurydzaAttackerSubtitle() { return config.getString("kukurydza.messages.attacker-subtitle", "&7Wystrzeliłeś &akukurydzą&7!"); }
-    public String getKukurydzaCooldownSubtitle() { return config.getString("kukurydza.messages.cooldown-subtitle", "&7Użyć &akukurydzy &7możesz za: &f{seconds_left}&7!"); }
-        // ==================== TURBOTRAP ====================
-    public List<String> getTurbotrapBlockedRegions() {
-        return config.getStringList("turbotrap.blocked-regions");
-    }
-        // ==================== PIERNIK ====================
+    public String getKukurydzaAttackerSubtitle() { return config.getString("kukurydza.messages.attacker-subtitle", "&7Wystrzeliles &akukurydza&7!"); }
+    public String getKukurydzaCooldownSubtitle() { return config.getString("kukurydza.messages.cooldown-subtitle", "&7Uzyc &akukurydzy &7mozesz za: &f{seconds_left}&7!"); }
+
+    // ==================== PIERNIK ====================
     public int getPiernikHasteDuration() { return config.getInt("piernik.haste-duration", 15); }
     public int getPiernikHasteLevel() { return config.getInt("piernik.haste-level", 11); }
 
-    // ==================== ZŁAMANE SERCE ====================
+    // ==================== ZLAMANE SERCE ====================
     public int getZlamaneSerceSlowFallingDuration() { return config.getInt("zlamane-serce.slow-falling-duration", 10); }
-    public String getZlamaneSerceAttackerSubtitle() { return config.getString("zlamane-serce.messages.attacker-subtitle", "&7Złamałeś &dserce &7gracza &f{victim}&7!"); }
-    public String getZlamaneSerceVictimSubtitle() { return config.getString("zlamane-serce.messages.victim-subtitle", "&7Twoje &dserduszko &7zostało złamane!"); }
+    public String getZlamaneSerceAttackerSubtitle() { return config.getString("zlamane-serce.messages.attacker-subtitle", "&7Zlamales &dserce &7gracza &f{victim}&7!"); }
+    public String getZlamaneSerceVictimSubtitle() { return config.getString("zlamane-serce.messages.victim-subtitle", "&7Twoje &dserduszko &7zostalo zlamane!"); }
 
-    // ==================== WAMPIRZE JABŁKO ====================
+    // ==================== WAMPIRZE JABLKO ====================
     public int getWampirzeJablkoStrengthDuration() { return config.getInt("wampirze-jablko.strength-duration", 6); }
     public int getWampirzeJablkoStrengthLevel() { return config.getInt("wampirze-jablko.strength-level", 2); }
 
-    // ==================== SPLEŚNIAŁA KANAPKA ====================
+    // ==================== SPLESNIALE KANAPKA ====================
     public int getSplesnialaKanapkaGlowingDuration() { return config.getInt("splesniale-kanapka.glowing-duration", 20); }
 
     // ==================== BOMBARDA MAXIMA ====================
     public int getBombardaRadius() { return config.getInt("bombarda-maxima.radius", 4); }
     public List<String> getBombardaBlockedRegions() { return config.getStringList("bombarda-maxima.blocked-regions"); }
-        // ==================== LIZAK ====================
 
-    public double getLizakScaleMultiplier() {
-        return config.getDouble("lizak.scale-multiplier", 0.9);
-    }
-        // ==================== CREEPER ZMUTOWANY ====================
+    // ==================== TURBOTRAP ====================
+    public List<String> getTurbotrapBlockedRegions() { return config.getStringList("turbotrap.blocked-regions"); }
+
+    // ==================== LIZAK ====================
+    public double getLizakScaleMultiplier() { return config.getDouble("lizak.scale-multiplier", 0.9); }
+
+    // ==================== CREEPER ZMUTOWANY ====================
     public long getCreeperCooldown() { return config.getLong("creeper-zmutowany.cooldown", 60); }
-    public java.util.List<String> getCreeperBlockedRegions() { return config.getStringList("creeper-zmutowany.blocked-regions"); }
-    public String getCreeperCooldownSubtitle() { return config.getString("creeper-zmutowany.messages.cooldown-subtitle", "&aJajko zmutowanego creepera &7możesz użyć za: &a{seconds_left}&7!"); \
-    }
+    public List<String> getCreeperBlockedRegions() { return config.getStringList("creeper-zmutowany.blocked-regions"); }
+    public String getCreeperCooldownSubtitle() { return config.getString("creeper-zmutowany.messages.cooldown-subtitle", "&aJajko zmutowanego creepera &7mozesz uzyc za: &a{seconds_left}&7!"); }
+
     // ==================== OLAF ====================
     public long getOlafCooldown() { return config.getLong("olaf.cooldown", 60); }
     public List<String> getOlafBlockedRegions() { return config.getStringList("olaf.blocked-regions"); }
-    public String getOlafCooldownSubtitle() { return config.getString("olaf.messages.cooldown-subtitle", "&bOlafa &7możesz użyć za: &b{seconds_left}&7!"); }
-    public String getOlafVictimSubtitle() { return config.getString("olaf.messages.victim-subtitle", "&3Olaf! &7zostało uderzeń: &b{left}&7!"); }    
+    public String getOlafCooldownSubtitle() { return config.getString("olaf.messages.cooldown-subtitle", "&bOlafa &7mozesz uzyc za: &b{seconds_left}&7!"); }
+    public String getOlafVictimSubtitle() { return config.getString("olaf.messages.victim-subtitle", "&3Olaf! &7zostalo uderzen: &b{left}&7!"); }
 }
