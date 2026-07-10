@@ -365,7 +365,7 @@ public class ItemsConfig {
     }
     // ==================== OLAF ====================
     public long getOlafCooldown() { return config.getLong("olaf.cooldown", 60); }
-    public java.util.List<String> getOlafBlockedRegions() { return config.getStringList("olaf.blocked-regions"); }
+    public List<String> getOlafBlockedRegions() { return config.getStringList("olaf.blocked-regions"); }
     public String getOlafCooldownSubtitle() { return config.getString("olaf.messages.cooldown-subtitle", "&bOlafa &7możesz użyć za: &b{seconds_left}&7!"); }
     public String getOlafVictimSubtitle() { return config.getString("olaf.messages.victim-subtitle", "&3Olaf! &7zostało uderzeń: &b{left}&7!"); }    
 }
