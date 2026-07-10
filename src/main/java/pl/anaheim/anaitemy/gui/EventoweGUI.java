@@ -132,6 +132,9 @@ public class EventoweGUI {
         items.add(PrzeterminowanyTrunekItem.create());
         items.add(BombardaMaximaItem.create());
         items.add(DynamitItem.create());
+        items.add(KamienKowalskiItem.create());
+        items.add(PrzepustkaNeteruItem.create());
+        items.add(CreeperZmutowanyItem.create());
         return items;
     }
 
