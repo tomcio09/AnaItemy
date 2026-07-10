@@ -126,6 +126,9 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             case "kanapka" -> "&2Spleśniała Kanapka"; case "lewejajko" -> "&eLewe Jajko";
             case "trunek" -> "&2Przeterminowany Trunek"; case "bombarda" -> "&5Bombarda Maxima";
             case "dynamit" -> "&4Dynamit";
+            case "kamien" -> "&cKamień Kowalski";
+            case "przepustka" -> "&4Przepustka Netheru";
+            case "creeper" -> "&aZmutowany Creeper";
             default -> id;
         };
     }
