@@ -1241,6 +1241,15 @@ olaf:
   respects-protection: false
   notify-attacker: false
 # ==========================================
+#         ROZSZERZENIE ENDERCHESTA
+# ==========================================
+rozszerzenie-ec:
+  material: FLOWER_BANNER_PATTERN
+  name: '&5&lRozszerzenie enderchesta'
+  custom-model-data: 1
+  respects-protection: false
+  notify-attacker: false
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
