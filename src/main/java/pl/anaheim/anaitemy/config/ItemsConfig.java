@@ -358,4 +358,8 @@ public class ItemsConfig {
     public double getLizakScaleMultiplier() {
         return config.getDouble("lizak.scale-multiplier", 0.9);
     }
+        // ==================== CREEPER ZMUTOWANY ====================
+    public long getCreeperCooldown() { return config.getLong("creeper-zmutowany.cooldown", 60); }
+    public java.util.List<String> getCreeperBlockedRegions() { return config.getStringList("creeper-zmutowany.blocked-regions"); }
+    public String getCreeperCooldownSubtitle() { return config.getString("creeper-zmutowany.messages.cooldown-subtitle", "&aJajko zmutowanego creepera &7możesz użyć za: &a{seconds_left}&7!"); }
 }
