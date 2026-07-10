@@ -1183,6 +1183,47 @@ dynamit:
   respects-protection: false
   notify-attacker: false
 # ==========================================
+#         KAMIEŃ KOWALSKI
+# ==========================================
+kamien-kowalski:
+  material: GRAY_DYE
+  name: '&cKamień kowalski'
+  custom-model-data: 10
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         PRZEPUSTKA NETHERU
+# ==========================================
+przepustka-netheru:
+  material: BLACK_DYE
+  name: '&4&lPrzepustka netheru'
+  custom-model-data: 56431
+  respects-protection: false
+  notify-attacker: false
+
+# ==========================================
+#         CREEPER ZMUTOWANY
+# ==========================================
+creeper-zmutowany:
+  material: CREEPER_SPAWN_EGG
+  name: '&a&lJajko zmutowanego creepera'
+  cooldown: 60
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
+    - endpvp
+    - spawnpvp
+    - netherspawnpvp
+  messages:
+    cooldown-subtitle: '&aJajko zmutowanego creepera &7możesz użyć za: &a{seconds_left}&7!'
+  respects-protection: true
+  notify-attacker: false
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}s&7!'
+# ==========================================
 #         COMBAT INTEGRATION
 # ==========================================
 combat-integration:
