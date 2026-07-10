@@ -10,7 +10,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 public class AnarchicznySetItem {
 
-    // ==================== SET 2 ====================
+    // ==================== SET 2 (z CMD 1) ====================
     public static ItemStack createHelm2() {
         return createArmor(Material.NETHERITE_HELMET, "&4Anarchiczny Helm II", 1, 6, 6);
     }
@@ -24,26 +24,25 @@ public class AnarchicznySetItem {
         return createArmor(Material.NETHERITE_BOOTS, "&4Anarchiczne Buty II", 1, 6, 6);
     }
 
-    // ==================== SET 1 ====================
+    // ==================== SET 1 (bez CMD) ====================
     public static ItemStack createHelm1() {
-        return createArmor(Material.NETHERITE_HELMET, "&4Anarchiczny Helm", 1, 5, 5);
+        return createArmorNoCmd(Material.NETHERITE_HELMET, "&4Anarchiczny Helm", 5, 5);
     }
     public static ItemStack createKlata1() {
-        return createArmor(Material.NETHERITE_CHESTPLATE, "&4Anarchiczna Klata", 1, 5, 5);
+        return createArmorNoCmd(Material.NETHERITE_CHESTPLATE, "&4Anarchiczna Klata", 5, 5);
     }
     public static ItemStack createSpodnie1() {
-        return createArmor(Material.NETHERITE_LEGGINGS, "&4Anarchiczne Spodnie", 1, 5, 5);
+        return createArmorNoCmd(Material.NETHERITE_LEGGINGS, "&4Anarchiczne Spodnie", 5, 5);
     }
     public static ItemStack createButy1() {
-        return createArmor(Material.NETHERITE_BOOTS, "&4Anarchiczne Buty", 1, 5, 5);
+        return createArmorNoCmd(Material.NETHERITE_BOOTS, "&4Anarchiczne Buty", 5, 5);
     }
 
-    // ==================== NARZĘDZIA ====================
+    // ==================== NARZĘDZIA (bez CMD) ====================
     public static ItemStack createKilof() {
         ItemStack item = new ItemStack(Material.NETHERITE_PICKAXE);
         ItemMeta meta = item.getItemMeta();
         meta.displayName(col("&4Anarchiczny Kilof"));
-        meta.setCustomModelData(1);
         meta.addEnchant(Enchantment.EFFICIENCY, 10, true);
         meta.addEnchant(Enchantment.UNBREAKING, 5, true);
         meta.addEnchant(Enchantment.FORTUNE, 5, true);
@@ -55,7 +54,6 @@ public class AnarchicznySetItem {
         ItemStack item = new ItemStack(Material.NETHERITE_SWORD);
         ItemMeta meta = item.getItemMeta();
         meta.displayName(col("&4Anarchiczny Miecz"));
-        meta.setCustomModelData(1);
         meta.addEnchant(Enchantment.SHARPNESS, 6, true);
         meta.addEnchant(Enchantment.FIRE_ASPECT, 2, true);
         item.setItemMeta(meta);
@@ -66,7 +64,6 @@ public class AnarchicznySetItem {
         ItemStack item = new ItemStack(Material.BOW);
         ItemMeta meta = item.getItemMeta();
         meta.displayName(col("&4Anarchiczny Luk"));
-        meta.setCustomModelData(1);
         meta.addEnchant(Enchantment.PUNCH, 3, true);
         meta.addEnchant(Enchantment.POWER, 6, true);
         meta.addEnchant(Enchantment.UNBREAKING, 3, true);
@@ -76,12 +73,22 @@ public class AnarchicznySetItem {
         return item;
     }
 
-    // ==================== HELPER ====================
+    // ==================== HELPERS ====================
     private static ItemStack createArmor(Material material, String name, int cmd, int protection, int unbreaking) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         meta.displayName(col(name));
         meta.setCustomModelData(cmd);
+        meta.addEnchant(Enchantment.PROTECTION, protection, true);
+        meta.addEnchant(Enchantment.UNBREAKING, unbreaking, true);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private static ItemStack createArmorNoCmd(Material material, String name, int protection, int unbreaking) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(col(name));
         meta.addEnchant(Enchantment.PROTECTION, protection, true);
         meta.addEnchant(Enchantment.UNBREAKING, unbreaking, true);
         item.setItemMeta(meta);
