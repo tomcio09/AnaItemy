@@ -72,12 +72,13 @@ public class HydroTrojzabManager {
 
                     ItemStack mainHand = player.getInventory().getItemInMainHand();
 
-                    if (!HydroTrojzabItem.isHydroTrojzab(mainHand) || !player.isHandRaised()) {
+                    // ✅ Tylko usuwaj jeśli gracz NIE trzyma już Hydro Trójzębu
+                    if (!HydroTrojzabItem.isHydroTrojzab(mainHand)) {
                         restoreGhostArrow(player);
                     }
                 }
             }
-        }.runTaskTimer(plugin, 1L, 1L);
+        }.runTaskTimer(plugin, 1L, 5L); // ✅ Co 5 ticków zamiast co 1
     }
 
     // ==================== COOLDOWNS ====================
