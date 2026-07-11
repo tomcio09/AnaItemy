@@ -65,9 +65,7 @@ public class HydroTrojzabListener implements Listener {
         event.setCancelled(true);
         if (event.getProjectile() != null) event.getProjectile().remove();
 
-        if (manager.isInBlockedRegion(player.getLocation())) return;
-
-        // SHIFT = launch
+        // SHIFT = launch — działa WSZĘDZIE (nawet na zablokowanych regionach)
         if (player.isSneaking()) {
             if (manager.isLaunchOnCooldown(player)) {
                 manager.sendLaunchCooldownSubtitle(player);
@@ -77,7 +75,9 @@ public class HydroTrojzabListener implements Listener {
             return;
         }
 
-        // Normalny strzał
+        // ✅ Normalny strzał — NIE działa na zablokowanych regionach
+        if (manager.isInBlockedRegion(player.getLocation())) return;
+
         if (manager.isShotOnCooldown(player)) {
             manager.sendShotCooldownSubtitle(player);
             return;
