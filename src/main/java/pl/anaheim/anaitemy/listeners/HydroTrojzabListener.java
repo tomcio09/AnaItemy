@@ -1,8 +1,5 @@
 package pl.anaheim.anaitemy.listeners;
 
-import org.bukkit.Material;
-import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Trident;
 import org.bukkit.event.EventHandler;
@@ -29,8 +26,6 @@ public class HydroTrojzabListener implements Listener {
         this.plugin = plugin;
     }
 
-    // ==================== GHOST ARROW - PPM ====================
-
     @EventHandler(priority = EventPriority.LOW)
     public void onInteract(PlayerInteractEvent event) {
         if (event.getHand() == EquipmentSlot.OFF_HAND) return;
@@ -41,14 +36,9 @@ public class HydroTrojzabListener implements Listener {
 
         if (!HydroTrojzabItem.isHydroTrojzab(item)) return;
 
-        HydroTrojzabManager manager = plugin.getHydroTrojzabManager();
-
-        if (manager.isInBlockedRegion(player.getLocation())) return;
-
-        manager.prepareGhostArrow(player);
+        // ✅ Ghost arrow działa WSZĘDZIE
+        plugin.getHydroTrojzabManager().prepareGhostArrow(player);
     }
-
-    // ==================== STRZAŁ ====================
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = false)
     public void onShootBow(EntityShootBowEvent event) {
@@ -58,14 +48,12 @@ public class HydroTrojzabListener implements Listener {
 
         HydroTrojzabManager manager = plugin.getHydroTrojzabManager();
 
-        // ✅ Przywróć ghost arrow
         manager.restoreGhostArrow(player);
 
-        // ✅ Anuluj vanilla strzałę
         event.setCancelled(true);
         if (event.getProjectile() != null) event.getProjectile().remove();
 
-        // SHIFT = launch — działa WSZĘDZIE (nawet na zablokowanych regionach)
+        // ✅ SHIFT = launch — działa WSZĘDZIE
         if (player.isSneaking()) {
             if (manager.isLaunchOnCooldown(player)) {
                 manager.sendLaunchCooldownSubtitle(player);
@@ -86,42 +74,30 @@ public class HydroTrojzabListener implements Listener {
         manager.fireHydroTrident(player, event.getForce());
     }
 
-    // ==================== TRAFIENIE TRIDENTU ====================
-
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onProjectileHit(ProjectileHitEvent event) {
         if (!(event.getEntity() instanceof Trident trident)) return;
-
         plugin.getHydroTrojzabManager().handleImpact(trident);
     }
-
-    // ==================== BLOKADA VANILLA DAMAGE OD TRIDENTU ====================
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onTridentDirectDamage(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Trident trident)) return;
-
         if (trident.hasMetadata("anaitemy_hydro_trident")) {
             event.setCancelled(true);
         }
     }
 
-    // ==================== GHOST ARROW PROTECTION ====================
-
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
-
         HydroTrojzabManager manager = plugin.getHydroTrojzabManager();
         int ghostSlot = manager.getGhostArrowSlot(player);
-
-        if (ghostSlot != -1 && event.getClickedInventory() == player.getInventory()
-                && event.getSlot() == ghostSlot) {
+        if (ghostSlot != -1 && event.getClickedInventory() == player.getInventory() && event.getSlot() == ghostSlot) {
             event.setCancelled(true);
             manager.restoreGhostArrow(player);
             return;
         }
-
         if (manager.isGhostArrow(event.getCurrentItem()) || manager.isGhostArrow(event.getCursor())) {
             event.setCancelled(true);
             manager.restoreGhostArrow(player);
@@ -136,8 +112,6 @@ public class HydroTrojzabListener implements Listener {
             manager.restoreGhostArrow(event.getPlayer());
         }
     }
-
-    // ==================== CLEANUP ====================
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
