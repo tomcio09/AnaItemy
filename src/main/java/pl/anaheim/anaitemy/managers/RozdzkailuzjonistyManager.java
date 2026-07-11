@@ -553,10 +553,14 @@ public class RozdzkailuzjonistyManager {
                         return;
                     }
 
+                    // ✅ Spawn na poziomie ziemi
                     EvokerFangs fang = spawnLoc.getWorld().spawn(spawnLoc, EvokerFangs.class);
-                    
-                    // ✅ USTAW WŁAŚCICIELA SZCZĘK
                     setFangOwner(fang, owner);
+
+                    // ✅ Spawn 1 blok wyżej — łapie skaczących graczy
+                    Location upperLoc = spawnLoc.clone().add(0, 1, 0);
+                    EvokerFangs upperFang = upperLoc.getWorld().spawn(upperLoc, EvokerFangs.class);
+                    setFangOwner(upperFang, owner);
 
                     distance++;
                 }
