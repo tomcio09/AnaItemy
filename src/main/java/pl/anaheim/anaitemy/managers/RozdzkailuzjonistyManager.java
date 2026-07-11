@@ -553,21 +553,16 @@ public class RozdzkailuzjonistyManager {
                         return;
                     }
 
-                    // ✅ Spawn na poziomie ziemi
+                    // ✅ Tylko JEDNA warstwa szczęk na ziemi
                     EvokerFangs fang = spawnLoc.getWorld().spawn(spawnLoc, EvokerFangs.class);
                     setFangOwner(fang, owner);
-
-                    // ✅ Spawn 1 blok wyżej — łapie skaczących graczy
-                    Location upperLoc = spawnLoc.clone().add(0, 1, 0);
-                    EvokerFangs upperFang = upperLoc.getWorld().spawn(upperLoc, EvokerFangs.class);
-                    setFangOwner(upperFang, owner);
 
                     distance++;
                 }
             }.runTaskTimer(plugin, 0L, (long) (1.0 / speed));
         }
     }
-
+    
     private static class VanishData {
         private final Player player;
         private final NPC npc;
