@@ -27,20 +27,23 @@ public class WorldGuardManager {
     public WorldGuardManager(AnaItemy plugin) {
         this.plugin = plugin;
 
-        Plugin wg = plugin.getServer().getPluginManager().getPlugin("WorldGuard");
-        this.worldGuardEnabled = wg != null && wg.isEnabled();
+        boolean wgFound = false;
+        try {
+            Plugin wg = plugin.getServer().getPluginManager().getPlugin("WorldGuard");
+            wgFound = wg != null && wg.isEnabled();
+        } catch (Throwable t) {
+            wgFound = false;
+        }
+
+        this.worldGuardEnabled = wgFound;
 
         if (worldGuardEnabled) {
-            plugin.getLogger().info("WorldGuard wykryty - integracja włączona!");
+            plugin.getLogger().info("WorldGuard wykryty - integracja wlaczona!");
         } else {
-            plugin.getLogger().warning("WorldGuard nie wykryty - blokowanie regionów wyłączone!");
+            plugin.getLogger().warning("WorldGuard nie wykryty - blokowanie regionow wylaczone!");
         }
     }
 
-    /**
-     * ✅ Stare zachowanie:
-     * blocked-regions + regiony z pvp=deny.
-     */
     public boolean isInBlockedRegion(Location location, List<String> blockedRegions) {
         if (!worldGuardEnabled) return false;
         if (location == null || location.getWorld() == null) return false;
@@ -61,10 +64,14 @@ public class WorldGuardManager {
             ApplicableRegionSet regions = regionManager.getApplicableRegions(position);
 
             for (ProtectedRegion region : regions) {
-                if (blockedRegions.stream().anyMatch(name -> name.equalsIgnoreCase(region.getId()))) {
-                    return true;
+                // ✅ Sprawdz nazwe regionu (case insensitive)
+                for (String blockedName : blockedRegions) {
+                    if (blockedName.equalsIgnoreCase(region.getId())) {
+                        return true;
+                    }
                 }
 
+                // ✅ Sprawdz flage PVP
                 StateFlag.State pvpState = region.getFlag(Flags.PVP);
                 if (pvpState == StateFlag.State.DENY) {
                     return true;
@@ -72,15 +79,11 @@ public class WorldGuardManager {
             }
 
             return false;
-        } catch (Exception e) {
-            plugin.getLogger().warning("Błąd podczas sprawdzania regionu WorldGuard: " + e.getMessage());
+        } catch (Throwable t) {
             return false;
         }
     }
 
-    /**
-     * ✅ Tylko nazwy regionów z configu.
-     */
     public boolean isInNamedRegion(Location location, List<String> regionNames) {
         if (!worldGuardEnabled) return false;
         if (location == null || location.getWorld() == null) return false;
@@ -101,22 +104,19 @@ public class WorldGuardManager {
             ApplicableRegionSet regions = regionManager.getApplicableRegions(position);
 
             for (ProtectedRegion region : regions) {
-                if (regionNames.stream().anyMatch(name -> name.equalsIgnoreCase(region.getId()))) {
-                    return true;
+                for (String name : regionNames) {
+                    if (name.equalsIgnoreCase(region.getId())) {
+                        return true;
+                    }
                 }
             }
 
             return false;
-        } catch (Exception e) {
-            plugin.getLogger().warning("Błąd podczas sprawdzania nazw regionów WorldGuard: " + e.getMessage());
+        } catch (Throwable t) {
             return false;
         }
     }
 
-    /**
-     * ✅ Sprawdza czy gracz może niszczyć bloki w danej lokalizacji.
-     * Używa testBuild z BUILD + BLOCK_BREAK.
-     */
     public boolean canBreakBlock(Player player, Location location) {
         if (!worldGuardEnabled) return true;
         if (location == null || location.getWorld() == null) return true;
@@ -133,9 +133,7 @@ public class WorldGuardManager {
                     Flags.BLOCK_BREAK,
                     Flags.BUILD
             );
-
-        } catch (Exception e) {
-            plugin.getLogger().warning("Błąd podczas sprawdzania block-break/build: " + e.getMessage());
+        } catch (Throwable t) {
             return true;
         }
     }
