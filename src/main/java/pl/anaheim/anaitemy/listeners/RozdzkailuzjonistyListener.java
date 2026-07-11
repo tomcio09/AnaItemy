@@ -10,6 +10,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.Location;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.items.RozdzkailuzjonistyItem;
@@ -67,10 +68,8 @@ public class RozdzkailuzjonistyListener implements Listener {
             return;
         }
 
-        // ✅ POBIERZ WŁAŚCICIELA SZCZĘK
         UUID ownerUUID = manager.getFangOwner(fang);
 
-        // ✅ Jeśli ofiara to właściciel szczęk - nie zadawaj damage
         if (ownerUUID != null && ownerUUID.equals(victim.getUniqueId())) {
             event.setCancelled(true);
             return;
@@ -79,16 +78,12 @@ public class RozdzkailuzjonistyListener implements Listener {
         Player attacker = ownerUUID != null ? plugin.getServer().getPlayer(ownerUUID) : null;
 
         if (attacker != null) {
-            // ✅ SPRAWDŹ OCHRONĘ PRZED RÓŻDŻKĄ
             if (plugin.getItemProtectionManager().isProtected(victim, "rozdzka-iluzjonisty")) {
                 event.setCancelled(true);
-
                 int secondsLeft = plugin.getItemProtectionManager()
                         .getRemainingSeconds(victim, "rozdzka-iluzjonisty");
-
                 plugin.getItemProtectionManager()
                         .notifyAttacker(attacker, "rozdzka-iluzjonisty", secondsLeft);
-
                 manager.markFangDamaged(fang, victim.getUniqueId());
                 fang.remove();
                 manager.cleanupFang(fang);
@@ -96,26 +91,46 @@ public class RozdzkailuzjonistyListener implements Listener {
             }
         }
 
-        // ✅ ANULUJ domyślne damage
         event.setCancelled(true);
 
         ItemsConfig config = plugin.getItemsConfig();
         double damage = config.getRozdzkailuzjonistyFangsDamage();
 
-        double newHealth = victim.getHealth() - damage;
+        // ✅ Zadaj damage ofierze
+        applyDamage(victim, damage);
+        plugin.getItemProtectionManager().applyProtection(victim, "rozdzka-iluzjonisty");
+        manager.markFangDamaged(fang, victim.getUniqueId());
 
-        if (newHealth <= 0) {
-            victim.setHealth(0.0);
-        } else {
-            victim.setHealth(newHealth);
+        // ✅ Sprawdz graczy 1-2 bloki wyzej nad szczekami (skaczacy gracze)
+        Location fangLoc = fang.getLocation();
+        for (Player nearby : fangLoc.getWorld().getNearbyPlayers(fangLoc, 1.5, 2.5, 1.5)) {
+            if (nearby.equals(victim)) continue;
+            if (ownerUUID != null && nearby.getUniqueId().equals(ownerUUID)) continue;
+            if (manager.hasFangDamaged(fang, nearby.getUniqueId())) continue;
+            if (!manager.canFangDamageInRegion(nearby.getLocation())) continue;
+
+            if (plugin.getItemProtectionManager().isProtected(nearby, "rozdzka-iluzjonisty")) {
+                if (attacker != null) {
+                    int sl = plugin.getItemProtectionManager().getRemainingSeconds(nearby, "rozdzka-iluzjonisty");
+                    plugin.getItemProtectionManager().notifyAttacker(attacker, "rozdzka-iluzjonisty", sl);
+                }
+                manager.markFangDamaged(fang, nearby.getUniqueId());
+                continue;
+            }
+
+            applyDamage(nearby, damage);
+            plugin.getItemProtectionManager().applyProtection(nearby, "rozdzka-iluzjonisty");
+            manager.markFangDamaged(fang, nearby.getUniqueId());
         }
 
-        // ✅ NAŁÓŻ OCHRONĘ PO ZADANIU DAMAGE
-        plugin.getItemProtectionManager().applyProtection(victim, "rozdzka-iluzjonisty");
-
-        manager.markFangDamaged(fang, victim.getUniqueId());
         fang.remove();
         manager.cleanupFang(fang);
+    }
+
+    private void applyDamage(Player victim, double damage) {
+        double newHealth = victim.getHealth() - damage;
+        if (newHealth <= 0) victim.setHealth(0.0);
+        else victim.setHealth(newHealth);
     }
 
     @EventHandler(priority = EventPriority.HIGH)
