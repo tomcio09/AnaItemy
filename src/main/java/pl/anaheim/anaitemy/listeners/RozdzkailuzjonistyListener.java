@@ -1,5 +1,6 @@
 package pl.anaheim.anaitemy.listeners;
 
+import org.bukkit.Location;
 import org.bukkit.entity.EvokerFangs;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -10,17 +11,22 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.Location;
+import org.bukkit.scheduler.BukkitRunnable;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.items.RozdzkailuzjonistyItem;
 import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 public class RozdzkailuzjonistyListener implements Listener {
 
     private final AnaItemy plugin;
+
+    // ✅ Gracze którzy już dostali damage od danej fali szczęk
+    private final Set<String> damagedByWave = new HashSet<>();
 
     public RozdzkailuzjonistyListener(AnaItemy plugin) {
         this.plugin = plugin;
@@ -70,6 +76,7 @@ public class RozdzkailuzjonistyListener implements Listener {
 
         UUID ownerUUID = manager.getFangOwner(fang);
 
+        // ✅ Właściciel nie dostaje damage
         if (ownerUUID != null && ownerUUID.equals(victim.getUniqueId())) {
             event.setCancelled(true);
             return;
@@ -77,6 +84,7 @@ public class RozdzkailuzjonistyListener implements Listener {
 
         Player attacker = ownerUUID != null ? plugin.getServer().getPlayer(ownerUUID) : null;
 
+        // ✅ Sprawdź ochronę
         if (attacker != null) {
             if (plugin.getItemProtectionManager().isProtected(victim, "rozdzka-iluzjonisty")) {
                 event.setCancelled(true);
@@ -91,6 +99,7 @@ public class RozdzkailuzjonistyListener implements Listener {
             }
         }
 
+        // ✅ Anuluj vanilla damage
         event.setCancelled(true);
 
         ItemsConfig config = plugin.getItemsConfig();
@@ -101,30 +110,52 @@ public class RozdzkailuzjonistyListener implements Listener {
         plugin.getItemProtectionManager().applyProtection(victim, "rozdzka-iluzjonisty");
         manager.markFangDamaged(fang, victim.getUniqueId());
 
-        // ✅ Sprawdz graczy 1-2 bloki wyzej nad szczekami (skaczacy gracze)
+        // ✅ Sprawdź graczy nad szczękami (1-3 bloki wyżej) — ręczny damage bez wizualu
         Location fangLoc = fang.getLocation();
-        for (Player nearby : fangLoc.getWorld().getNearbyPlayers(fangLoc, 1.5, 2.5, 1.5)) {
-            if (nearby.equals(victim)) continue;
-            if (ownerUUID != null && nearby.getUniqueId().equals(ownerUUID)) continue;
+        checkPlayersAbove(fangLoc, fang, ownerUUID, attacker, damage, manager);
+
+        fang.remove();
+        manager.cleanupFang(fang);
+    }
+
+    /**
+     * ✅ Sprawdza graczy nad szczękami i zadaje im damage ręcznie.
+     * Nie spawnuje dodatkowych szczęk — tylko niewidoczny damage.
+     */
+    private void checkPlayersAbove(Location fangLoc, EvokerFangs fang,
+                                    UUID ownerUUID, Player attacker,
+                                    double damage, RozdzkailuzjonistyManager manager) {
+
+        for (Player nearby : fangLoc.getWorld().getNearbyPlayers(fangLoc, 1.5, 3.0, 1.5)) {
+            // Pomiń gracza który już dostał damage od tej szczęki
             if (manager.hasFangDamaged(fang, nearby.getUniqueId())) continue;
+
+            // Pomiń właściciela
+            if (ownerUUID != null && nearby.getUniqueId().equals(ownerUUID)) continue;
+
+            // Pomiń graczy na ziemi (ci już dostali damage normalnie)
+            if (nearby.getLocation().getY() - fangLoc.getY() < 0.5) continue;
+
+            // Sprawdź region
             if (!manager.canFangDamageInRegion(nearby.getLocation())) continue;
 
+            // Sprawdź ochronę
             if (plugin.getItemProtectionManager().isProtected(nearby, "rozdzka-iluzjonisty")) {
                 if (attacker != null) {
-                    int sl = plugin.getItemProtectionManager().getRemainingSeconds(nearby, "rozdzka-iluzjonisty");
-                    plugin.getItemProtectionManager().notifyAttacker(attacker, "rozdzka-iluzjonisty", sl);
+                    int sl = plugin.getItemProtectionManager()
+                            .getRemainingSeconds(nearby, "rozdzka-iluzjonisty");
+                    plugin.getItemProtectionManager()
+                            .notifyAttacker(attacker, "rozdzka-iluzjonisty", sl);
                 }
                 manager.markFangDamaged(fang, nearby.getUniqueId());
                 continue;
             }
 
+            // ✅ Zadaj damage ręcznie (niewidocznie — bez dodatkowych szczęk)
             applyDamage(nearby, damage);
             plugin.getItemProtectionManager().applyProtection(nearby, "rozdzka-iluzjonisty");
             manager.markFangDamaged(fang, nearby.getUniqueId());
         }
-
-        fang.remove();
-        manager.cleanupFang(fang);
     }
 
     private void applyDamage(Player victim, double damage) {
