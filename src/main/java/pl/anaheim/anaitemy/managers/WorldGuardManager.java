@@ -45,15 +45,24 @@ public class WorldGuardManager {
     }
 
     public boolean isInBlockedRegion(Location location, List<String> blockedRegions) {
-        if (!worldGuardEnabled) return false;
+        if (!worldGuardEnabled) {
+            plugin.getLogger().info("[WG-DEBUG] WorldGuard nie wlaczony");
+            return false;
+        }
         if (location == null || location.getWorld() == null) return false;
-        if (blockedRegions == null || blockedRegions.isEmpty()) return false;
+        if (blockedRegions == null || blockedRegions.isEmpty()) {
+            plugin.getLogger().info("[WG-DEBUG] Lista blocked regions jest pusta!");
+            return false;
+        }
 
         try {
             RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
             RegionManager regionManager = container.get(BukkitAdapter.adapt(location.getWorld()));
 
-            if (regionManager == null) return false;
+            if (regionManager == null) {
+                plugin.getLogger().info("[WG-DEBUG] RegionManager jest null dla swiata: " + location.getWorld().getName());
+                return false;
+            }
 
             BlockVector3 position = BlockVector3.at(
                     location.getBlockX(),
@@ -63,37 +72,56 @@ public class WorldGuardManager {
 
             ApplicableRegionSet regions = regionManager.getApplicableRegions(position);
 
+            plugin.getLogger().info("[WG-DEBUG] Lokacja: " + location.getBlockX() + "," + location.getBlockY() + "," + location.getBlockZ() + " swiat: " + location.getWorld().getName());
+            plugin.getLogger().info("[WG-DEBUG] Blocked regions z configu: " + blockedRegions);
+            plugin.getLogger().info("[WG-DEBUG] Znalezione regiony WG: " + regions.size());
+
             for (ProtectedRegion region : regions) {
-                // ✅ Sprawdz nazwe regionu (case insensitive)
+                plugin.getLogger().info("[WG-DEBUG] Region: '" + region.getId() + "'");
+
                 for (String blockedName : blockedRegions) {
                     if (blockedName.equalsIgnoreCase(region.getId())) {
+                        plugin.getLogger().info("[WG-DEBUG] MATCH! Zablokowany: " + region.getId());
                         return true;
                     }
                 }
 
-                // ✅ Sprawdz flage PVP
                 StateFlag.State pvpState = region.getFlag(Flags.PVP);
+                plugin.getLogger().info("[WG-DEBUG] PVP flag dla '" + region.getId() + "': " + pvpState);
                 if (pvpState == StateFlag.State.DENY) {
+                    plugin.getLogger().info("[WG-DEBUG] PVP DENY - zablokowany!");
                     return true;
                 }
             }
 
+            plugin.getLogger().info("[WG-DEBUG] Zadne dopasowanie - NIE zablokowany");
             return false;
         } catch (Throwable t) {
+            plugin.getLogger().warning("[WG-DEBUG] BLAD: " + t.getMessage());
+            t.printStackTrace();
             return false;
         }
     }
 
     public boolean isInNamedRegion(Location location, List<String> regionNames) {
-        if (!worldGuardEnabled) return false;
+        if (!worldGuardEnabled) {
+            plugin.getLogger().info("[WG-NAMED-DEBUG] WorldGuard nie wlaczony");
+            return false;
+        }
         if (location == null || location.getWorld() == null) return false;
-        if (regionNames == null || regionNames.isEmpty()) return false;
+        if (regionNames == null || regionNames.isEmpty()) {
+            plugin.getLogger().info("[WG-NAMED-DEBUG] Lista region names jest pusta!");
+            return false;
+        }
 
         try {
             RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
             RegionManager regionManager = container.get(BukkitAdapter.adapt(location.getWorld()));
 
-            if (regionManager == null) return false;
+            if (regionManager == null) {
+                plugin.getLogger().info("[WG-NAMED-DEBUG] RegionManager jest null dla swiata: " + location.getWorld().getName());
+                return false;
+            }
 
             BlockVector3 position = BlockVector3.at(
                     location.getBlockX(),
@@ -103,16 +131,26 @@ public class WorldGuardManager {
 
             ApplicableRegionSet regions = regionManager.getApplicableRegions(position);
 
+            plugin.getLogger().info("[WG-NAMED-DEBUG] Lokacja: " + location.getBlockX() + "," + location.getBlockY() + "," + location.getBlockZ() + " swiat: " + location.getWorld().getName());
+            plugin.getLogger().info("[WG-NAMED-DEBUG] Region names z configu: " + regionNames);
+            plugin.getLogger().info("[WG-NAMED-DEBUG] Znalezione regiony WG: " + regions.size());
+
             for (ProtectedRegion region : regions) {
+                plugin.getLogger().info("[WG-NAMED-DEBUG] Region: '" + region.getId() + "'");
+
                 for (String name : regionNames) {
                     if (name.equalsIgnoreCase(region.getId())) {
+                        plugin.getLogger().info("[WG-NAMED-DEBUG] MATCH! " + region.getId());
                         return true;
                     }
                 }
             }
 
+            plugin.getLogger().info("[WG-NAMED-DEBUG] Zadne dopasowanie - NIE zablokowany");
             return false;
         } catch (Throwable t) {
+            plugin.getLogger().warning("[WG-NAMED-DEBUG] BLAD: " + t.getMessage());
+            t.printStackTrace();
             return false;
         }
     }
@@ -134,6 +172,7 @@ public class WorldGuardManager {
                     Flags.BUILD
             );
         } catch (Throwable t) {
+            plugin.getLogger().warning("[WG-DEBUG] Blad canBreakBlock: " + t.getMessage());
             return true;
         }
     }
