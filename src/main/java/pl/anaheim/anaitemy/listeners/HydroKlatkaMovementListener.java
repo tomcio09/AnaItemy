@@ -42,11 +42,6 @@ public class HydroKlatkaMovementListener implements Listener {
             return;
         }
 
-        // Podczas animacji nie blokuj ruchu
-        if (!klatka.isAnimationComplete()) {
-            return;
-        }
-
         Location center = klatka.getCenter();
         double radius = klatka.getRadius();
 
@@ -61,34 +56,60 @@ public class HydroKlatkaMovementListener implements Listener {
 
         double distanceTo = to.distance(center);
 
-        // ✅ Bariera tylko tam gdzie sa bloki pancerza klatki
-        // Sprawdz czy docelowa pozycja jest w bloku ktory jest czescia klatki (shell)
-        if (distanceTo > radius - 1.5 && distanceTo <= radius + 0.5) {
-            // Gracz jest blisko granicy — sprawdz czy w tym miejscu jest shell
-            Location checkLoc = to.clone();
-            boolean hasShellHere = manager.isShellBlock(checkLoc.getBlock().getLocation());
-            boolean hasShellHead = manager.isShellBlock(checkLoc.clone().add(0, 1, 0).getBlock().getLocation());
+        if (!klatka.isAnimationComplete()) {
+            // ✅ PODCZAS ANIMACJI:
+            // Niewidzialna bariera na granicy klatki (radius - 1.0)
+            // Blokuje gracza NAWET gdzie bloki jeszcze nie pojawiły się
+            // Ale TYLKO tam gdzie bloki SIĘ POJAWIĄ (nie na zablokowanych regionach)
 
-            if (hasShellHere || hasShellHead) {
-                // Jest blok pancerza — zablokuj ruch
+            double innerRadius = radius - 1.0;
+
+            if (distanceTo > innerRadius) {
+                // Sprawdz czy w tym miejscu klatka POWINNA miec bloki
+                // (czyli czy region nie blokuje budowy)
+                Location checkLoc = to.clone();
+                boolean regionBlocked = plugin.getWorldGuardManager().isInBlockedRegion(checkLoc, blockedRegions);
+
+                if (regionBlocked) {
+                    // Region blokuje budowe — pozwol graczowi wyjsc
+                    manager.removePlayerFromKlatka(player);
+                    return;
+                }
+
+                // Niewidzialna bariera — zablokuj ruch
                 Location cancelLoc = from.clone();
                 cancelLoc.setYaw(to.getYaw());
                 cancelLoc.setPitch(to.getPitch());
                 event.setTo(cancelLoc);
-                return;
+            }
+        } else {
+            // ✅ PO ANIMACJI:
+            // Bariera tylko tam gdzie sa fizyczne bloki shell
+
+            if (distanceTo > radius - 1.5 && distanceTo <= radius + 0.5) {
+                boolean hasShellHere = manager.isShellBlock(to.getBlock().getLocation());
+                boolean hasShellHead = manager.isShellBlock(to.clone().add(0, 1, 0).getBlock().getLocation());
+
+                if (hasShellHere || hasShellHead) {
+                    // Jest blok pancerza — zablokuj ruch
+                    Location cancelLoc = from.clone();
+                    cancelLoc.setYaw(to.getYaw());
+                    cancelLoc.setPitch(to.getPitch());
+                    event.setTo(cancelLoc);
+                    return;
+                }
+
+                // Nie ma bloku pancerza (region zablokowal budowe) — wypusc gracza
+                if (distanceTo > radius - 0.5) {
+                    manager.removePlayerFromKlatka(player);
+                    return;
+                }
             }
 
-            // ✅ Nie ma bloku pancerza w tym miejscu (region zablokowal budowe)
-            // Pozwol graczowi wyjsc — wypusc go z klatki
-            if (distanceTo > radius - 0.5) {
+            // Gracz calkowicie poza klatka
+            if (distanceTo > radius) {
                 manager.removePlayerFromKlatka(player);
-                return;
             }
-        }
-
-        // Gracz calkowicie poza klatka
-        if (distanceTo > radius) {
-            manager.removePlayerFromKlatka(player);
         }
     }
 
@@ -112,27 +133,37 @@ public class HydroKlatkaMovementListener implements Listener {
         if (to == null) return;
         Location center = klatka.getCenter();
 
-        // Sprawdz czy docelowa lokalizacja ma shell
-        boolean hasShell = manager.isShellBlock(to.getBlock().getLocation())
-                || manager.isShellBlock(to.clone().add(0, 1, 0).getBlock().getLocation());
-
-        if (hasShell) {
-            event.setCancelled(true);
-            manager.sendMessage(player,
-                    plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
-            return;
-        }
-
-        // Jesli teleportuje poza klatke i nie ma shell — wypusc
-        if (to.distance(center) > klatka.getRadius()) {
-            manager.removePlayerFromKlatka(player);
-            return;
-        }
-
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
+
+        // Na zablokowany region — wypusc
         if (plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions)) {
             manager.removePlayerFromKlatka(player);
+            return;
+        }
+
+        if (!klatka.isAnimationComplete()) {
+            // Podczas animacji — niewidzialna bariera
+            if (to.distance(center) > klatka.getRadius() - 1.0) {
+                event.setCancelled(true);
+                manager.sendMessage(player,
+                        plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+            }
+        } else {
+            // Po animacji — bariera tylko na shell
+            boolean hasShell = manager.isShellBlock(to.getBlock().getLocation())
+                    || manager.isShellBlock(to.clone().add(0, 1, 0).getBlock().getLocation());
+
+            if (hasShell) {
+                event.setCancelled(true);
+                manager.sendMessage(player,
+                        plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+                return;
+            }
+
+            if (to.distance(center) > klatka.getRadius()) {
+                manager.removePlayerFromKlatka(player);
+            }
         }
     }
 
