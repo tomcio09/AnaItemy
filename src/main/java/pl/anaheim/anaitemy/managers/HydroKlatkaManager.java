@@ -245,7 +245,7 @@ public class HydroKlatkaManager {
 
             Location loc = player.getLocation();
 
-            // ✅ Jeśli gracz jest na zablokowanym regionie — wypuść go
+            // Jesli gracz jest na zablokowanym regionie — wypusc
             if (plugin.getWorldGuardManager().isInBlockedRegion(loc, blockedRegions)) {
                 klatka.removeTrappedPlayer(playerId);
                 BossBar bossBar = playerBossBars.remove(playerId);
@@ -253,13 +253,9 @@ public class HydroKlatkaManager {
                 continue;
             }
 
-            Block feet = loc.getBlock();
-            Block head = loc.clone().add(0, 1, 0).getBlock();
-
-            boolean feetInWall = feet.getType() == SHELL && klatka.hasOriginalBlock(feet.getLocation());
-            boolean headInWall = head.getType() == SHELL && klatka.hasOriginalBlock(head.getLocation());
-
-            if (feetInWall || headInWall) {
+            // Teleportuj na srodek TYLKO jesli gracz jest calkowicie poza klatka (bug/exploit)
+            double distance = loc.distance(center);
+            if (distance > klatka.getRadius() + 1.0) {
                 Location teleportLoc = center.clone();
                 teleportLoc.setYaw(loc.getYaw());
                 teleportLoc.setPitch(loc.getPitch());
