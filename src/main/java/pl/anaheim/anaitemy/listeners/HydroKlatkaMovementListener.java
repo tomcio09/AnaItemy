@@ -18,7 +18,6 @@ import java.util.List;
 public class HydroKlatkaMovementListener implements Listener {
 
     private final AnaItemy plugin;
-    private static final double BORDER_MARGIN = 0.5;
 
     public HydroKlatkaMovementListener(AnaItemy plugin) {
         this.plugin = plugin;
@@ -36,58 +35,45 @@ public class HydroKlatkaMovementListener implements Listener {
         Location to = event.getTo();
         if (to == null) return;
 
-        // ✅ Ignoruj obróty głowy (tylko pozycja X/Y/Z się liczy)
+        // Ignoruj obroty glowy
         if (from.getBlockX() == to.getBlockX()
                 && from.getBlockY() == to.getBlockY()
                 && from.getBlockZ() == to.getBlockZ()) {
             return;
         }
 
+        // Podczas animacji nie blokuj ruchu
+        if (!klatka.isAnimationComplete()) {
+            return;
+        }
+
         Location center = klatka.getCenter();
         double radius = klatka.getRadius();
 
-        double distanceTo = to.distance(center);
-        double distanceFrom = from.distance(center);
-
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
-        
-        boolean movingToBlockedRegion = plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions);
-        boolean wasInBlockedRegion = plugin.getWorldGuardManager().isInBlockedRegion(from, blockedRegions);
 
-        if (movingToBlockedRegion && !wasInBlockedRegion) {
+        boolean toInBlockedRegion = plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions);
+
+        // Gracz wychodzi na zablokowany region — pozwol i wypusc
+        if (toInBlockedRegion) {
+            manager.removePlayerFromKlatka(player);
+            return;
+        }
+
+        double distanceTo = to.distance(center);
+
+        // Bariera na wewnetrznej krawedzi pancerza (radius - 1.0)
+        // Gracz moze sie poruszac swobodnie wewnatrz
+        // Ale nie moze przekroczyc granicy pancerza
+        double innerRadius = radius - 1.0;
+
+        if (distanceTo > innerRadius) {
+            // Zablokuj ruch — NIE teleportuj na srodek
             Location cancelLoc = from.clone();
             cancelLoc.setYaw(to.getYaw());
             cancelLoc.setPitch(to.getPitch());
             event.setTo(cancelLoc);
-            return;
-        }
-
-        if (movingToBlockedRegion) {
-            Location teleportLoc = center.clone();
-            teleportLoc.setYaw(to.getYaw());
-            teleportLoc.setPitch(to.getPitch());
-            event.setCancelled(true);
-            player.teleport(teleportLoc);
-            return;
-        }
-
-        if (distanceTo > radius) {
-            Location teleportLoc = center.clone();
-            teleportLoc.setYaw(to.getYaw());
-            teleportLoc.setPitch(to.getPitch());
-            event.setCancelled(true);
-            player.teleport(teleportLoc);
-            return;
-        }
-
-        if (distanceTo >= radius - BORDER_MARGIN) {
-            if (distanceTo > distanceFrom) {
-                Location cancelLoc = from.clone();
-                cancelLoc.setYaw(to.getYaw());
-                cancelLoc.setPitch(to.getPitch());
-                event.setTo(cancelLoc);
-            }
         }
     }
 
@@ -99,6 +85,7 @@ public class HydroKlatkaMovementListener implements Listener {
         ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
         if (klatka == null) return;
 
+        // Pozwol na teleport pluginowy blisko srodka
         if (event.getCause() == PlayerTeleportEvent.TeleportCause.PLUGIN) {
             Location to = event.getTo();
             if (to == null) return;
@@ -110,7 +97,7 @@ public class HydroKlatkaMovementListener implements Listener {
         if (to == null) return;
         Location center = klatka.getCenter();
 
-        if (to.distance(center) > klatka.getRadius()) {
+        if (to.distance(center) > klatka.getRadius() - 1.0) {
             event.setCancelled(true);
             manager.sendMessage(player,
                     plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
