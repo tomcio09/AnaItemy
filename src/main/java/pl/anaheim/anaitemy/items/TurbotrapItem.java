@@ -17,15 +17,15 @@ import java.util.List;
 public class TurbotrapItem {
 
     public static final String ITEM_NAME_STRIPPED = "Turbo-Trap";
-    public static final int CUSTOM_MODEL_DATA = 64363124;
+    public static final int CUSTOM_MODEL_DATA = 50;
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
-                " &8» &7Jest to przedmiot zdobyty podczas",
-                " &8» &fWielkanocnego Wydarzenia 2025&7!",
+                " &8\u00bb &7Jest to przedmiot zdobyty podczas",
+                " &8\u00bb &fWielkanocnego Wydarzenia 2025&7!",
                 "",
-                " &8» &7Podczas wystrzelenia Turbotrapu",
-                " &8» &fbudujesz prostą pułapkę &7w miejscu eksplozji!"
+                " &8\u00bb &7Podczas wystrzelenia Turbotrapu",
+                " &8\u00bb &fbudujesz prosta pulapke &7w miejscu eksplozji!"
         );
 
         ItemStack item = new ItemStack(Material.EGG);
@@ -44,7 +44,7 @@ public class TurbotrapItem {
         meta.lore(loreComponents);
 
         meta.setCustomModelData(CUSTOM_MODEL_DATA);
-        meta.addEnchant(Enchantment.DURABILITY, 10, true);
+        meta.addEnchant(Enchantment.UNBREAKING, 10, true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
 
         item.setItemMeta(meta);
