@@ -53,27 +53,42 @@ public class HydroKlatkaMovementListener implements Listener {
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
 
-        boolean toInBlockedRegion = plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions);
-
         // Gracz wychodzi na zablokowany region — pozwol i wypusc
-        if (toInBlockedRegion) {
+        if (plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions)) {
             manager.removePlayerFromKlatka(player);
             return;
         }
 
         double distanceTo = to.distance(center);
 
-        // Bariera na wewnetrznej krawedzi pancerza (radius - 1.0)
-        // Gracz moze sie poruszac swobodnie wewnatrz
-        // Ale nie moze przekroczyc granicy pancerza
-        double innerRadius = radius - 1.0;
+        // ✅ Bariera tylko tam gdzie sa bloki pancerza klatki
+        // Sprawdz czy docelowa pozycja jest w bloku ktory jest czescia klatki (shell)
+        if (distanceTo > radius - 1.5 && distanceTo <= radius + 0.5) {
+            // Gracz jest blisko granicy — sprawdz czy w tym miejscu jest shell
+            Location checkLoc = to.clone();
+            boolean hasShellHere = manager.isShellBlock(checkLoc.getBlock().getLocation());
+            boolean hasShellHead = manager.isShellBlock(checkLoc.clone().add(0, 1, 0).getBlock().getLocation());
 
-        if (distanceTo > innerRadius) {
-            // Zablokuj ruch — NIE teleportuj na srodek
-            Location cancelLoc = from.clone();
-            cancelLoc.setYaw(to.getYaw());
-            cancelLoc.setPitch(to.getPitch());
-            event.setTo(cancelLoc);
+            if (hasShellHere || hasShellHead) {
+                // Jest blok pancerza — zablokuj ruch
+                Location cancelLoc = from.clone();
+                cancelLoc.setYaw(to.getYaw());
+                cancelLoc.setPitch(to.getPitch());
+                event.setTo(cancelLoc);
+                return;
+            }
+
+            // ✅ Nie ma bloku pancerza w tym miejscu (region zablokowal budowe)
+            // Pozwol graczowi wyjsc — wypusc go z klatki
+            if (distanceTo > radius - 0.5) {
+                manager.removePlayerFromKlatka(player);
+                return;
+            }
+        }
+
+        // Gracz calkowicie poza klatka
+        if (distanceTo > radius) {
+            manager.removePlayerFromKlatka(player);
         }
     }
 
@@ -97,19 +112,27 @@ public class HydroKlatkaMovementListener implements Listener {
         if (to == null) return;
         Location center = klatka.getCenter();
 
-        if (to.distance(center) > klatka.getRadius() - 1.0) {
+        // Sprawdz czy docelowa lokalizacja ma shell
+        boolean hasShell = manager.isShellBlock(to.getBlock().getLocation())
+                || manager.isShellBlock(to.clone().add(0, 1, 0).getBlock().getLocation());
+
+        if (hasShell) {
             event.setCancelled(true);
             manager.sendMessage(player,
                     plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
             return;
         }
 
+        // Jesli teleportuje poza klatke i nie ma shell — wypusc
+        if (to.distance(center) > klatka.getRadius()) {
+            manager.removePlayerFromKlatka(player);
+            return;
+        }
+
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
         if (plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions)) {
-            event.setCancelled(true);
-            manager.sendMessage(player,
-                    plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+            manager.removePlayerFromKlatka(player);
         }
     }
 
