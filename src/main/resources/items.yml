@@ -1018,7 +1018,7 @@ sniezka-zamiany:
 turbotrap:
   material: EGG
   name: '&a&lTurbo-Trap'
-  custom-model-data: 64363124
+  custom-model-data: 50
   gui-slot: 2
   blocked-regions:
     - spawn
@@ -1070,6 +1070,7 @@ piernik:
   respects-protection: false
   notify-attacker: false
 
+
 # ==========================================
 #         ZŁAMANE SERCE
 # ==========================================
@@ -1080,11 +1081,10 @@ zlamane-serce:
   gui-slot: 7
   slow-falling-duration: 10
   messages:
-    attacker-subtitle: '&7Złamałeś &dserce &7gracza &f{victim}&7!'
-    victim-subtitle: '&7Twoje &dserduszko &7zostało złamane!'
+    attacker-subtitle: '&7Złamałeś &dserduszko &7graczowi &f{nick}&7!'
+    victim-subtitle: '&7Twoje &dserduszko &7zostało &fzłamane&7!'
   respects-protection: false
   notify-attacker: false
-
 # ==========================================
 #         WAMPIRZE JABŁKO
 # ==========================================
