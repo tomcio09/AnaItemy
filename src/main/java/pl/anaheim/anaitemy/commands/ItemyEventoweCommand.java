@@ -164,7 +164,10 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
     private void handleCooldownReset(CommandSender s, String name) {
         Player t = Bukkit.getPlayer(name);
         if (t == null) { s.sendMessage(color("&cGracz &f" + name + " &cnie jest online!")); return; }
-        plugin.getHydroKlatkaManager().resetCooldown(t); t.setCooldown(org.bukkit.Material.BLAZE_ROD, 0); plugin.getHydroKlatkaManager().stopCooldownDisplay(t);
+        plugin.getHydroKlatkaManager().resetCooldown(target);
+        plugin.getHydroKlatkaManager().resetChunkCooldowns();
+        target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
+        plugin.getHydroKlatkaManager().stopCooldownDisplay(target);
         plugin.getRozdzkailuzjonistyManager().resetFangsCooldown(t); plugin.getRozdzkailuzjonistyManager().resetVanishCooldown(t);
         plugin.getWedkaNielotaManager().resetCooldown(t); plugin.getBlokWidmoManager().resetCooldown(t);
         plugin.getSiekieraGrinchaManager().resetCooldown(t); plugin.getHydroTrojzabManager().resetCooldowns(t);
