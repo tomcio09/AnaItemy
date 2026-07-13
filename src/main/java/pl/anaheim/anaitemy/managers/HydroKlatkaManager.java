@@ -88,6 +88,9 @@ public class HydroKlatkaManager {
     public void resetCooldown(Player player) {
         playerCooldowns.remove(player.getUniqueId());
     }
+    public void resetChunkCooldowns() {
+        chunkCooldowns.clear();
+    }
 
     public boolean isChunkBlocked(Location location) {
         String chunkKey = getChunkKey(location);
