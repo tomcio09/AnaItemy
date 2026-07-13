@@ -17,11 +17,15 @@ import pl.anaheim.anaitemy.gui.EventoweGUI;
 import pl.anaheim.anaitemy.items.*;
 import pl.anaheim.anaitemy.managers.*;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
+
     private final AnaItemy plugin;
+
     private static final List<String> ITEM_IDS = Arrays.asList(
             "totem", "excalibur", "hydroklatka", "rozdzka", "wedka", "sakiewka",
             "elytra", "blokwidmo", "siekiera", "hydrotrident", "latarnia", "rog",
@@ -31,66 +35,125 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             "kostka", "sniezka", "turbotrap", "krew", "balonik", "wata",
             "piernik", "zlamaneserce", "wampirze", "mleko", "parawan",
             "kanapka", "lewejajko", "trunek", "bombarda", "dynamit",
-            "kamien", "przepustka", "creeper", "olaf", "rozszerzenieec", "helm2", "klata2", "spodnie2", "buty2", "helm1", "klata1", "spodnie1", "buty1", "anakilof", "anamiecz", "analuk"
+            "kamien", "przepustka", "creeper", "olaf", "rozszerzenieec",
+            "helm2", "klata2", "spodnie2", "buty2",
+            "helm1", "klata1", "spodnie1", "buty1",
+            "anakilof", "anamiecz", "analuk"
     );
 
     public ItemyEventoweCommand(AnaItemy plugin) { this.plugin = plugin; }
 
     @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        if (sender instanceof Player player && !player.isOp()) { player.sendMessage(color("&cNie masz uprawnień do tej komendy!")); return true; }
-        if (args.length == 0) { if (!(sender instanceof Player player)) { sender.sendMessage("Ta komenda jest tylko dla graczy!"); return true; } EventoweGUI.open(player, plugin); return true; }
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
+                             @NotNull String label, @NotNull String[] args) {
+        if (sender instanceof Player player && !player.isOp()) {
+            player.sendMessage(color("&cNie masz uprawnien do tej komendy!"));
+            return true;
+        }
+        if (args.length == 0) {
+            if (!(sender instanceof Player player)) { sender.sendMessage("Ta komenda jest tylko dla graczy!"); return true; }
+            EventoweGUI.open(player, plugin);
+            return true;
+        }
         if (args.length == 1 && args[0].equalsIgnoreCase("reload")) { handleReload(sender); return true; }
-        if (args.length == 2 && args[0].equalsIgnoreCase("kills")) { if (!(sender instanceof Player player)) { sender.sendMessage("Ta komenda jest tylko dla graczy!"); return true; } handleKillsCommand(player, args[1]); return true; }
+        if (args.length == 2 && args[0].equalsIgnoreCase("kills")) {
+            if (!(sender instanceof Player player)) { sender.sendMessage("Ta komenda jest tylko dla graczy!"); return true; }
+            handleKillsCommand(player, args[1]); return true;
+        }
         if (args.length == 4 && args[0].equalsIgnoreCase("give")) { handleGiveCommand(sender, args[1], args[2], args[3]); return true; }
         if (args.length == 3 && args[0].equalsIgnoreCase("cooldown") && args[1].equalsIgnoreCase("reset")) { handleCooldownReset(sender, args[2]); return true; }
         if (args.length == 3 && args[0].equalsIgnoreCase("klatwa")) { handleKlatwaCommand(sender, args[1], args[2]); return true; }
         if (args.length == 3 && args[0].equalsIgnoreCase("widmo")) { handleWidmoCommand(sender, args[1], args[2]); return true; }
-        sendHelp(sender); return true;
+        sendHelp(sender);
+        return true;
     }
 
-    private void handleReload(CommandSender s) { plugin.reloadConfig(); plugin.getItemsConfig().reloadConfig(); s.sendMessage(color("&aZreloadowano konfigurację &fconfig.yml &ai &fitems.yml&a!")); }
+    private void handleReload(CommandSender sender) {
+        plugin.reloadConfig();
+        plugin.getItemsConfig().reloadConfig();
+        sender.sendMessage(color("&aZreloadowano konfiguracje &fconfig.yml &ai &fitems.yml&a!"));
+    }
 
-    private void handleGiveCommand(CommandSender s, String id, String name, String amtStr) {
-        Player t = Bukkit.getPlayer(name);
-        if (t == null) { s.sendMessage(color("&cGracz &f" + name + " &cnie jest online!")); return; }
-        int amt; try { amt = Integer.parseInt(amtStr); if (amt <= 0) { s.sendMessage(color("&cIlość musi być większa niż 0!")); return; } } catch (NumberFormatException e) { s.sendMessage(color("&cPodaj poprawną liczbę!")); return; }
-        if (id.equalsIgnoreCase("sakiewka")) { int fs = countFreeSlots(t); if (fs < amt) { s.sendMessage(color("&cGracz &4" + t.getName() + " &cma pełny ekwipunek!")); return; } for (int i = 0; i < amt; i++) t.getInventory().addItem(SakiewkaDropu.create()); s.sendMessage(color("&aDano &f" + amt + "x &7[" + getItemDisplayName(id) + "&7] &agraczowi &f" + t.getName() + "&a!")); t.sendMessage(color("&aOtrzymałeś &f" + amt + "x &7[" + getItemDisplayName(id) + "&7]&a!")); return; }
-        ItemStack item = createItemById(id.toLowerCase()); if (item == null) { s.sendMessage(color("&cNieznany item: &f" + id)); s.sendMessage(color("&7Dostępne: &f" + String.join(", ", ITEM_IDS))); return; }
-        int fs = countFreeSlots(t); if (fs < (int) Math.ceil((double) amt / item.getMaxStackSize())) { s.sendMessage(color("&cGracz &4" + t.getName() + " &cma pełny ekwipunek!")); return; }
-        item.setAmount(amt); t.getInventory().addItem(item);
-        s.sendMessage(color("&aDano &f" + amt + "x &7[" + getItemDisplayName(id) + "&7] &agraczowi &f" + t.getName() + "&a!")); t.sendMessage(color("&aOtrzymałeś &f" + amt + "x &7[" + getItemDisplayName(id) + "&7]&a!"));
+    private void handleGiveCommand(CommandSender sender, String itemId, String targetName, String amountStr) {
+        Player target = Bukkit.getPlayer(targetName);
+        if (target == null) { sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!")); return; }
+        int amount;
+        try { amount = Integer.parseInt(amountStr); if (amount <= 0) { sender.sendMessage(color("&cIlosc musi byc wieksza niz 0!")); return; }
+        } catch (NumberFormatException e) { sender.sendMessage(color("&cPodaj poprawna liczbe!")); return; }
+
+        if (itemId.equalsIgnoreCase("sakiewka")) {
+            int fs = countFreeSlots(target);
+            if (fs < amount) { sender.sendMessage(color("&cGracz &4" + target.getName() + " &cma pelny ekwipunek!")); return; }
+            for (int i = 0; i < amount; i++) target.getInventory().addItem(SakiewkaDropu.create());
+            sender.sendMessage(color("&aDano &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
+            target.sendMessage(color("&aOtrzymales &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7]&a!"));
+            return;
+        }
+
+        ItemStack item = createItemById(itemId.toLowerCase());
+        if (item == null) { sender.sendMessage(color("&cNieznany item: &f" + itemId)); sender.sendMessage(color("&7Dostepne: &f" + String.join(", ", ITEM_IDS))); return; }
+        int fs = countFreeSlots(target);
+        if (fs < (int) Math.ceil((double) amount / item.getMaxStackSize())) { sender.sendMessage(color("&cGracz &4" + target.getName() + " &cma pelny ekwipunek!")); return; }
+        item.setAmount(amount);
+        target.getInventory().addItem(item);
+        sender.sendMessage(color("&aDano &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7] &agraczowi &f" + target.getName() + "&a!"));
+        target.sendMessage(color("&aOtrzymales &f" + amount + "x &7[" + getItemDisplayName(itemId) + "&7]&a!"));
     }
 
     private ItemStack createItemById(String id) {
-        int mk = plugin.getItemsConfig().getExcaliburMaxKills();
+        int maxKills = plugin.getItemsConfig().getExcaliburMaxKills();
         return switch (id) {
-            case "totem" -> TotemUlaskawienia.create(); case "excalibur" -> Excalibur.create(mk);
-            case "hydroklatka" -> HydroKlatka.create(); case "rozdzka" -> RozdzkailuzjonistyItem.create();
-            case "wedka" -> WedkaNielotaItem.create(); case "elytra" -> WzmocnianaElytra.create();
-            case "blokwidmo" -> BlokWidmoItem.create(); case "siekiera" -> SiekieraGrinchaItem.create();
+            case "totem" -> TotemUlaskawienia.create();
+            case "excalibur" -> Excalibur.create(maxKills);
+            case "hydroklatka" -> HydroKlatka.create();
+            case "rozdzka" -> RozdzkailuzjonistyItem.create();
+            case "wedka" -> WedkaNielotaItem.create();
+            case "elytra" -> WzmocnianaElytra.create();
+            case "blokwidmo" -> BlokWidmoItem.create();
+            case "siekiera" -> SiekieraGrinchaItem.create();
             case "hydrotrident", "hydrotrojzab" -> HydroTrojzabItem.create();
-            case "latarnia" -> CudownaLatarniaItem.create(); case "rog" -> RogJednorozcaItem.create();
-            case "topor" -> BoskiToporItem.create(); case "marchewka" -> SuperMarchewkaItem.create();
-            case "lopata" -> LopataGrinchaItem.create(); case "rozga" -> RozgaItem.create();
-            case "arcus" -> ArcusMagnusItem.create(); case "kroliczy" -> KroliczyMieczItem.create();
-            case "piekielny" -> PiekielnyMieczItem.create(); case "smoczy" -> SmoczyMieczItem.create();
-            case "kosa" -> KosaItem.create(); case "lukkupidyna" -> LukKupidynaItem.create();
-            case "marchewkowymiecz" -> MarchewkowyMieczItem.create(); case "kusza" -> MarchewkowaKuszaItem.create();
-            case "surferka" -> WedkaSurferkaItem.create(); case "olowek" -> ZatrutyOlowekItem.create();
-            case "korona" -> KoronaAnarchiiItem.create(); case "tarcza" -> PiekielnaTarczaItem.create();
-            case "roza" -> RozaKupidynaItem.create(); case "lizak" -> LizakItem.create();
-            case "kukurydza" -> KukurydzaItem.create(); case "kostka" -> KostkaRubikaItem.create();
-            case "sniezka" -> SniezkaZamianyItem.create(); case "turbotrap" -> TurbotrapItem.create();
-            case "krew" -> KrewWampiraItem.create(); case "balonik" -> BalonikItem.create();
-            case "wata" -> WataCukrowaItem.create(); case "piernik" -> PiernikItem.create();
-            case "zlamaneserce" -> ZlamaneSerceItem.create(); case "wampirze" -> WampirzeJablkoItem.create();
-            case "mleko" -> CiepleMlekoItem.create(); case "parawan" -> ParawanItem.create();
-            case "kanapka" -> SplesnialaKanapkaItem.create(); case "lewejajko" -> LeweJajkoItem.create();
-            case "trunek" -> PrzeterminowanyTrunekItem.create(); case "bombarda" -> BombardaMaximaItem.create();
-            case "dynamit" -> DynamitItem.create(); case "kamien" -> KamienKowalskiItem.create();
-            case "przepustka" -> PrzepustkaNeteruItem.create(); case "creeper" -> CreeperZmutowanyItem.create();
-            case "olaf" -> OlafItem.create(); case "rozszerzenieec" -> RozszerzenieECItem.create();
+            case "latarnia" -> CudownaLatarniaItem.create();
+            case "rog" -> RogJednorozcaItem.create();
+            case "topor" -> BoskiToporItem.create();
+            case "marchewka" -> SuperMarchewkaItem.create();
+            case "lopata" -> LopataGrinchaItem.create();
+            case "rozga" -> RozgaItem.create();
+            case "arcus" -> ArcusMagnusItem.create();
+            case "kroliczy" -> KroliczyMieczItem.create();
+            case "piekielny" -> PiekielnyMieczItem.create();
+            case "smoczy" -> SmoczyMieczItem.create();
+            case "kosa" -> KosaItem.create();
+            case "lukkupidyna" -> LukKupidynaItem.create();
+            case "marchewkowymiecz" -> MarchewkowyMieczItem.create();
+            case "kusza" -> MarchewkowaKuszaItem.create();
+            case "surferka" -> WedkaSurferkaItem.create();
+            case "olowek" -> ZatrutyOlowekItem.create();
+            case "korona" -> KoronaAnarchiiItem.create();
+            case "tarcza" -> PiekielnaTarczaItem.create();
+            case "roza" -> RozaKupidynaItem.create();
+            case "lizak" -> LizakItem.create();
+            case "kukurydza" -> KukurydzaItem.create();
+            case "kostka" -> KostkaRubikaItem.create();
+            case "sniezka" -> SniezkaZamianyItem.create();
+            case "turbotrap" -> TurbotrapItem.create();
+            case "krew" -> KrewWampiraItem.create();
+            case "balonik" -> BalonikItem.create();
+            case "wata" -> WataCukrowaItem.create();
+            case "piernik" -> PiernikItem.create();
+            case "zlamaneserce" -> ZlamaneSerceItem.create();
+            case "wampirze" -> WampirzeJablkoItem.create();
+            case "mleko" -> CiepleMlekoItem.create();
+            case "parawan" -> ParawanItem.create();
+            case "kanapka" -> SplesnialaKanapkaItem.create();
+            case "lewejajko" -> LeweJajkoItem.create();
+            case "trunek" -> PrzeterminowanyTrunekItem.create();
+            case "bombarda" -> BombardaMaximaItem.create();
+            case "dynamit" -> DynamitItem.create();
+            case "kamien" -> KamienKowalskiItem.create();
+            case "przepustka" -> PrzepustkaNeteruItem.create();
+            case "creeper" -> CreeperZmutowanyItem.create();
+            case "olaf" -> OlafItem.create();
+            case "rozszerzenieec" -> RozszerzenieECItem.create();
             case "helm2" -> AnarchicznySetItem.createHelm2();
             case "klata2" -> AnarchicznySetItem.createKlata2();
             case "spodnie2" -> AnarchicznySetItem.createSpodnie2();
@@ -108,32 +171,58 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
 
     private String getItemDisplayName(String id) {
         return switch (id.toLowerCase()) {
-            case "totem" -> "&5Totem Ułaskawienia"; case "excalibur" -> "&eExcalibur";
-            case "hydroklatka" -> "&3Wyrzutnia Hydro Klatki"; case "rozdzka" -> "&5Różdżka Iluzjonisty";
-            case "wedka" -> "&5Wędka Nielota"; case "sakiewka" -> "&aSakiewka Dropu";
-            case "elytra" -> "&5Wzmocniana Elytra"; case "blokwidmo" -> "&cBlok Widmo";
-            case "siekiera" -> "&2Siekiera Grincha"; case "hydrotrident", "hydrotrojzab" -> "&3Hydro Trójząb";
-            case "latarnia" -> "&dCudowna Latarnia"; case "rog" -> "&dRóg Jednorożca";
-            case "topor" -> "&bBoski Topór"; case "marchewka" -> "&6Super Marchewka";
-            case "lopata" -> "&aŁopata Grincha"; case "rozga" -> "&6Rózga";
-            case "arcus" -> "&aArcus Magnus"; case "kroliczy" -> "&3Króliczy Miecz";
-            case "piekielny" -> "&cPiekielny Miecz"; case "smoczy" -> "&dSmoczy Miecz";
-            case "kosa" -> "&8Kosa"; case "lukkupidyna" -> "&4Łuk Kupidyna";
-            case "marchewkowymiecz" -> "&6Marchewkowy Miecz"; case "kusza" -> "&6Marchewkowa Kusza";
-            case "surferka" -> "&bWędka Surferka"; case "olowek" -> "&aZatruty Ołówek";
-            case "korona" -> "&6Korona ANARCHII"; case "tarcza" -> "&6Piekielna Tarcza";
-            case "roza" -> "&cRóża Kupidyna"; case "lizak" -> "&dLizak";
-            case "kukurydza" -> "&aRozgotowana Kukurydza"; case "kostka" -> "&eKostka Rubika";
-            case "sniezka" -> "&fŚnieżka Zamiany"; case "turbotrap" -> "&aTurbo-Trap";
-            case "krew" -> "&cKrew Wampira"; case "balonik" -> "&3Balonik z Helem";
-            case "wata" -> "&bWata Cukrowa"; case "piernik" -> "&6Piernik";
-            case "zlamaneserce" -> "&5Złamane Serce"; case "wampirze" -> "&6Wampirze Jabłko";
-            case "mleko" -> "&1Ciepłe Mleko"; case "parawan" -> "&eParawan";
-            case "kanapka" -> "&2Spleśniała Kanapka"; case "lewejajko" -> "&eLewe Jajko";
-            case "trunek" -> "&2Przeterminowany Trunek"; case "bombarda" -> "&5Bombarda Maxima";
-            case "dynamit" -> "&4Dynamit"; case "kamien" -> "&cKamień Kowalski";
-            case "przepustka" -> "&4Przepustka Netheru"; case "creeper" -> "&aZmutowany Creeper";
-            case "olaf" -> "&bOlaf"; case "rozszerzenieec" -> "&5Rozszerzenie EC";
+            case "totem" -> "&5Totem Ulaskawienia";
+            case "excalibur" -> "&eExcalibur";
+            case "hydroklatka" -> "&3Wyrzutnia Hydro Klatki";
+            case "rozdzka" -> "&5Rozdzka Iluzjonisty";
+            case "wedka" -> "&5Wedka Nielota";
+            case "sakiewka" -> "&aSakiewka Dropu";
+            case "elytra" -> "&5Wzmocniana Elytra";
+            case "blokwidmo" -> "&cBlok Widmo";
+            case "siekiera" -> "&2Siekiera Grincha";
+            case "hydrotrident", "hydrotrojzab" -> "&3Hydro Trojzab";
+            case "latarnia" -> "&dCudowna Latarnia";
+            case "rog" -> "&dRog Jednorozca";
+            case "topor" -> "&bBoski Topor";
+            case "marchewka" -> "&6Super Marchewka";
+            case "lopata" -> "&aLopata Grincha";
+            case "rozga" -> "&6Rozga";
+            case "arcus" -> "&aArcus Magnus";
+            case "kroliczy" -> "&3Kroliczy Miecz";
+            case "piekielny" -> "&cPiekielny Miecz";
+            case "smoczy" -> "&dSmoczy Miecz";
+            case "kosa" -> "&8Kosa";
+            case "lukkupidyna" -> "&4Luk Kupidyna";
+            case "marchewkowymiecz" -> "&6Marchewkowy Miecz";
+            case "kusza" -> "&6Marchewkowa Kusza";
+            case "surferka" -> "&bWedka Surferka";
+            case "olowek" -> "&aZatruty Olowek";
+            case "korona" -> "&6Korona ANARCHII";
+            case "tarcza" -> "&6Piekielna Tarcza";
+            case "roza" -> "&cRoza Kupidyna";
+            case "lizak" -> "&dLizak";
+            case "kukurydza" -> "&aRozgotowana Kukurydza";
+            case "kostka" -> "&eKostka Rubika";
+            case "sniezka" -> "&fSniezka Zamiany";
+            case "turbotrap" -> "&aTurbo-Trap";
+            case "krew" -> "&cKrew Wampira";
+            case "balonik" -> "&3Balonik z Helem";
+            case "wata" -> "&bWata Cukrowa";
+            case "piernik" -> "&6Piernik";
+            case "zlamaneserce" -> "&5Zlamane Serce";
+            case "wampirze" -> "&6Wampirze Jablko";
+            case "mleko" -> "&1Cieple Mleko";
+            case "parawan" -> "&eParawan";
+            case "kanapka" -> "&2Splesniale Kanapka";
+            case "lewejajko" -> "&eLewe Jajko";
+            case "trunek" -> "&2Przeterminowany Trunek";
+            case "bombarda" -> "&5Bombarda Maxima";
+            case "dynamit" -> "&4Dynamit";
+            case "kamien" -> "&cKamien Kowalski";
+            case "przepustka" -> "&4Przepustka Netheru";
+            case "creeper" -> "&aZmutowany Creeper";
+            case "olaf" -> "&bOlaf";
+            case "rozszerzenieec" -> "&5Rozszerzenie EC";
             case "helm2" -> "&4Anarchiczny Helm II";
             case "klata2" -> "&4Anarchiczna Klata II";
             case "spodnie2" -> "&4Anarchiczne Spodnie II";
@@ -149,71 +238,151 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         };
     }
 
-    private int countFreeSlots(Player p) { int f = 0; for (ItemStack s : p.getInventory().getStorageContents()) if (s == null || s.getType().isAir()) f++; return f; }
-
-    private void handleKillsCommand(Player p, String ks) {
-        ItemStack i = p.getInventory().getItemInMainHand();
-        if (!Excalibur.isExcalibur(i)) { p.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageNotHolding())); return; }
-        int k; try { k = Integer.parseInt(ks); } catch (NumberFormatException e) { p.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageInvalidNumber())); return; }
-        if (k < 0) { p.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageNegativeNumber())); return; }
-        int mk = plugin.getItemsConfig().getExcaliburMaxKills(); if (k > mk) k = mk;
-        p.getInventory().setItemInMainHand(Excalibur.updateKills(i, k, mk));
-        p.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageKillsSet().replace("{kills}", String.valueOf(k))));
+    private int countFreeSlots(Player player) {
+        int free = 0;
+        for (ItemStack slot : player.getInventory().getStorageContents())
+            if (slot == null || slot.getType().isAir()) free++;
+        return free;
     }
 
-    private void handleCooldownReset(CommandSender s, String name) {
-        Player t = Bukkit.getPlayer(name);
-        if (t == null) { s.sendMessage(color("&cGracz &f" + name + " &cnie jest online!")); return; }
+    private void handleKillsCommand(Player player, String killsStr) {
+        ItemStack item = player.getInventory().getItemInMainHand();
+        if (!Excalibur.isExcalibur(item)) { player.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageNotHolding())); return; }
+        int kills;
+        try { kills = Integer.parseInt(killsStr); } catch (NumberFormatException e) { player.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageInvalidNumber())); return; }
+        if (kills < 0) { player.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageNegativeNumber())); return; }
+        int maxKills = plugin.getItemsConfig().getExcaliburMaxKills();
+        if (kills > maxKills) kills = maxKills;
+        player.getInventory().setItemInMainHand(Excalibur.updateKills(item, kills, maxKills));
+        player.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageKillsSet().replace("{kills}", String.valueOf(kills))));
+    }
+
+    private void handleCooldownReset(CommandSender sender, String targetName) {
+        Player target = Bukkit.getPlayer(targetName);
+        if (target == null) { sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!")); return; }
+
         plugin.getHydroKlatkaManager().resetCooldown(target);
         plugin.getHydroKlatkaManager().resetChunkCooldowns();
         target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
         plugin.getHydroKlatkaManager().stopCooldownDisplay(target);
-        plugin.getRozdzkailuzjonistyManager().resetFangsCooldown(t); plugin.getRozdzkailuzjonistyManager().resetVanishCooldown(t);
-        plugin.getWedkaNielotaManager().resetCooldown(t); plugin.getBlokWidmoManager().resetCooldown(t);
-        plugin.getSiekieraGrinchaManager().resetCooldown(t); plugin.getHydroTrojzabManager().resetCooldowns(t);
-        plugin.getCudownaLatarniaManager().resetCooldown(t); plugin.getRogJednorozcaManager().resetCooldown(t);
-        plugin.getBoskiToporManager().resetCooldown(t); plugin.getSuperMarchewkaManager().resetCooldown(t);
-        plugin.getLopataGrinchaManager().resetCooldown(t); plugin.getKroliczyMieczManager().resetCooldown(t);
-        plugin.getSmoczyMieczManager().resetCooldown(t); plugin.getOslepienieManager().resetKosaCooldown(t);
-        plugin.getOslepienieManager().resetLukCooldown(t); plugin.getMarchewkowyMieczManager().resetCooldown(t);
-        plugin.getMarchewkowaKuszaManager().resetCooldown(t); plugin.getWedkaSurferkaManager().resetCooldown(t);
-        plugin.getZatrutyOlowekManager().resetCooldown(t); plugin.getKukurydzaManager().resetCooldown(t);
-        plugin.getOlafManager().resetCooldowns(t);
-        s.sendMessage(color("&aZresetowano cooldowny gracza &f" + t.getName() + "&a!")); t.sendMessage(color("&aTwoje cooldowny zostały zresetowane przez &f" + s.getName() + "&a!"));
+        plugin.getRozdzkailuzjonistyManager().resetFangsCooldown(target);
+        plugin.getRozdzkailuzjonistyManager().resetVanishCooldown(target);
+        plugin.getWedkaNielotaManager().resetCooldown(target);
+        plugin.getBlokWidmoManager().resetCooldown(target);
+        plugin.getSiekieraGrinchaManager().resetCooldown(target);
+        plugin.getHydroTrojzabManager().resetCooldowns(target);
+        plugin.getCudownaLatarniaManager().resetCooldown(target);
+        plugin.getRogJednorozcaManager().resetCooldown(target);
+        plugin.getBoskiToporManager().resetCooldown(target);
+        plugin.getSuperMarchewkaManager().resetCooldown(target);
+        plugin.getLopataGrinchaManager().resetCooldown(target);
+        plugin.getKroliczyMieczManager().resetCooldown(target);
+        plugin.getSmoczyMieczManager().resetCooldown(target);
+        plugin.getOslepienieManager().resetKosaCooldown(target);
+        plugin.getOslepienieManager().resetLukCooldown(target);
+        plugin.getMarchewkowyMieczManager().resetCooldown(target);
+        plugin.getMarchewkowaKuszaManager().resetCooldown(target);
+        plugin.getWedkaSurferkaManager().resetCooldown(target);
+        plugin.getZatrutyOlowekManager().resetCooldown(target);
+        plugin.getKukurydzaManager().resetCooldown(target);
+        plugin.getOlafManager().resetCooldowns(target);
+
+        sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
+        target.sendMessage(color("&aTwoje cooldowny zostaly zresetowane przez &f" + sender.getName() + "&a!"));
     }
 
-    private void handleKlatwaCommand(CommandSender s, String a, String n) {
-        Player t = Bukkit.getPlayer(n); if (t == null) { s.sendMessage(color("&cGracz &f" + n + " &cnie jest online!")); return; }
+    private void handleKlatwaCommand(CommandSender sender, String action, String targetName) {
+        Player target = Bukkit.getPlayer(targetName);
+        if (target == null) { sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!")); return; }
         WedkaNielotaManager m = plugin.getWedkaNielotaManager();
-        switch (a.toLowerCase()) { case "naloz" -> { m.applyCurse(t, null); s.sendMessage(color("&aNałożono klątwę na gracza &f" + t.getName() + "&a!")); } case "zdejmij" -> { if (!m.hasCurse(t)) { s.sendMessage(color("&cGracz &f" + t.getName() + " &cnie ma klątwy!")); return; } m.forceRemoveCurse(t); s.sendMessage(color("&aZdjęto klątwę z gracza &f" + t.getName() + "&a!")); t.sendMessage(color("&aKlątwa została z Ciebie zdjęta!")); } default -> s.sendMessage(color("&cUżycie: &f/itemyeventowe klatwa <naloz|zdejmij> <nick>")); }
+        switch (action.toLowerCase()) {
+            case "naloz" -> {
+                m.applyCurse(target, null);
+                sender.sendMessage(color("&aNalozono klatwe na gracza &f" + target.getName() + "&a!"));
+            }
+            case "zdejmij" -> {
+                if (!m.hasCurse(target)) { sender.sendMessage(color("&cGracz &f" + target.getName() + " &cnie ma klatwy!")); return; }
+                m.forceRemoveCurse(target);
+                sender.sendMessage(color("&aZdjeto klatwe z gracza &f" + target.getName() + "&a!"));
+                target.sendMessage(color("&aKlatwa zostala z Ciebie zdjeta!"));
+            }
+            default -> sender.sendMessage(color("&cUzycie: &f/itemyeventowe klatwa <naloz|zdejmij> <nick>"));
+        }
     }
 
-    private void handleWidmoCommand(CommandSender s, String a, String n) {
-        Player t = Bukkit.getPlayer(n); if (t == null) { s.sendMessage(color("&cGracz &f" + n + " &cnie jest online!")); return; }
+    private void handleWidmoCommand(CommandSender sender, String action, String targetName) {
+        Player target = Bukkit.getPlayer(targetName);
+        if (target == null) { sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!")); return; }
         BlokWidmoManager m = plugin.getBlokWidmoManager();
-        switch (a.toLowerCase()) { case "naloz" -> { m.activate(t, t.getLocation()); s.sendMessage(color("&aNałożono efekt Bloku Widmo na gracza &f" + t.getName() + "&a!")); } case "zdejmij" -> { if (!m.isAffected(t)) { s.sendMessage(color("&cGracz &f" + t.getName() + " &cnie ma efektu Bloku Widmo!")); return; } m.forceRemoveEffect(t); s.sendMessage(color("&aZdjęto efekt Bloku Widmo z gracza &f" + t.getName() + "&a!")); t.sendMessage(color("&aEfekt Bloku Widmo został z Ciebie zdjęty!")); } default -> s.sendMessage(color("&cUżycie: &f/itemyeventowe widmo <naloz|zdejmij> <nick>")); }
+        switch (action.toLowerCase()) {
+            case "naloz" -> {
+                m.activate(target, target.getLocation());
+                sender.sendMessage(color("&aNalozono efekt Bloku Widmo na gracza &f" + target.getName() + "&a!"));
+            }
+            case "zdejmij" -> {
+                if (!m.isAffected(target)) { sender.sendMessage(color("&cGracz &f" + target.getName() + " &cnie ma efektu Bloku Widmo!")); return; }
+                m.forceRemoveEffect(target);
+                sender.sendMessage(color("&aZdjeto efekt Bloku Widmo z gracza &f" + target.getName() + "&a!"));
+                target.sendMessage(color("&aEfekt Bloku Widmo zostal z Ciebie zdjety!"));
+            }
+            default -> sender.sendMessage(color("&cUzycie: &f/itemyeventowe widmo <naloz|zdejmij> <nick>"));
+        }
     }
 
-    private void sendHelp(CommandSender s) {
-        s.sendMessage(color("&8&m                                    ")); s.sendMessage(color("&e&lAnaItemy &7- Dostępne komendy:")); s.sendMessage(color("&8&m                                    "));
-        s.sendMessage(color("&7/itemyeventowe &8- &fotwiera GUI")); s.sendMessage(color("&7/itemyeventowe reload &8- &freładuje konfigurację"));
-        s.sendMessage(color("&7/itemyeventowe give <id> <nick> <ilość> &8- &fdaje item")); s.sendMessage(color("&7/itemyeventowe kills <liczba> &8- &fustawia kille Excalibura"));
-        s.sendMessage(color("&7/itemyeventowe cooldown reset <nick> &8- &fresetuje cooldowny")); s.sendMessage(color("&7/itemyeventowe klatwa naloz <nick> &8- &fnakłada klątwę"));
-        s.sendMessage(color("&7/itemyeventowe klatwa zdejmij <nick> &8- &fzdejmuje klątwę")); s.sendMessage(color("&7/itemyeventowe widmo naloz <nick> &8- &fnakłada efekt widmo"));
-        s.sendMessage(color("&7/itemyeventowe widmo zdejmij <nick> &8- &fzdejmuje efekt widmo"));
-        s.sendMessage(color("&7/ec &8- &fotwiera enderchest")); s.sendMessage(color("&7/ecsee <nick> &8- &fpodgląd EC gracza"));
-        s.sendMessage(color("&7Dostępne ID itemów: &f" + String.join(", ", ITEM_IDS)));
-        s.sendMessage(color("&8&m                                    "));
+    private void sendHelp(CommandSender sender) {
+        sender.sendMessage(color("&8&m                                    "));
+        sender.sendMessage(color("&e&lAnaItemy &7- Dostepne komendy:"));
+        sender.sendMessage(color("&8&m                                    "));
+        sender.sendMessage(color("&7/itemyeventowe &8- &fotwiera GUI"));
+        sender.sendMessage(color("&7/itemyeventowe reload &8- &freladuje konfiguracje"));
+        sender.sendMessage(color("&7/itemyeventowe give <id> <nick> <ilosc> &8- &fdaje item"));
+        sender.sendMessage(color("&7/itemyeventowe kills <liczba> &8- &fustawia kille Excalibura"));
+        sender.sendMessage(color("&7/itemyeventowe cooldown reset <nick> &8- &fresetuje cooldowny"));
+        sender.sendMessage(color("&7/itemyeventowe klatwa naloz <nick> &8- &fnaklada klatwe"));
+        sender.sendMessage(color("&7/itemyeventowe klatwa zdejmij <nick> &8- &fzdejmuje klatwe"));
+        sender.sendMessage(color("&7/itemyeventowe widmo naloz <nick> &8- &fnaklada efekt widmo"));
+        sender.sendMessage(color("&7/itemyeventowe widmo zdejmij <nick> &8- &fzdejmuje efekt widmo"));
+        sender.sendMessage(color("&7/ec &8- &fotwiera enderchest"));
+        sender.sendMessage(color("&7/ecsee <nick> &8- &fpodglad EC gracza"));
+        sender.sendMessage(color("&7Dostepne ID itemow: &f" + String.join(", ", ITEM_IDS)));
+        sender.sendMessage(color("&8&m                                    "));
     }
 
-    @Override public @Nullable List<String> onTabComplete(@NotNull CommandSender s, @NotNull Command c, @NotNull String l, @NotNull String[] a) {
-        List<String> r = new ArrayList<>();
-        if (a.length == 1) r.addAll(Arrays.asList("reload", "kills", "give", "cooldown", "klatwa", "widmo"));
-        else if (a.length == 2) { switch (a[0].toLowerCase()) { case "kills" -> r.add("<liczba>"); case "give" -> r.addAll(ITEM_IDS); case "cooldown" -> r.add("reset"); case "klatwa", "widmo" -> r.addAll(Arrays.asList("naloz", "zdejmij")); } }
-        else if (a.length == 3) { switch (a[0].toLowerCase()) { case "give", "klatwa", "widmo" -> r.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList())); case "cooldown" -> { if (a[1].equalsIgnoreCase("reset")) r.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList())); } } }
-        else if (a.length == 4 && a[0].equalsIgnoreCase("give")) r.addAll(Arrays.asList("1", "5", "10", "64"));
-        return r.stream().filter(x -> x.toLowerCase().startsWith(a[a.length - 1].toLowerCase())).collect(Collectors.toList());
+    @Override
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
+                                                @NotNull String label, @NotNull String[] args) {
+        List<String> completions = new ArrayList<>();
+
+        if (args.length == 1) {
+            completions.addAll(Arrays.asList("reload", "kills", "give", "cooldown", "klatwa", "widmo"));
+        } else if (args.length == 2) {
+            switch (args[0].toLowerCase()) {
+                case "kills" -> completions.add("<liczba>");
+                case "give" -> completions.addAll(ITEM_IDS);
+                case "cooldown" -> completions.add("reset");
+                case "klatwa", "widmo" -> completions.addAll(Arrays.asList("naloz", "zdejmij"));
+            }
+        } else if (args.length == 3) {
+            switch (args[0].toLowerCase()) {
+                case "give", "klatwa", "widmo" -> completions.addAll(
+                        Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList()));
+                case "cooldown" -> {
+                    if (args[1].equalsIgnoreCase("reset"))
+                        completions.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList()));
+                }
+            }
+        } else if (args.length == 4) {
+            if (args[0].equalsIgnoreCase("give"))
+                completions.addAll(Arrays.asList("1", "5", "10", "64"));
+        }
+
+        return completions.stream()
+                .filter(s -> s.toLowerCase().startsWith(args[args.length - 1].toLowerCase()))
+                .collect(Collectors.toList());
     }
 
-    private Component color(String t) { return LegacyComponentSerializer.legacyAmpersand().deserialize(t).decoration(TextDecoration.ITALIC, false); }
+    private Component color(String text) {
+        return LegacyComponentSerializer.legacyAmpersand()
+                .deserialize(text).decoration(TextDecoration.ITALIC, false);
+    }
 }
