@@ -34,19 +34,20 @@ public class ZlamaneSerceListener implements Listener {
 
         victim.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, duration, 0, false, true, true));
 
-        // Subtitle
+        // ✅ Subtitle dla atakującego
         String attackerSub = plugin.getItemsConfig().getZlamaneSerceAttackerSubtitle()
-                .replace("{victim}", victim.getName());
+                .replace("{nick}", victim.getName());
         attacker.showTitle(Title.title(Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand().deserialize(attackerSub),
                 Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2000), Duration.ofMillis(200))));
 
+        // ✅ Subtitle dla ofiary
         victim.showTitle(Title.title(Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand().deserialize(
                         plugin.getItemsConfig().getZlamaneSerceVictimSubtitle()),
                 Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2000), Duration.ofMillis(200))));
 
-        // Zużyj
+        // ✅ Zużyj item (jednorazowy)
         if (mainHand.getAmount() > 1) mainHand.setAmount(mainHand.getAmount() - 1);
         else attacker.getInventory().setItemInMainHand(null);
     }
