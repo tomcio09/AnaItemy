@@ -262,7 +262,6 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         if (target == null) { sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!")); return; }
 
         plugin.getHydroKlatkaManager().resetCooldown(target);
-        plugin.getHydroKlatkaManager().resetChunkCooldowns();
         target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
         plugin.getHydroKlatkaManager().stopCooldownDisplay(target);
         plugin.getRozdzkailuzjonistyManager().resetFangsCooldown(target);
