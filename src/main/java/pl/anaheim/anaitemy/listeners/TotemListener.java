@@ -23,8 +23,6 @@ import java.util.UUID;
 public class TotemListener implements Listener {
 
     private final AnaItemy plugin;
-
-    // ✅ Publiczny set - SakiewkaListener sprawdza czy gracz użył totemu
     private final Set<UUID> totemProtectedPlayers = new HashSet<>();
 
     public TotemListener(AnaItemy plugin) {
@@ -32,32 +30,36 @@ public class TotemListener implements Listener {
     }
 
     /**
-     * ✅ Blokujemy vanilla resurrect dla customowego totemu,
-     * bo nasz totem ma zachować ekwipunek po śmierci, a nie ratować życie.
+     * ✅ Blokujemy vanilla resurrect dla customowego totemu.
+     * Nasz totem zachowuje ekwipunek po smierci, a nie ratuje zycie.
      */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
     public void onResurrect(EntityResurrectEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
 
-        ItemStack item = event.getHand() != null
-                ? player.getInventory().getItem(event.getHand())
-                : null;
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        ItemStack offHand = player.getInventory().getItemInOffHand();
 
-        if (!TotemUlaskawienia.isTotemUlaskawienia(item)) return;
+        boolean mainTotem = TotemUlaskawienia.isTotemUlaskawienia(mainHand);
+        boolean offTotem = TotemUlaskawienia.isTotemUlaskawienia(offHand);
 
+        if (!mainTotem && !offTotem) return;
+
+        // ✅ Anuluj vanilla resurrect — nasz totem dziala przez PlayerDeathEvent
         event.setCancelled(true);
     }
 
     /**
-     * ✅ Uniwersalna obsługa totemu:
-     * działa na KAŻDY rodzaj śmierci:
+     * ✅ Uniwersalna obsluga totemu:
+     * Priorytet LOWEST = uruchamia sie PIERWSZY, zanim cokolwiek innego.
+     * Dziala na KAZDY rodzaj smierci:
      * - vanilla damage
      * - /kill
      * - setHealth(0)
-     * - śmierć z innych pluginów
-     * - custom kill z Elytry / Różdżki
+     * - smierc z innych pluginow
+     * - custom kill z Elytry / Rozdzki / etc.
      */
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
 
@@ -69,9 +71,7 @@ public class TotemListener implements Listener {
                 config.getTotemBlockedRegions()
         );
 
-        // ✅ Zachowujemy poprzednie zachowanie:
-        // poza blocked regionem totem jest konsumowany,
-        // w blocked regionie nie konsumujemy go.
+        // Poza blocked regionem totem jest konsumowany
         if (!inBlockedRegion) {
             consumeOneTotem(player);
         }
@@ -105,7 +105,7 @@ public class TotemListener implements Listener {
 
                 if (!player.isOnline()) return;
 
-                var maxHealthAttribute = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+                var maxHealthAttribute = player.getAttribute(Attribute.MAX_HEALTH);
                 double maxHealth = maxHealthAttribute != null
                         ? maxHealthAttribute.getValue()
                         : 20.0;
@@ -126,26 +126,22 @@ public class TotemListener implements Listener {
     private void consumeOneTotem(Player player) {
         ItemStack offHand = player.getInventory().getItemInOffHand();
         if (TotemUlaskawienia.isTotemUlaskawienia(offHand)) {
-            player.getInventory().setItemInOffHand(null);
+            if (offHand.getAmount() > 1) offHand.setAmount(offHand.getAmount() - 1);
+            else player.getInventory().setItemInOffHand(null);
             return;
         }
 
         ItemStack mainHand = player.getInventory().getItemInMainHand();
         if (TotemUlaskawienia.isTotemUlaskawienia(mainHand)) {
-            player.getInventory().setItemInMainHand(null);
+            if (mainHand.getAmount() > 1) mainHand.setAmount(mainHand.getAmount() - 1);
+            else player.getInventory().setItemInMainHand(null);
         }
     }
 
-    /**
-     * ✅ Sprawdza czy gracz jest chroniony przez totem (używane przez SakiewkaListener).
-     */
     public boolean isTotemProtected(UUID playerUUID) {
         return totemProtectedPlayers.contains(playerUUID);
     }
 
-    /**
-     * ✅ Ręczne usunięcie ochrony (na wszelki wypadek).
-     */
     public void removeProtection(UUID playerUUID) {
         totemProtectedPlayers.remove(playerUUID);
     }
