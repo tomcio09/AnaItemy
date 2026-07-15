@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityResurrectEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
@@ -25,45 +26,62 @@ public class TotemListener implements Listener {
     private final AnaItemy plugin;
     private final Set<UUID> totemProtectedPlayers = new HashSet<>();
 
+    // ✅ API — inne pluginy mogą sprawdzić czy gracz jest chroniony totemem
+    // Używane np. przez plugin na kostiumy żeby nie zabierać kostiumu przy śmierci
+    private final Set<UUID> keepInventoryDeaths = new HashSet<>();
+
     public TotemListener(AnaItemy plugin) {
         this.plugin = plugin;
     }
 
     /**
      * ✅ Blokujemy vanilla resurrect dla customowego totemu.
-     * Nasz totem zachowuje ekwipunek po smierci, a nie ratuje zycie.
      */
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
     public void onResurrect(EntityResurrectEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
 
-        ItemStack mainHand = player.getInventory().getItemInMainHand();
-        ItemStack offHand = player.getInventory().getItemInOffHand();
-
-        boolean mainTotem = TotemUlaskawienia.isTotemUlaskawienia(mainHand);
-        boolean offTotem = TotemUlaskawienia.isTotemUlaskawienia(offHand);
-
-        if (!mainTotem && !offTotem) return;
-
-        // ✅ Anuluj vanilla resurrect — nasz totem dziala przez PlayerDeathEvent
-        event.setCancelled(true);
+        if (hasTotemInHand(player)) {
+            event.setCancelled(true);
+        }
     }
 
     /**
-     * ✅ Uniwersalna obsluga totemu:
-     * Priorytet LOWEST = uruchamia sie PIERWSZY, zanim cokolwiek innego.
-     * Dziala na KAZDY rodzaj smierci:
-     * - vanilla damage
-     * - /kill
-     * - setHealth(0)
-     * - smierc z innych pluginow
-     * - custom kill z Elytry / Rozdzki / etc.
+     * ✅ Przechwytujemy KAŻDY damage który sprowadza gracza do 0 HP.
+     * Jeśli gracz ma totem — ratujemy go ZANIM umrze.
+     * To działa nawet z setHealth(0) bo EntityDamageEvent jest wywoływany
+     * przed faktyczną śmiercią.
+     *
+     * Priorytet LOWEST = uruchamiamy się PRZED wszystkim innym.
+     */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
+    public void onDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+
+        // Sprawdź czy po tym damage gracz by umarł
+        double healthAfter = player.getHealth() - event.getFinalDamage();
+        if (healthAfter > 0) return;
+
+        // Gracz by umarł — sprawdź totem
+        if (!hasTotemInHand(player)) return;
+
+        // ✅ Oznacz gracza jako chronionego PRZED śmiercią
+        totemProtectedPlayers.add(player.getUniqueId());
+    }
+
+    /**
+     * ✅ Główna obsługa śmierci z totemem.
+     * Priorytet LOWEST = uruchamia się PIERWSZY.
      */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
 
-        if (!hasTotemInHand(player)) return;
+        // ✅ Sprawdź czy gracz ma totem (mógł go stracić między damage a death)
+        // Lub czy został oznaczony w onDamage
+        boolean hasTotem = hasTotemInHand(player) || totemProtectedPlayers.contains(player.getUniqueId());
+
+        if (!hasTotem) return;
 
         ItemsConfig config = plugin.getItemsConfig();
         boolean inBlockedRegion = plugin.getWorldGuardManager().isInBlockedRegion(
@@ -78,7 +96,9 @@ public class TotemListener implements Listener {
 
         UUID playerId = player.getUniqueId();
         totemProtectedPlayers.add(playerId);
+        keepInventoryDeaths.add(playerId);
 
+        // ✅ KLUCZOWE — ustaw ZANIM cokolwiek innego przetworzy event
         event.setKeepInventory(true);
         event.setKeepLevel(true);
         event.getDrops().clear();
@@ -95,6 +115,7 @@ public class TotemListener implements Listener {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (!player.isOnline()) {
                 totemProtectedPlayers.remove(playerId);
+                keepInventoryDeaths.remove(playerId);
                 return;
             }
 
@@ -102,6 +123,7 @@ public class TotemListener implements Listener {
 
             Bukkit.getScheduler().runTask(plugin, () -> {
                 totemProtectedPlayers.remove(playerId);
+                keepInventoryDeaths.remove(playerId);
 
                 if (!player.isOnline()) return;
 
@@ -138,12 +160,84 @@ public class TotemListener implements Listener {
         }
     }
 
+    /**
+     * ✅ Sprawdza czy gracz jest chroniony przez totem (używane przez SakiewkaListener).
+     */
     public boolean isTotemProtected(UUID playerUUID) {
         return totemProtectedPlayers.contains(playerUUID);
     }
 
+    /**
+     * ✅ Ręczne usunięcie ochrony.
+     */
     public void removeProtection(UUID playerUUID) {
         totemProtectedPlayers.remove(playerUUID);
+    }
+
+    /**
+     * ✅ API: Sprawdza czy dana śmierć gracza jest chroniona przez Totem Ułaskawienia
+     * i keepInventory jest aktywne.
+     *
+     * UŻYCIE W INNYCH PLUGINACH:
+     *
+     * Inne pluginy (np. plugin na kostiumy, plugin na serca) mogą sprawdzić
+     * czy gracz umarł z totemem i nie powinien tracić itemów/efektów:
+     *
+     * Przykład użycia w pluginie na kostiumy:
+     * -----------------------------------------------
+     * // W listenerze PlayerDeathEvent:
+     * @EventHandler(priority = EventPriority.MONITOR)
+     * public void onDeath(PlayerDeathEvent event) {
+     *     Player player = event.getEntity();
+     *
+     *     // Sprawdź czy AnaItemy jest załadowany
+     *     Plugin anaItemy = Bukkit.getPluginManager().getPlugin("AnaItemy");
+     *     if (anaItemy != null && anaItemy.isEnabled()) {
+     *         try {
+     *             // Pobierz TotemListener z AnaItemy
+     *             Object totemListener = anaItemy.getClass().getMethod("getTotemListener").invoke(anaItemy);
+     *
+     *             // Sprawdź czy śmierć jest chroniona totemem
+     *             boolean isKeepInv = (boolean) totemListener.getClass()
+     *                     .getMethod("isKeepInventoryDeath", java.util.UUID.class)
+     *                     .invoke(totemListener, player.getUniqueId());
+     *
+     *             if (isKeepInv) {
+     *                 // Gracz umarł z totemem — NIE zabieraj kostiumu!
+     *                 // NIE zabieraj serc!
+     *                 // event.setKeepInventory(true) już jest ustawione przez AnaItemy
+     *                 return;
+     *             }
+     *         } catch (Exception ignored) {
+     *             // AnaItemy nie ma tej metody lub błąd — kontynuuj normalnie
+     *         }
+     *     }
+     *
+     *     // Normalna logika pluginu — zabierz kostium / serce / etc.
+     *     handleNormalDeath(player);
+     * }
+     * -----------------------------------------------
+     *
+     * Alternatywnie, prostsze podejście bez refleksji:
+     * -----------------------------------------------
+     * @EventHandler(priority = EventPriority.MONITOR)
+     * public void onDeath(PlayerDeathEvent event) {
+     *     // Jeśli keepInventory jest true — ktoś (np. totem) chronił gracza
+     *     if (event.getKeepInventory()) {
+     *         // Nie zabieraj kostiumu / serc
+     *         return;
+     *     }
+     *
+     *     // Normalna śmierć
+     *     handleNormalDeath(event.getEntity());
+     * }
+     * -----------------------------------------------
+     *
+     * @param playerUUID UUID gracza
+     * @return true jeśli gracz właśnie umarł z totemem i ma keepInventory
+     */
+    public boolean isKeepInventoryDeath(UUID playerUUID) {
+        return keepInventoryDeaths.contains(playerUUID);
     }
 
     private Component color(String text) {
