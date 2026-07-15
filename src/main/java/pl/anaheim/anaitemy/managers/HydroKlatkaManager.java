@@ -89,7 +89,6 @@ public class HydroKlatkaManager {
         playerCooldowns.remove(player.getUniqueId());
     }
     public void resetChunkCooldowns() {
-        chunkCooldowns.clear();
     }
 
     public boolean isChunkBlocked(Location location) {
@@ -466,6 +465,11 @@ public class HydroKlatkaManager {
             @Override
             public void run() {
                 removeKlatka(klatka);
+
+                // ✅ Cooldown na chunki znika 5 sekund PO zakończeniu klatki
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    chunkCooldowns.clear();
+                }, 100L); // 5 sekund
             }
         }.runTaskLater(plugin, 20L * klatka.getOriginalDuration());
     }
