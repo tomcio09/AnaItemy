@@ -40,17 +40,8 @@ public class HydroKlatkaBlockListener implements Listener {
         Location location = event.getBlock().getLocation();
         Player player = event.getPlayer();
 
-        // ✅ SPRAWDŹ CZY TO BLOK KLATKI - jeśli NIE, to pozwól zniszczyć (vanilla)
-        if (!manager.isKlatkaBlock(location)) {
-            // To NIE jest blok klatki - plugin nie ingeruje
-            return;
-        }
+        if (!manager.isKlatkaBlock(location)) return;
 
-        // ✅ DEBUG LOG (możesz usunąć później)
-        plugin.getLogger().info("[DEBUG] Gracz " + player.getName() + " próbuje zniszczyć blok klatki na " + 
-                location.getBlockX() + "," + location.getBlockY() + "," + location.getBlockZ());
-
-        // Jest blokiem klatki - sprawdź czy można zniszczyć
         if (manager.isShellBlock(location)) {
             event.setCancelled(true);
             manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
@@ -117,7 +108,6 @@ public class HydroKlatkaBlockListener implements Listener {
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
-        // Sprawdź czy gracz jest w klatce i próbuje zjeść zablokowany item
         if (!manager.canUseItem(player, item.getType())) {
             event.setCancelled(true);
             manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
@@ -136,12 +126,8 @@ public class HydroKlatkaBlockListener implements Listener {
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
-        // Jeśli gracz jest w klatce - już blokowane przez canUseItem
-        // Ale dodatkowo oznaczamy perłę jako "z klatki"
         for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
             if (klatka.isPlayerTrapped(player.getUniqueId())) {
-                // Perła już nie powinna być rzucona (zablokowane w interact)
-                // ale dla pewności oznaczamy
                 pearl.setMetadata("from_cage", new org.bukkit.metadata.FixedMetadataValue(plugin, klatka.getId().toString()));
                 return;
             }
@@ -155,18 +141,26 @@ public class HydroKlatkaBlockListener implements Listener {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         Location hitLocation = pearl.getLocation();
 
-        // Sprawdź czy perła uderzyła w ścianę klatki
+        // ✅ Sprawdz czy klatka jest podczas animacji
+        for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
+            if (!klatka.isAnimationComplete()) {
+                // Podczas animacji — sprawdz czy perla jest w obszarze klatki
+                if (klatka.isInsideCage(hitLocation) || hitLocation.distance(klatka.getCenter()) <= klatka.getRadius()) {
+                    event.setCancelled(true);
+                    pearl.remove();
+                    return;
+                }
+            }
+        }
+
         if (manager.isShellBlock(hitLocation) || manager.isKlatkaBlock(hitLocation)) {
-            // Perła znika bez teleportacji
             event.setCancelled(true);
             pearl.remove();
             return;
         }
 
-        // Sprawdź czy perła próbuje teleportować do środka klatki
         for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
             if (klatka.isInsideCage(hitLocation)) {
-                // Perła próbuje teleportować do środka - anuluj
                 event.setCancelled(true);
                 pearl.remove();
                 return;
@@ -184,19 +178,52 @@ public class HydroKlatkaBlockListener implements Listener {
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
-        // Zablokuj teleport do środka klatki
         for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
-            if (klatka.isInsideCage(to)) {
-                event.setCancelled(true);
-                manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
-                return;
-            }
-        }
+            // ✅ Podczas animacji — blokuj teleport na podstawie odleglosci od centrum
+            if (!klatka.isAnimationComplete()) {
+                double distance = to.distance(klatka.getCenter());
 
-        // Zablokuj teleport przez ścianę
-        if (manager.isShellBlock(to) || manager.isKlatkaBlock(to)) {
-            event.setCancelled(true);
-            manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+                // Gracz trapped chce wyjsc perla
+                if (klatka.isPlayerTrapped(player.getUniqueId())) {
+                    if (distance > klatka.getRadius() - 1.0) {
+                        event.setCancelled(true);
+                        manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+                        return;
+                    }
+                }
+
+                // Gracz z zewnatrz chce wejsc do klatki
+                if (!klatka.isPlayerTrapped(player.getUniqueId())) {
+                    if (klatka.isInsideCage(to)) {
+                        event.setCancelled(true);
+                        manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+                        return;
+                    }
+                }
+            } else {
+                // ✅ Po animacji — blokuj tylko na shell
+                if (klatka.isPlayerTrapped(player.getUniqueId())) {
+                    boolean hasShell = manager.isShellBlock(to.getBlock().getLocation())
+                            || manager.isShellBlock(to.clone().add(0, 1, 0).getBlock().getLocation());
+
+                    if (hasShell) {
+                        event.setCancelled(true);
+                        manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+                        return;
+                    }
+
+                    // Nie ma shell = moze wyjsc
+                }
+
+                // Zablokuj teleport do srodka klatki
+                if (!klatka.isPlayerTrapped(player.getUniqueId())) {
+                    if (klatka.isInsideCage(to)) {
+                        event.setCancelled(true);
+                        manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+                        return;
+                    }
+                }
+            }
         }
     }
 
@@ -207,7 +234,6 @@ public class HydroKlatkaBlockListener implements Listener {
         Player player = event.getPlayer();
         Material bucket = event.getBucket();
 
-        // Dozwól wylewanie wody, ale nie lawy
         if (bucket == Material.LAVA_BUCKET) {
             HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
@@ -226,15 +252,13 @@ public class HydroKlatkaBlockListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onEntityExplode(EntityExplodeEvent event) {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
-        event.blockList().removeIf(block ->
-                manager.isKlatkaBlock(block.getLocation()));
+        event.blockList().removeIf(block -> manager.isKlatkaBlock(block.getLocation()));
     }
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onBlockExplode(BlockExplodeEvent event) {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
-        event.blockList().removeIf(block ->
-                manager.isKlatkaBlock(block.getLocation()));
+        event.blockList().removeIf(block -> manager.isKlatkaBlock(block.getLocation()));
     }
 
     // ==================== PISTONY ====================
@@ -242,7 +266,6 @@ public class HydroKlatkaBlockListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onPistonExtend(BlockPistonExtendEvent event) {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
-
         for (var block : event.getBlocks()) {
             if (manager.isShellBlock(block.getLocation())) {
                 event.setCancelled(true);
@@ -254,7 +277,6 @@ public class HydroKlatkaBlockListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onPistonRetract(BlockPistonRetractEvent event) {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
-
         for (var block : event.getBlocks()) {
             if (manager.isShellBlock(block.getLocation())) {
                 event.setCancelled(true);
@@ -269,8 +291,6 @@ public class HydroKlatkaBlockListener implements Listener {
     public void onPlayerDeath(org.bukkit.event.entity.PlayerDeathEvent event) {
         Player player = event.getEntity();
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
-
-        // ✅ Jeśli gracz zginie w klatce - przestaje na niego działać
         manager.removePlayerFromKlatka(player);
     }
 
@@ -280,7 +300,6 @@ public class HydroKlatkaBlockListener implements Listener {
     public void onEntityChangeBlock(EntityChangeBlockEvent event) {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         Location location = event.getBlock().getLocation();
-
         if (manager.isKlatkaBlock(location)) {
             event.setCancelled(true);
         }
