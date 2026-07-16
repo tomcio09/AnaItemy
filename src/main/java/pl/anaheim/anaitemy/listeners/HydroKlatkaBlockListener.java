@@ -20,7 +20,6 @@ import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import pl.anaheim.anaitemy.AnaItemy;
-import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.models.ActiveHydroKlatka;
 
@@ -40,7 +39,9 @@ public class HydroKlatkaBlockListener implements Listener {
         Location location = event.getBlock().getLocation();
         Player player = event.getPlayer();
 
-        if (!manager.isKlatkaBlock(location)) return;
+        if (!manager.isKlatkaBlock(location)) {
+            return;
+        }
 
         if (manager.isShellBlock(location)) {
             event.setCancelled(true);
@@ -99,7 +100,7 @@ public class HydroKlatkaBlockListener implements Listener {
         }
     }
 
-    // ==================== JEDZENIE (CHORUS FRUIT) ====================
+    // ==================== JEDZENIE ====================
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerConsume(PlayerItemConsumeEvent event) {
@@ -141,10 +142,8 @@ public class HydroKlatkaBlockListener implements Listener {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         Location hitLocation = pearl.getLocation();
 
-        // ✅ Sprawdz czy klatka jest podczas animacji
         for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
             if (!klatka.isAnimationComplete()) {
-                // Podczas animacji — sprawdz czy perla jest w obszarze klatki
                 if (klatka.isInsideCage(hitLocation) || hitLocation.distance(klatka.getCenter()) <= klatka.getRadius()) {
                     event.setCancelled(true);
                     pearl.remove();
@@ -179,11 +178,9 @@ public class HydroKlatkaBlockListener implements Listener {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
         for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
-            // ✅ Podczas animacji — blokuj teleport na podstawie odleglosci od centrum
             if (!klatka.isAnimationComplete()) {
                 double distance = to.distance(klatka.getCenter());
 
-                // Gracz trapped chce wyjsc perla
                 if (klatka.isPlayerTrapped(player.getUniqueId())) {
                     if (distance > klatka.getRadius() - 1.0) {
                         event.setCancelled(true);
@@ -192,7 +189,6 @@ public class HydroKlatkaBlockListener implements Listener {
                     }
                 }
 
-                // Gracz z zewnatrz chce wejsc do klatki
                 if (!klatka.isPlayerTrapped(player.getUniqueId())) {
                     if (klatka.isInsideCage(to)) {
                         event.setCancelled(true);
@@ -201,7 +197,6 @@ public class HydroKlatkaBlockListener implements Listener {
                     }
                 }
             } else {
-                // ✅ Po animacji — blokuj tylko na shell
                 if (klatka.isPlayerTrapped(player.getUniqueId())) {
                     boolean hasShell = manager.isShellBlock(to.getBlock().getLocation())
                             || manager.isShellBlock(to.clone().add(0, 1, 0).getBlock().getLocation());
@@ -211,11 +206,8 @@ public class HydroKlatkaBlockListener implements Listener {
                         manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
                         return;
                     }
-
-                    // Nie ma shell = moze wyjsc
                 }
 
-                // Zablokuj teleport do srodka klatki
                 if (!klatka.isPlayerTrapped(player.getUniqueId())) {
                     if (klatka.isInsideCage(to)) {
                         event.setCancelled(true);
