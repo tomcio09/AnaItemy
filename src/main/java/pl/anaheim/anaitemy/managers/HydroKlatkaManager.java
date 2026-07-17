@@ -27,7 +27,6 @@ public class HydroKlatkaManager {
     private static final Material INNER = Material.LIGHT_BLUE_CONCRETE;
     private static final Material INNER_POWDER = Material.LIGHT_BLUE_CONCRETE_POWDER;
 
-    // ✅ Bloki których klatka nigdy nie zamienia
     private static final Set<Material> PROTECTED_BLOCKS = Set.of(
             Material.BEDROCK,
             Material.BEACON
@@ -88,7 +87,9 @@ public class HydroKlatkaManager {
     public void resetCooldown(Player player) {
         playerCooldowns.remove(player.getUniqueId());
     }
+
     public void resetChunkCooldowns() {
+        chunkCooldowns.clear();
     }
 
     public boolean isChunkBlocked(Location location) {
@@ -133,7 +134,7 @@ public class HydroKlatkaManager {
         return minutes + "m" + String.format("%02d", seconds) + "s";
     }
 
-    // ==================== COOLDOWN DISPLAY (ACTION BAR) ====================
+    // ==================== COOLDOWN DISPLAY ====================
 
     public void startCooldownDisplay(Player player) {
         stopCooldownDisplay(player);
@@ -199,6 +200,11 @@ public class HydroKlatkaManager {
         int duration = config.getHydroKlatkaDuration();
 
         ActiveHydroKlatka klatka = new ActiveHydroKlatka(center, radius, duration, creator.getUniqueId());
+        
+        // ✅ OBLICZ I ZAPISZ POZYCJE SHELLA PRZED ANIMACJĄ
+        Set<Location> shellPositions = calculateShellPositions(klatka);
+        klatka.setPlannedShellLocations(shellPositions);
+        
         activeKlatki.put(klatka.getId(), klatka);
 
         setChunkCooldown(center);
@@ -207,6 +213,48 @@ public class HydroKlatkaManager {
         playCreationSounds(center);
         startBuildAnimation(klatka);
         scheduleRemoval(klatka);
+    }
+
+    // ✅ NOWA METODA: Oblicza wszystkie pozycje gdzie będzie shell
+    private Set<Location> calculateShellPositions(ActiveHydroKlatka klatka) {
+        Set<Location> positions = new HashSet<>();
+        Location center = klatka.getCenter();
+        int radius = klatka.getRadius();
+        World world = center.getWorld();
+        
+        ItemsConfig config = plugin.getItemsConfig();
+        List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
+
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -radius; y <= radius; y++) {
+                for (int z = -radius; z <= radius; z++) {
+                    Location blockLoc = new Location(world,
+                            center.getBlockX() + x,
+                            center.getBlockY() + y,
+                            center.getBlockZ() + z);
+
+                    double distance = blockLoc.distance(center);
+                    
+                    // Shell jest na granicy klatki
+                    if (distance > radius - 1.0 && distance <= radius) {
+                        // Sprawdź czy region nie blokuje
+                        if (!plugin.getWorldGuardManager().isInBlockedRegion(blockLoc, blockedRegions)) {
+                            positions.add(blockLoc);
+                        }
+                    }
+                }
+            }
+        }
+        
+        return positions;
+    }
+
+    // ✅ NOWA METODA: Sprawdza czy w danej lokalizacji BĘDZIE shell
+    public boolean willShellBeAt(Location location, ActiveHydroKlatka klatka) {
+        if (klatka.isAnimationComplete()) {
+            return isShellBlock(location);
+        }
+        return klatka.isPlannedShellLocation(location);
     }
 
     private void trapPlayers(ActiveHydroKlatka klatka) {
@@ -219,7 +267,6 @@ public class HydroKlatkaManager {
 
         for (Player player : world.getPlayers()) {
             if (player.getLocation().distance(center) <= klatka.getRadius()) {
-                // ✅ Nie trapuj graczy na zablokowanych regionach
                 if (plugin.getWorldGuardManager().isInBlockedRegion(player.getLocation(), blockedRegions)) {
                     continue;
                 }
@@ -247,7 +294,6 @@ public class HydroKlatkaManager {
 
             Location loc = player.getLocation();
 
-            // Jesli gracz jest na zablokowanym regionie — wypusc
             if (plugin.getWorldGuardManager().isInBlockedRegion(loc, blockedRegions)) {
                 klatka.removeTrappedPlayer(playerId);
                 BossBar bossBar = playerBossBars.remove(playerId);
@@ -255,7 +301,6 @@ public class HydroKlatkaManager {
                 continue;
             }
 
-            // Teleportuj na srodek TYLKO jesli gracz jest calkowicie poza klatka (bug/exploit)
             double distance = loc.distance(center);
             if (distance > klatka.getRadius() + 1.0) {
                 Location teleportLoc = center.clone();
@@ -400,7 +445,6 @@ public class HydroKlatkaManager {
                 Block block = blockLoc.getBlock();
                 Material originalType = block.getType();
 
-                // ✅ Nie zamieniaj bedrocka ani beacona
                 if (PROTECTED_BLOCKS.contains(originalType)) continue;
 
                 klatka.addOriginalBlock(blockLoc, block.getBlockData());
@@ -466,10 +510,9 @@ public class HydroKlatkaManager {
             public void run() {
                 removeKlatka(klatka);
 
-                // ✅ Cooldown na chunki znika 5 sekund PO zakończeniu klatki
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
                     chunkCooldowns.clear();
-                }, 100L); // 5 sekund
+                }, 100L);
             }
         }.runTaskLater(plugin, 20L * klatka.getOriginalDuration());
     }
