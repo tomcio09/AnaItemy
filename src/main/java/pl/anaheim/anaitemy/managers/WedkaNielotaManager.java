@@ -49,7 +49,7 @@ public class WedkaNielotaManager {
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+        }.runTaskTimer(plugin, 0L, 5L);
     }
 
     // ==================== FALL LIMIT TASK ====================
