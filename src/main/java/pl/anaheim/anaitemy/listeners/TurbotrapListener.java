@@ -1,5 +1,6 @@
 package pl.anaheim.anaitemy.listeners;
 
+import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.Egg;
@@ -61,21 +62,28 @@ public class TurbotrapListener implements Listener {
         if (!(event.getEntity() instanceof Egg egg)) return;
         if (!plugin.getTurbotrapManager().isTurbotrapEgg(egg)) return;
 
-        // ✅ Sprawdź czy jajko uderza w bloki klatki lub wewnątrz klatki
+        Location hitLocation = egg.getLocation();
         HydroKlatkaManager klatkaManager = plugin.getHydroKlatkaManager();
 
-        // Zablokuj jeśli uderza w blok klatki
-        if (klatkaManager.isKlatkaBlock(egg.getLocation().getBlock().getLocation())) {
+        // ✅ Sprawdź czy jajko uderza w blok klatki
+        if (klatkaManager.isKlatkaBlock(hitLocation.getBlock().getLocation())) {
             egg.remove();
             return;
         }
 
-        // Zablokuj jeśli uderza wewnątrz aktywnej klatki
+        // ✅ Sprawdź czy jajko uderza wewnątrz aktywnej klatki
         for (ActiveHydroKlatka klatka : klatkaManager.getActiveKlatki()) {
-            if (klatka.isInsideCage(egg.getLocation())) {
+            if (klatka.isInsideCage(hitLocation)) {
                 egg.remove();
                 return;
             }
+        }
+
+        // ✅ Sprawdź czy schemat zachodzi na klatkę
+        // Jeśli tak — nie wklejaj w ogóle
+        if (plugin.getTurbotrapManager().wouldOverlapCage(hitLocation)) {
+            egg.remove();
+            return;
         }
 
         if (plugin.getTurbotrapManager().isInBlockedRegion(egg.getLocation())) {
