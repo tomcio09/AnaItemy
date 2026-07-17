@@ -200,6 +200,19 @@ public class WzmocnianaElytraManager {
 
         Location center = landingLocation.clone();
 
+        // ✅ Sprawdz czy gracz jest na zablokowanym regionie
+        List<String> blockedRegions = java.util.Arrays.asList("spawn", "endspawn", "netherspawn");
+        if (plugin.getWorldGuardManager().isInBlockedRegion(center, blockedRegions)) {
+            // Resetuj charge ale nie zadawaj damage
+            WzmocnianaElytra.resetCharge(chestplate);
+            playerFlightDistance.remove(player.getUniqueId());
+            distanceSinceLastUpdate.remove(player.getUniqueId());
+            previousLocations.remove(player.getUniqueId());
+            return;
+        }
+
+        // ... reszta metody bez zmian ...
+
         // ✅ 1. TAG COMBATU - strzelec
         if (plugin.getCombatIntegrationManager().isEnabled()) {
             plugin.getCombatIntegrationManager().tagPlayer(player, player);
