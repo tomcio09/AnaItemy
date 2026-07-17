@@ -111,6 +111,10 @@ public class TurbotrapManager {
     public void pasteSchematic(Location location) {
         if (!isReady()) return;
         if (isInBlockedRegion(location)) return;
+        // W pętli gdzie wklejasz bloki schematu:
+        if (plugin.getHydroKlatkaManager().isKlatkaBlock(blockLocation)) {
+            continue; // Nie nadpisuj bloku klatki
+        }
 
         // ✅ Zbierz wszystkie bloki schematu posortowane od góry do dołu
         BlockVector3 origin = trapSchematic.getOrigin();
