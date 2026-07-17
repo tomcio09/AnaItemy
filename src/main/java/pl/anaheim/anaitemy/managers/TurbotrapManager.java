@@ -1,13 +1,11 @@
 package pl.anaheim.anaitemy.managers;
 
-import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.extent.clipboard.Clipboard;
 import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormat;
 import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormats;
 import com.sk89q.worldedit.extent.clipboard.io.ClipboardReader;
 import com.sk89q.worldedit.math.BlockVector3;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -16,6 +14,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.scheduler.BukkitRunnable;
 import pl.anaheim.anaitemy.AnaItemy;
+import pl.anaheim.anaitemy.models.ActiveHydroKlatka;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -104,19 +103,74 @@ public class TurbotrapManager {
         return egg.hasMetadata(META_TURBOTRAP);
     }
 
+    // ✅ Oblicza offsety schematu dla danej lokalizacji
+    private int[] calculateOffsets(Location location) {
+        BlockVector3 origin = trapSchematic.getOrigin();
+        return new int[]{
+                location.getBlockX() - origin.getBlockX(),
+                location.getBlockY() - origin.getBlockY(),
+                location.getBlockZ() - origin.getBlockZ()
+        };
+    }
+
+    /**
+     * ✅ Sprawdza czy schemat turbotrapa zachodzi na jakąkolwiek klatkę.
+     * Sprawdza KAŻDY blok schematu — czy jest wewnątrz klatki lub jest blokiem klatki.
+     */
+    public boolean wouldOverlapCage(Location location) {
+        if (!isReady()) return false;
+
+        HydroKlatkaManager klatkaManager = plugin.getHydroKlatkaManager();
+        if (klatkaManager.getActiveKlatki().isEmpty()) return false;
+
+        BlockVector3 min = trapSchematic.getMinimumPoint();
+        BlockVector3 max = trapSchematic.getMaximumPoint();
+        int[] offsets = calculateOffsets(location);
+
+        for (int x = min.getBlockX(); x <= max.getBlockX(); x++) {
+            for (int y = min.getBlockY(); y <= max.getBlockY(); y++) {
+                for (int z = min.getBlockZ(); z <= max.getBlockZ(); z++) {
+                    com.sk89q.worldedit.world.block.BlockState blockState =
+                            trapSchematic.getBlock(BlockVector3.at(x, y, z));
+
+                    // Pomiń powietrze w schemacie
+                    if (blockState.getBlockType().getMaterial().isAir()) continue;
+
+                    int worldX = x + offsets[0];
+                    int worldY = y + offsets[1];
+                    int worldZ = z + offsets[2];
+
+                    Location blockLoc = new Location(location.getWorld(), worldX, worldY, worldZ);
+
+                    // Sprawdź czy ten blok jest blokiem klatki
+                    if (klatkaManager.isKlatkaBlock(blockLoc)) {
+                        return true;
+                    }
+
+                    // Sprawdź czy ten blok jest wewnątrz sfery klatki
+                    for (ActiveHydroKlatka klatka : klatkaManager.getActiveKlatki()) {
+                        if (klatka.isInsideCage(blockLoc)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
     /**
      * ✅ Wkleja schemat z animacją od góry do dołu.
      * Nie zamienia bedrocka.
+     * Nie nadpisuje bloków klatki ani bloków wewnątrz klatki.
      */
     public void pasteSchematic(Location location) {
         if (!isReady()) return;
         if (isInBlockedRegion(location)) return;
-        // W pętli gdzie wklejasz bloki schematu:
-        if (plugin.getHydroKlatkaManager().isKlatkaBlock(blockLocation)) {
-            continue; // Nie nadpisuj bloku klatki
-        }
 
-        // ✅ Zbierz wszystkie bloki schematu posortowane od góry do dołu
+        HydroKlatkaManager klatkaManager = plugin.getHydroKlatkaManager();
+
         BlockVector3 origin = trapSchematic.getOrigin();
         BlockVector3 min = trapSchematic.getMinimumPoint();
         BlockVector3 max = trapSchematic.getMaximumPoint();
@@ -125,10 +179,8 @@ public class TurbotrapManager {
         int offsetY = location.getBlockY() - origin.getBlockY();
         int offsetZ = location.getBlockZ() - origin.getBlockZ();
 
-        // Zbierz bloki per warstwa Y (od góry do dołu)
         int maxY = max.getBlockY();
         int minY = min.getBlockY();
-        int totalLayers = maxY - minY + 1;
 
         List<List<BlockPlacement>> layers = new ArrayList<>();
 
@@ -146,6 +198,21 @@ public class TurbotrapManager {
                     int worldY = y + offsetY;
                     int worldZ = z + offsetZ;
 
+                    Location blockLoc = new Location(location.getWorld(), worldX, worldY, worldZ);
+
+                    // ✅ NIE nadpisuj bloków klatki
+                    if (klatkaManager.isKlatkaBlock(blockLoc)) continue;
+
+                    // ✅ NIE nadpisuj bloków wewnątrz sfery klatki (w tym powietrza)
+                    boolean insideCage = false;
+                    for (ActiveHydroKlatka klatka : klatkaManager.getActiveKlatki()) {
+                        if (klatka.isInsideCage(blockLoc)) {
+                            insideCage = true;
+                            break;
+                        }
+                    }
+                    if (insideCage) continue;
+
                     Material bukkitMat = BukkitAdapter.adapt(blockState.getBlockType());
                     org.bukkit.block.data.BlockData bukkitData = BukkitAdapter.adapt(blockState);
 
@@ -158,7 +225,7 @@ public class TurbotrapManager {
             }
         }
 
-        // ✅ Animacja: 1 warstwa co 1 tick (szybka)
+        // ✅ Animacja: 1 warstwa co 1 tick
         new BukkitRunnable() {
             int layerIndex = 0;
 
@@ -177,6 +244,20 @@ public class TurbotrapManager {
 
                     // ✅ Nie zamieniaj bedrocka
                     if (worldBlock.getType() == Material.BEDROCK) continue;
+
+                    // ✅ Dodatkowe sprawdzenie w momencie wklejania
+                    // (klatka mogła powstać między obliczeniem a wklejeniem)
+                    Location blockLoc = worldBlock.getLocation();
+                    if (plugin.getHydroKlatkaManager().isKlatkaBlock(blockLoc)) continue;
+
+                    boolean insideCage = false;
+                    for (ActiveHydroKlatka klatka : plugin.getHydroKlatkaManager().getActiveKlatki()) {
+                        if (klatka.isInsideCage(blockLoc)) {
+                            insideCage = true;
+                            break;
+                        }
+                    }
+                    if (insideCage) continue;
 
                     worldBlock.setBlockData(placement.blockData, false);
                 }
