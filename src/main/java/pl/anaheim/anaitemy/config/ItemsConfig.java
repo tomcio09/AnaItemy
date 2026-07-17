@@ -367,4 +367,8 @@ public class ItemsConfig {
     public List<String> getOlafBlockedRegions() { return config.getStringList("olaf.blocked-regions"); }
     public String getOlafCooldownSubtitle() { return config.getString("olaf.messages.cooldown-subtitle", "&bOlafa &7mozesz uzyc za: &b{seconds_left}&7!"); }
     public String getOlafVictimSubtitle() { return config.getString("olaf.messages.victim-subtitle", "&3Olaf! &7zostalo uderzen: &b{left}&7!"); }
+    // ==================== WZMOCNIANA ELYTRA ====================
+    public List<String> getWzmocnianaElytraBlockedRegions() {
+        return config.getStringList("wzmocniana-elytra.blocked-regions");
+    }
 }
