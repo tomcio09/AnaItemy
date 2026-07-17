@@ -201,9 +201,8 @@ public class WzmocnianaElytraManager {
         Location center = landingLocation.clone();
 
         // ✅ Sprawdz czy gracz jest na zablokowanym regionie
-        List<String> blockedRegions = java.util.Arrays.asList("spawn", "endspawn", "netherspawn");
+        List<String> blockedRegions = plugin.getItemsConfig().getWzmocnianaElytraBlockedRegions();
         if (plugin.getWorldGuardManager().isInBlockedRegion(center, blockedRegions)) {
-            // Resetuj charge ale nie zadawaj damage
             WzmocnianaElytra.resetCharge(chestplate);
             playerFlightDistance.remove(player.getUniqueId());
             distanceSinceLastUpdate.remove(player.getUniqueId());
