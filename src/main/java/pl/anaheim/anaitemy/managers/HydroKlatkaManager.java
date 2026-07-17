@@ -200,11 +200,11 @@ public class HydroKlatkaManager {
         int duration = config.getHydroKlatkaDuration();
 
         ActiveHydroKlatka klatka = new ActiveHydroKlatka(center, radius, duration, creator.getUniqueId());
-        
-        // ✅ OBLICZ I ZAPISZ POZYCJE SHELLA PRZED ANIMACJĄ
-        Set<Location> shellPositions = calculateShellPositions(klatka);
+
+        // ✅ Oblicz pozycje shella PRZED animacją (dla niewidzialnej kolizji)
+        Set<Location> shellPositions = calculateShellPositions(center, radius, center.getWorld());
         klatka.setPlannedShellLocations(shellPositions);
-        
+
         activeKlatki.put(klatka.getId(), klatka);
 
         setChunkCooldown(center);
@@ -215,15 +215,10 @@ public class HydroKlatkaManager {
         scheduleRemoval(klatka);
     }
 
-    // ✅ NOWA METODA: Oblicza wszystkie pozycje gdzie będzie shell
-    private Set<Location> calculateShellPositions(ActiveHydroKlatka klatka) {
+    // ✅ Oblicza pozycje shella (granica klatki) bez sprawdzania regionów
+    // Regiony sprawdzamy osobno w listenerze ruchu
+    private Set<Location> calculateShellPositions(Location center, int radius, World world) {
         Set<Location> positions = new HashSet<>();
-        Location center = klatka.getCenter();
-        int radius = klatka.getRadius();
-        World world = center.getWorld();
-        
-        ItemsConfig config = plugin.getItemsConfig();
-        List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
 
         for (int x = -radius; x <= radius; x++) {
             for (int y = -radius; y <= radius; y++) {
@@ -234,26 +229,24 @@ public class HydroKlatkaManager {
                             center.getBlockZ() + z);
 
                     double distance = blockLoc.distance(center);
-                    
-                    // Shell jest na granicy klatki
+
+                    // Shell jest dokładnie na granicy (radius-1.0, radius]
                     if (distance > radius - 1.0 && distance <= radius) {
-                        // Sprawdź czy region nie blokuje
-                        if (!plugin.getWorldGuardManager().isInBlockedRegion(blockLoc, blockedRegions)) {
-                            positions.add(blockLoc);
-                        }
+                        positions.add(blockLoc);
                     }
                 }
             }
         }
-        
+
         return positions;
     }
 
-    // ✅ NOWA METODA: Sprawdza czy w danej lokalizacji BĘDZIE shell
+    // ✅ Sprawdza czy w danej lokalizacji będzie/jest shell
     public boolean willShellBeAt(Location location, ActiveHydroKlatka klatka) {
         if (klatka.isAnimationComplete()) {
             return isShellBlock(location);
         }
+        // Podczas animacji - sprawdź zaplanowane pozycje
         return klatka.isPlannedShellLocation(location);
     }
 
@@ -276,7 +269,6 @@ public class HydroKlatkaManager {
                 if (config.isHydroKlatkaTagPlayers() &&
                         plugin.getCombatIntegrationManager().isEnabled() &&
                         plugin.getCombatIntegrationManager().hasTagPlayerMethod()) {
-
                     plugin.getCombatIntegrationManager().tagPlayer(player, creator);
                 }
             }
@@ -294,6 +286,7 @@ public class HydroKlatkaManager {
 
             Location loc = player.getLocation();
 
+            // Jeśli gracz jest na zablokowanym regionie — wypuść
             if (plugin.getWorldGuardManager().isInBlockedRegion(loc, blockedRegions)) {
                 klatka.removeTrappedPlayer(playerId);
                 BossBar bossBar = playerBossBars.remove(playerId);
@@ -302,11 +295,40 @@ public class HydroKlatkaManager {
             }
 
             double distance = loc.distance(center);
-            if (distance > klatka.getRadius() + 1.0) {
-                Location teleportLoc = center.clone();
-                teleportLoc.setYaw(loc.getYaw());
-                teleportLoc.setPitch(loc.getPitch());
-                player.teleport(teleportLoc);
+
+            if (klatka.isAnimationComplete()) {
+                // Po animacji:
+                // Jeśli gracz jest w bloku shella = teleportuj na środek
+                Block feetBlock = loc.getBlock();
+                Block headBlock = loc.clone().add(0, 1, 0).getBlock();
+
+                boolean inShell = (feetBlock.getType() == SHELL && isShellBlock(feetBlock.getLocation()))
+                        || (headBlock.getType() == SHELL && isShellBlock(headBlock.getLocation()));
+
+                if (inShell) {
+                    Location teleportLoc = center.clone();
+                    teleportLoc.setYaw(loc.getYaw());
+                    teleportLoc.setPitch(loc.getPitch());
+                    player.teleport(teleportLoc);
+                    continue;
+                }
+
+                // Jeśli gracz jest poza klatką (exploit) = teleportuj na środek
+                if (distance > klatka.getRadius()) {
+                    Location teleportLoc = center.clone();
+                    teleportLoc.setYaw(loc.getYaw());
+                    teleportLoc.setPitch(loc.getPitch());
+                    player.teleport(teleportLoc);
+                }
+            } else {
+                // Podczas animacji:
+                // Jeśli gracz jakoś wyszedł poza granicę = teleportuj na środek
+                if (distance > klatka.getRadius()) {
+                    Location teleportLoc = center.clone();
+                    teleportLoc.setYaw(loc.getYaw());
+                    teleportLoc.setPitch(loc.getPitch());
+                    player.teleport(teleportLoc);
+                }
             }
         }
     }
@@ -341,7 +363,6 @@ public class HydroKlatkaManager {
         for (UUID playerId : klatka.getTrappedPlayers()) {
             BossBar bossBar = playerBossBars.get(playerId);
             if (bossBar == null) continue;
-
             bossBar.progress(progress);
         }
     }
@@ -374,7 +395,6 @@ public class HydroKlatkaManager {
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             try {
                 Sound ambientSound = Sound.valueOf(config.getHydroKlatkaAmbientSound());
-
                 for (Player player : world.getPlayers()) {
                     if (player.getLocation().distance(center) <= 50) {
                         player.playSound(center, ambientSound, SoundCategory.BLOCKS,
@@ -463,9 +483,7 @@ public class HydroKlatkaManager {
     private Material mapToWaterBlock(Material original) {
         String name = original.name();
 
-        if (original == Material.BEDROCK) {
-            return Material.BEDROCK;
-        }
+        if (original == Material.BEDROCK) return Material.BEDROCK;
 
         if (original == Material.DIRT || original == Material.GRASS_BLOCK ||
                 original == Material.COARSE_DIRT || original == Material.ROOTED_DIRT) {
@@ -477,22 +495,16 @@ public class HydroKlatkaManager {
             return Material.SEA_LANTERN;
         }
 
-        if (original == Material.STONE) {
-            return Material.PRISMARINE;
-        }
+        if (original == Material.STONE) return Material.PRISMARINE;
 
-        if (name.contains("BRICKS")) {
-            return Material.PRISMARINE_BRICKS;
-        }
+        if (name.contains("BRICKS")) return Material.PRISMARINE_BRICKS;
 
         if (original == Material.SPRUCE_LOG || original == Material.SPRUCE_WOOD ||
                 original == Material.STRIPPED_SPRUCE_LOG) {
             return Material.BRAIN_CORAL_BLOCK;
         }
 
-        if (name.contains("LEAVES")) {
-            return Material.PURPLE_TERRACOTTA;
-        }
+        if (name.contains("LEAVES")) return Material.PURPLE_TERRACOTTA;
 
         if (original == Material.SAND || original == Material.RED_SAND ||
                 original == Material.GRAVEL) {
@@ -509,7 +521,6 @@ public class HydroKlatkaManager {
             @Override
             public void run() {
                 removeKlatka(klatka);
-
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
                     chunkCooldowns.clear();
                 }, 100L);
@@ -641,7 +652,6 @@ public class HydroKlatkaManager {
 
         cooldownTasks.values().forEach(BukkitTask::cancel);
         cooldownTasks.clear();
-
         chunkCooldowns.clear();
     }
 }
