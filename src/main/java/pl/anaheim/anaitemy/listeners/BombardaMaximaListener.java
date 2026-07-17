@@ -67,6 +67,32 @@ public class BombardaMaximaListener implements Listener {
         else player.getInventory().setItemInMainHand(null);
     }
 
+    /**
+     * ✅ Sprawdza czy lokalizacja jest chroniona przez jakąkolwiek klatkę
+     * Działa zarówno podczas animacji jak i po niej
+     */
+    private boolean isProtectedByCage(Location blockLoc, HydroKlatkaManager klatkaManager) {
+        // Sprawdź czy to zapisany blok klatki (po zbudowaniu)
+        if (klatkaManager.isKlatkaBlock(blockLoc)) {
+            return true;
+        }
+
+        // Sprawdź każdą aktywną klatkę
+        for (ActiveHydroKlatka klatka : klatkaManager.getActiveKlatki()) {
+            // Sprawdź czy blok jest wewnątrz sfery klatki
+            if (klatka.isInsideCage(blockLoc)) {
+                return true;
+            }
+
+            // Sprawdź czy to zaplanowana pozycja shella (podczas animacji)
+            if (!klatka.isAnimationComplete() && klatka.isPlannedShellLocation(blockLoc)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     @EventHandler(priority = EventPriority.HIGH)
     public void onHit(ProjectileHitEvent event) {
         if (!(event.getEntity() instanceof Fireball fireball)) return;
@@ -84,7 +110,6 @@ public class BombardaMaximaListener implements Listener {
             return;
         }
 
-        // ✅ Pobierz manager klatki
         HydroKlatkaManager klatkaManager = plugin.getHydroKlatkaManager();
 
         for (int x = -radius; x <= radius; x++) {
@@ -97,20 +122,8 @@ public class BombardaMaximaListener implements Listener {
                     if (block.getType() == Material.BEDROCK) continue;
                     if (block.getType().isAir()) continue;
 
-                    // ✅ NIE niszcz ŻADNYCH bloków klatki (shell, wnętrze, wszystko)
-                    if (klatkaManager.isKlatkaBlock(blockLoc)) continue;
-
-                    // ✅ NIE niszcz bloków które są WEWNĄTRZ sfery klatki
-                    // (nawet powietrze/bloki które nie są zapisane jako klatka
-                    //  ale znajdują się w jej obrębie)
-                    boolean insideAnyCage = false;
-                    for (ActiveHydroKlatka klatka : klatkaManager.getActiveKlatki()) {
-                        if (klatka.isInsideCage(blockLoc)) {
-                            insideAnyCage = true;
-                            break;
-                        }
-                    }
-                    if (insideAnyCage) continue;
+                    // ✅ NIE niszcz NICZEGO co jest chronione przez klatkę
+                    if (isProtectedByCage(blockLoc, klatkaManager)) continue;
 
                     block.setType(Material.AIR, false);
                 }
