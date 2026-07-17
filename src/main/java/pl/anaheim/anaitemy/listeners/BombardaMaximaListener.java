@@ -18,6 +18,7 @@ import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.BombardaMaximaItem;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
+import pl.anaheim.anaitemy.models.ActiveHydroKlatka;
 
 public class BombardaMaximaListener implements Listener {
 
@@ -96,8 +97,20 @@ public class BombardaMaximaListener implements Listener {
                     if (block.getType() == Material.BEDROCK) continue;
                     if (block.getType().isAir()) continue;
 
-                    // ✅ NIE niszcz bloków klatki (shell ani wnętrze)
+                    // ✅ NIE niszcz ŻADNYCH bloków klatki (shell, wnętrze, wszystko)
                     if (klatkaManager.isKlatkaBlock(blockLoc)) continue;
+
+                    // ✅ NIE niszcz bloków które są WEWNĄTRZ sfery klatki
+                    // (nawet powietrze/bloki które nie są zapisane jako klatka
+                    //  ale znajdują się w jej obrębie)
+                    boolean insideAnyCage = false;
+                    for (ActiveHydroKlatka klatka : klatkaManager.getActiveKlatki()) {
+                        if (klatka.isInsideCage(blockLoc)) {
+                            insideAnyCage = true;
+                            break;
+                        }
+                    }
+                    if (insideAnyCage) continue;
 
                     block.setType(Material.AIR, false);
                 }
