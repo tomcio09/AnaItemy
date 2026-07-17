@@ -7,6 +7,8 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
 import org.bukkit.*;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.EvokerFangs;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -28,8 +30,6 @@ public class RozdzkailuzjonistyManager {
     private final Map<UUID, Long> vanishCooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, VanishData> activeVanishes = new ConcurrentHashMap<>();
     private final Map<EvokerFangs, Set<UUID>> fangsDamagedPlayers = new ConcurrentHashMap<>();
-    
-    // ✅ NOWA MAPA - śledzenie właściciela szczęk
     private final Map<EvokerFangs, UUID> fangsOwners = new ConcurrentHashMap<>();
 
     public RozdzkailuzjonistyManager(AnaItemy plugin) {
@@ -52,8 +52,7 @@ public class RozdzkailuzjonistyManager {
     public void setFangsCooldown(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
         long cooldownSeconds = config.getRozdzkailuzjonistyFangsCooldown();
-        fangsCooldowns.put(player.getUniqueId(),
-                System.currentTimeMillis() + (cooldownSeconds * 1000));
+        fangsCooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (cooldownSeconds * 1000));
     }
 
     public void resetFangsCooldown(Player player) {
@@ -76,8 +75,7 @@ public class RozdzkailuzjonistyManager {
     public void setVanishCooldown(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
         long cooldownSeconds = config.getRozdzkailuzjonistyVanishCooldown();
-        vanishCooldowns.put(player.getUniqueId(),
-                System.currentTimeMillis() + (cooldownSeconds * 1000));
+        vanishCooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (cooldownSeconds * 1000));
     }
 
     public void resetVanishCooldown(Player player) {
@@ -94,9 +92,7 @@ public class RozdzkailuzjonistyManager {
             return;
         }
 
-        if (isInBlockedRegion(player.getLocation())) {
-            return;
-        }
+        if (isInBlockedRegion(player.getLocation())) return;
 
         setFangsCooldown(player);
 
@@ -104,11 +100,7 @@ public class RozdzkailuzjonistyManager {
         player.showTitle(Title.title(
                 Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand().deserialize(message),
-                Title.Times.times(
-                        Duration.ofMillis(250),
-                        Duration.ofMillis(2000),
-                        Duration.ofMillis(250)
-                )
+                Title.Times.times(Duration.ofMillis(250), Duration.ofMillis(2000), Duration.ofMillis(250))
         ));
 
         spawnFangs(player);
@@ -119,13 +111,11 @@ public class RozdzkailuzjonistyManager {
 
         int length = config.getRozdzkailuzjonistyFangsLength();
         int width = config.getRozdzkailuzjonistyFangsWidth();
-        double spacing = config.getRozdzkailuzjonistyFangsSpacing();
         double speed = config.getRozdzkailuzjonistyFangsSpeed();
 
         Location start = player.getLocation();
         Vector direction = start.getDirection().normalize();
-        direction.setY(0);
-        direction.normalize();
+        direction.setY(0).normalize();
 
         Vector perpendicular = new Vector(-direction.getZ(), 0, direction.getX()).normalize();
         double centerOffset = (width - 1) * 2.0 / 2.0;
@@ -148,9 +138,7 @@ public class RozdzkailuzjonistyManager {
             return;
         }
 
-        if (isInBlockedRegion(player.getLocation())) {
-            return;
-        }
+        if (isInBlockedRegion(player.getLocation())) return;
 
         boolean citizensEnabled = plugin.getServer().getPluginManager().isPluginEnabled("Citizens");
 
@@ -160,19 +148,14 @@ public class RozdzkailuzjonistyManager {
         player.showTitle(Title.title(
                 Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand().deserialize(message),
-                Title.Times.times(
-                        Duration.ofMillis(250),
-                        Duration.ofMillis(2000),
-                        Duration.ofMillis(250)
-                )
+                Title.Times.times(Duration.ofMillis(250), Duration.ofMillis(2000), Duration.ofMillis(250))
         ));
 
         try {
             Sound activateSound = Sound.valueOf(config.getRozdzkailuzjonistyVanishSoundActivate());
             player.playSound(player.getLocation(), activateSound, 1.0f, 1.0f);
         } catch (IllegalArgumentException e) {
-            plugin.getLogger().warning("Nieprawidłowy dźwięk aktywacji: " +
-                    config.getRozdzkailuzjonistyVanishSoundActivate());
+            plugin.getLogger().warning("Nieprawidlowy dzwiek aktywacji: " + config.getRozdzkailuzjonistyVanishSoundActivate());
         }
 
         if (!citizensEnabled) {
@@ -187,22 +170,16 @@ public class RozdzkailuzjonistyManager {
         int duration = config.getRozdzkailuzjonistyVanishDuration();
 
         for (Player online : Bukkit.getOnlinePlayers()) {
-            if (!online.equals(player)) {
-                online.hidePlayer(plugin, player);
-            }
+            if (!online.equals(player)) online.hidePlayer(plugin, player);
         }
 
-        VanishData data = new VanishData(
-                player, null, System.currentTimeMillis() + (duration * 1000L)
-        );
+        VanishData data = new VanishData(player, null, System.currentTimeMillis() + (duration * 1000L));
         activeVanishes.put(player.getUniqueId(), data);
 
         new BukkitRunnable() {
             @Override
             public void run() {
-                if (activeVanishes.containsKey(player.getUniqueId())) {
-                    endVanish(player, false);
-                }
+                if (activeVanishes.containsKey(player.getUniqueId())) endVanish(player, false);
             }
         }.runTaskLater(plugin, duration * 20L);
     }
@@ -219,6 +196,7 @@ public class RozdzkailuzjonistyManager {
                 player.getName()
         );
 
+        // ✅ Skin gracza
         npc.getOrAddTrait(SkinTrait.class).setSkinName(player.getName());
 
         Location spawnLoc = isGliding ? player.getLocation().clone() : findGroundLocation(player.getLocation());
@@ -227,6 +205,7 @@ public class RozdzkailuzjonistyManager {
         if (npc.getEntity() instanceof LivingEntity npcEntity) {
             EntityEquipment equipment = npcEntity.getEquipment();
             if (equipment != null) {
+                // ✅ Zbroja + ekwipunek gracza
                 equipment.setHelmet(player.getInventory().getHelmet());
                 equipment.setChestplate(player.getInventory().getChestplate());
                 equipment.setLeggings(player.getInventory().getLeggings());
@@ -234,19 +213,28 @@ public class RozdzkailuzjonistyManager {
                 equipment.setItemInMainHand(player.getInventory().getItemInMainHand());
                 equipment.setItemInOffHand(player.getInventory().getItemInOffHand());
             }
+
+            // ✅ Maksymalne HP gracza
+            AttributeInstance maxHealth = player.getAttribute(Attribute.MAX_HEALTH);
+            if (maxHealth != null && npcEntity.getAttribute(Attribute.MAX_HEALTH) != null) {
+                npcEntity.getAttribute(Attribute.MAX_HEALTH).setBaseValue(maxHealth.getValue());
+                npcEntity.setHealth(maxHealth.getValue());
+            }
+
+            // ✅ Prefix / suffix przez display name (jeśli gracz ma custom name)
+            if (player.customName() != null) {
+                npcEntity.customName(player.customName());
+                npcEntity.setCustomNameVisible(true);
+            }
         }
 
         npc.setProtected(true);
 
         for (Player online : Bukkit.getOnlinePlayers()) {
-            if (!online.equals(player)) {
-                online.hidePlayer(plugin, player);
-            }
+            if (!online.equals(player)) online.hidePlayer(plugin, player);
         }
 
-        VanishData data = new VanishData(
-                player, npc, System.currentTimeMillis() + (duration * 1000L)
-        );
+        VanishData data = new VanishData(player, npc, System.currentTimeMillis() + (duration * 1000L));
         activeVanishes.put(player.getUniqueId(), data);
 
         Vector direction = isGliding
@@ -260,21 +248,9 @@ public class RozdzkailuzjonistyManager {
 
             @Override
             public void run() {
-                if (!activeVanishes.containsKey(player.getUniqueId())) {
-                    cancel();
-                    return;
-                }
-
-                if (ticks >= maxTicks) {
-                    endVanish(player, false);
-                    cancel();
-                    return;
-                }
-
-                if (!npc.isSpawned() || npc.getEntity() == null) {
-                    cancel();
-                    return;
-                }
+                if (!activeVanishes.containsKey(player.getUniqueId())) { cancel(); return; }
+                if (ticks >= maxTicks) { endVanish(player, false); cancel(); return; }
+                if (!npc.isSpawned() || npc.getEntity() == null) { cancel(); return; }
 
                 if (npc.getEntity() instanceof LivingEntity le) {
                     le.setNoDamageTicks(20);
@@ -285,27 +261,19 @@ public class RozdzkailuzjonistyManager {
 
                 if (wasGliding) {
                     Location next = current.clone().add(direction);
-                    
                     Location ground = findGroundBelow(next, 2);
                     if (ground != null) {
                         wasGliding = false;
                         direction.setY(0).normalize().multiply(npcSpeed / 20.0);
                         next = ground;
                     }
-
                     next.setYaw(current.getYaw());
                     next.setPitch(current.getPitch());
                     npc.getEntity().teleport(next);
-
                 } else {
                     Location nextHorizontal = current.clone().add(direction.getX(), 0, direction.getZ());
                     Location nextGround = findGroundForMovement(current, nextHorizontal);
-
-                    if (nextGround == null) {
-                        ticks++;
-                        return;
-                    }
-
+                    if (nextGround == null) { ticks++; return; }
                     nextGround.setYaw(current.getYaw());
                     nextGround.setPitch(current.getPitch());
                     npc.getEntity().teleport(nextGround);
@@ -315,18 +283,14 @@ public class RozdzkailuzjonistyManager {
             }
         }.runTaskTimer(plugin, 0L, 1L);
     }
-    
+
     private Location findGroundLocation(Location playerLoc) {
         World world = playerLoc.getWorld();
         int x = playerLoc.getBlockX();
         int z = playerLoc.getBlockZ();
 
-        Location feetLoc = playerLoc.clone();
-        org.bukkit.block.Block below = feetLoc.clone().subtract(0, 0.1, 0).getBlock();
-
-        if (below.getType().isSolid()) {
-            return playerLoc.clone();
-        }
+        org.bukkit.block.Block below = playerLoc.clone().subtract(0, 0.1, 0).getBlock();
+        if (below.getType().isSolid()) return playerLoc.clone();
 
         for (int y = playerLoc.getBlockY(); y >= world.getMinHeight(); y--) {
             org.bukkit.block.Block block = world.getBlockAt(x, y, z);
@@ -334,8 +298,7 @@ public class RozdzkailuzjonistyManager {
             org.bukkit.block.Block above2 = world.getBlockAt(x, y + 2, z);
 
             if (block.getType().isSolid() && !above.getType().isSolid() && !above2.getType().isSolid()) {
-                return new Location(world, x + 0.5, y + 1, z + 0.5,
-                        playerLoc.getYaw(), playerLoc.getPitch());
+                return new Location(world, x + 0.5, y + 1, z + 0.5, playerLoc.getYaw(), playerLoc.getPitch());
             }
         }
 
@@ -356,7 +319,6 @@ public class RozdzkailuzjonistyManager {
                 return new Location(world, location.getX(), y + 1, location.getZ());
             }
         }
-
         return null;
     }
 
@@ -393,10 +355,8 @@ public class RozdzkailuzjonistyManager {
             if (!jumpTarget.getType().isSolid() && !jumpTargetAbove.getType().isSolid()) {
                 return new Location(world, nextHorizontal.getX(), currentY + 1, nextHorizontal.getZ());
             }
-
             return null;
         }
-
         return null;
     }
 
@@ -406,8 +366,15 @@ public class RozdzkailuzjonistyManager {
 
         ItemsConfig config = plugin.getItemsConfig();
 
-        if (data.getNpc() != null && data.getNpc().isSpawned()) {
-            data.getNpc().destroy();
+        // ✅ Zniszcz NPC bezpiecznie
+        if (data.getNpc() != null) {
+            try {
+                if (data.getNpc().isSpawned()) {
+                    data.getNpc().destroy();
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("[Rozdzka] Blad niszczenia NPC: " + e.getMessage());
+            }
         }
 
         for (Player online : Bukkit.getOnlinePlayers()) {
@@ -418,19 +385,14 @@ public class RozdzkailuzjonistyManager {
             Sound deactivateSound = Sound.valueOf(config.getRozdzkailuzjonistyVanishSoundDeactivate());
             player.playSound(player.getLocation(), deactivateSound, 1.0f, 1.0f);
         } catch (IllegalArgumentException e) {
-            plugin.getLogger().warning("Nieprawidłowy dźwięk deaktywacji: " +
-                    config.getRozdzkailuzjonistyVanishSoundDeactivate());
+            plugin.getLogger().warning("Nieprawidlowy dzwiek deaktywacji: " + config.getRozdzkailuzjonistyVanishSoundDeactivate());
         }
 
         if (!early) {
             player.showTitle(Title.title(
                     Component.empty(),
-                    LegacyComponentSerializer.legacyAmpersand().deserialize("&cJesteś znowu widoczny!"),
-                    Title.Times.times(
-                            Duration.ofMillis(250),
-                            Duration.ofMillis(2000),
-                            Duration.ofMillis(250)
-                    )
+                    LegacyComponentSerializer.legacyAmpersand().deserialize("&cJestes znowu widoczny!"),
+                    Title.Times.times(Duration.ofMillis(250), Duration.ofMillis(2000), Duration.ofMillis(250))
             ));
         }
     }
@@ -457,11 +419,7 @@ public class RozdzkailuzjonistyManager {
         player.showTitle(Title.title(
                 LegacyComponentSerializer.legacyAmpersand().deserialize(title),
                 LegacyComponentSerializer.legacyAmpersand().deserialize(subtitle),
-                Title.Times.times(
-                        Duration.ofMillis(250),
-                        Duration.ofMillis(1500),
-                        Duration.ofMillis(250)
-                )
+                Title.Times.times(Duration.ofMillis(250), Duration.ofMillis(1500), Duration.ofMillis(250))
         ));
     }
 
@@ -480,34 +438,51 @@ public class RozdzkailuzjonistyManager {
         return damaged != null && damaged.contains(playerId);
     }
 
-    // ✅ NOWA METODA - ustawia właściciela szczęk
     public void setFangOwner(EvokerFangs fang, Player owner) {
         fangsOwners.put(fang, owner.getUniqueId());
     }
 
-    // ✅ NOWA METODA - pobiera właściciela szczęk
     public UUID getFangOwner(EvokerFangs fang) {
         return fangsOwners.get(fang);
     }
 
     public void cleanupFang(EvokerFangs fang) {
         fangsDamagedPlayers.remove(fang);
-        fangsOwners.remove(fang); // ✅ Usuń również śledzenie właściciela
+        fangsOwners.remove(fang);
     }
 
     public boolean canFangDamageInRegion(Location location) {
         return !isInBlockedRegion(location);
     }
 
+    /**
+     * ✅ Cleanup przy wyłączeniu pluginu / crashu serwera.
+     * Usuwa wszystkie aktywne NPC PRZED wyłączeniem serwera.
+     */
     public void cleanup() {
+        plugin.getLogger().info("[Rozdzka] Czyszczenie " + activeVanishes.size() + " aktywnych znikniéć...");
+
         for (UUID playerId : new HashSet<>(activeVanishes.keySet())) {
+            VanishData data = activeVanishes.remove(playerId);
+            if (data == null) continue;
+
+            // ✅ Zniszcz NPC nawet jeśli gracz jest offline
+            if (data.getNpc() != null) {
+                try {
+                    if (data.getNpc().isSpawned()) {
+                        data.getNpc().destroy();
+                        plugin.getLogger().info("[Rozdzka] Usunieto NPC dla gracza " + playerId);
+                    }
+                } catch (Exception e) {
+                    plugin.getLogger().warning("[Rozdzka] Blad usuwania NPC: " + e.getMessage());
+                }
+            }
+
+            // Pokaż gracza z powrotem jeśli jest online
             Player player = Bukkit.getPlayer(playerId);
-            if (player != null) {
-                endVanish(player, true);
-            } else {
-                VanishData data = activeVanishes.remove(playerId);
-                if (data != null && data.getNpc() != null && data.getNpc().isSpawned()) {
-                    data.getNpc().destroy();
+            if (player != null && player.isOnline()) {
+                for (Player online : Bukkit.getOnlinePlayers()) {
+                    online.showPlayer(plugin, player);
                 }
             }
         }
@@ -515,7 +490,9 @@ public class RozdzkailuzjonistyManager {
         fangsCooldowns.clear();
         vanishCooldowns.clear();
         fangsDamagedPlayers.clear();
-        fangsOwners.clear(); // ✅ Wyczyść również mapę właścicieli
+        fangsOwners.clear();
+
+        plugin.getLogger().info("[Rozdzka] Czyszczenie zakonczone.");
     }
 
     // ==================== INNER CLASSES ====================
@@ -541,19 +518,12 @@ public class RozdzkailuzjonistyManager {
 
                 @Override
                 public void run() {
-                    if (distance >= length) {
-                        cancel();
-                        return;
-                    }
+                    if (distance >= length) { cancel(); return; }
 
                     Location spawnLoc = start.clone().add(direction.clone().multiply(distance * 1.5));
 
-                    if (isInBlockedRegion(spawnLoc)) {
-                        cancel();
-                        return;
-                    }
+                    if (isInBlockedRegion(spawnLoc)) { cancel(); return; }
 
-                    // ✅ Tylko JEDNA warstwa szczęk na ziemi
                     EvokerFangs fang = spawnLoc.getWorld().spawn(spawnLoc, EvokerFangs.class);
                     setFangOwner(fang, owner);
 
@@ -562,7 +532,7 @@ public class RozdzkailuzjonistyManager {
             }.runTaskTimer(plugin, 0L, (long) (1.0 / speed));
         }
     }
-    
+
     private static class VanishData {
         private final Player player;
         private final NPC npc;
