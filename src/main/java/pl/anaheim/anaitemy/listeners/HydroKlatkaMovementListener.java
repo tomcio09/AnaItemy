@@ -38,7 +38,7 @@ public class HydroKlatkaMovementListener implements Listener {
         Location to = event.getTo();
         if (to == null) return;
 
-        // Ignoruj obroty glowy
+        // Ignoruj obroty głowy
         if (from.getBlockX() == to.getBlockX()
                 && from.getBlockY() == to.getBlockY()
                 && from.getBlockZ() == to.getBlockZ()) {
@@ -51,7 +51,7 @@ public class HydroKlatkaMovementListener implements Listener {
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
 
-        // Gracz wychodzi na zablokowany region — pozwol i wypusc
+        // Gracz wychodzi na zablokowany region — pozwól i wypuść
         if (plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions)) {
             manager.removePlayerFromKlatka(player);
             return;
@@ -62,32 +62,47 @@ public class HydroKlatkaMovementListener implements Listener {
 
         if (!klatka.isAnimationComplete()) {
             // ✅ PODCZAS ANIMACJI:
-            // Niewidzialna sciana na granicy klatki
-            // Gracz sie "buguje" — jest cofany do from, nie na srodek
+            // Niewidzialna kolizja tam, gdzie BĘDZIE shell
 
-            double innerRadius = radius - 1.0;
+            // Sprawdź pozycje hitboxa gracza (nogi i głowa)
+            Location feetLoc = to.getBlock().getLocation();
+            Location headLoc = to.clone().add(0, 1, 0).getBlock().getLocation();
 
-            if (distanceTo > innerRadius) {
-                // Sprawdz czy region nie blokuje budowy w tym miejscu
-                boolean regionBlocked = plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions);
+            // Sprawdź czy gracz wchodzi w miejsce, gdzie BĘDZIE shell
+            boolean feetWillBeShell = manager.willShellBeAt(feetLoc, klatka);
+            boolean headWillBeShell = manager.willShellBeAt(headLoc, klatka);
 
-                if (regionBlocked) {
-                    // Region blokuje — wypusc gracza
-                    manager.removePlayerFromKlatka(player);
-                    return;
-                }
-
-                // ✅ "Bugowanie" — cofnij gracza do from (nie na srodek!)
+            if (feetWillBeShell || headWillBeShell) {
+                // ✅ Gracz wchodzi w przyszłą pozycję shella
+                // Efekt "bugowania" - zatrzymaj go w miejscu
                 Location stuckLoc = from.clone();
                 stuckLoc.setYaw(to.getYaw());
                 stuckLoc.setPitch(to.getPitch());
                 event.setTo(stuckLoc);
                 return;
             }
-        } else {
-            // ✅ PO ANIMACJI:
 
-            // Sprawdz czy gracz jest WEWNATRZ bloku shell (glowa lub nogi)
+            // Sprawdź czy gracz nie wychodzi poza ogólny promień
+            if (distanceTo > radius - 1.0) {
+                boolean regionBlocked = plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions);
+
+                if (regionBlocked) {
+                    // Region blokuje — wypuść gracza
+                    manager.removePlayerFromKlatka(player);
+                    return;
+                }
+
+                // Niewidzialna bariera - cofnij gracza
+                Location stuckLoc = from.clone();
+                stuckLoc.setYaw(to.getYaw());
+                stuckLoc.setPitch(to.getPitch());
+                event.setTo(stuckLoc);
+                return;
+            }
+
+        } else {
+            // ✅ PO ANIMACJI - shell już istnieje
+
             Block feetBlock = to.getBlock();
             Block headBlock = to.clone().add(0, 1, 0).getBlock();
 
@@ -95,13 +110,10 @@ public class HydroKlatkaMovementListener implements Listener {
             boolean headInShell = headBlock.getType() == SHELL && manager.isShellBlock(headBlock.getLocation());
 
             if (feetInShell || headInShell) {
-                // ✅ Gracz jest CALKOWICIE wewnatrz bloku shell
-                // Sprawdz czy to nie lekkie "wejscie hitboxem" przy elytrze
+                // Gracz jest w bloku shella
 
-                // Jesli gracz leci elytra i byl blizej srodka niz teraz
-                // = lekko wpadl hitboxem w sciane = NIE teleportuj
-                if (player.isGliding() && distanceFrom < distanceTo) {
-                    // Cofnij do from zamiast teleportowac na srodek
+                // ❌ NIE teleportuj jeśli gracz leci elytrą
+                if (player.isGliding()) {
                     Location stuckLoc = from.clone();
                     stuckLoc.setYaw(to.getYaw());
                     stuckLoc.setPitch(to.getPitch());
@@ -109,7 +121,22 @@ public class HydroKlatkaMovementListener implements Listener {
                     return;
                 }
 
-                // Gracz jest w scianie i NIE leci elytra = teleportuj na srodek
+                // ❌ NIE teleportuj jeśli to tylko lekkie zahaczenie
+                // Sprawdź czy CENTRUM hitboxa gracza jest w bloku shella
+                Location playerCenter = to.clone().add(0, 0.9, 0); // Środek gracza (~1.8 wysokości / 2)
+                Block centerBlock = playerCenter.getBlock();
+                boolean centerInShell = centerBlock.getType() == SHELL && manager.isShellBlock(centerBlock.getLocation());
+
+                if (!centerInShell) {
+                    // ✅ Tylko lekkie zahaczenie - NIE teleportuj, tylko zablokuj ruch
+                    Location stuckLoc = from.clone();
+                    stuckLoc.setYaw(to.getYaw());
+                    stuckLoc.setPitch(to.getPitch());
+                    event.setTo(stuckLoc);
+                    return;
+                }
+
+                // ✅ Gracz jest FAKTYCZNIE zakleszczony - teleportuj na środek
                 Location teleportLoc = center.clone();
                 teleportLoc.setYaw(to.getYaw());
                 teleportLoc.setPitch(to.getPitch());
@@ -117,13 +144,13 @@ public class HydroKlatkaMovementListener implements Listener {
                 return;
             }
 
-            // Sprawdz czy gracz probuje wyjsc przez shell
+            // Sprawdź czy gracz próbuje wyjść przez shell
             if (distanceTo > radius - 1.5 && distanceTo <= radius + 0.5) {
                 boolean shellAhead = manager.isShellBlock(to.getBlock().getLocation());
                 boolean shellHeadAhead = manager.isShellBlock(to.clone().add(0, 1, 0).getBlock().getLocation());
 
                 if (shellAhead || shellHeadAhead) {
-                    // Shell istnieje — zablokuj ruch (bugowanie)
+                    // Shell istnieje — zablokuj ruch
                     Location cancelLoc = from.clone();
                     cancelLoc.setYaw(to.getYaw());
                     cancelLoc.setPitch(to.getPitch());
@@ -131,14 +158,14 @@ public class HydroKlatkaMovementListener implements Listener {
                     return;
                 }
 
-                // Nie ma shell = region zablokowal budowe = wypusc
+                // Brak shella = region zablokował budowę = wypuść gracza
                 if (distanceTo > radius - 0.5) {
                     manager.removePlayerFromKlatka(player);
                     return;
                 }
             }
 
-            // Gracz calkowicie poza klatka
+            // Gracz całkowicie poza klatką
             if (distanceTo > radius) {
                 manager.removePlayerFromKlatka(player);
             }
@@ -153,7 +180,7 @@ public class HydroKlatkaMovementListener implements Listener {
         ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
         if (klatka == null) return;
 
-        // Pozwol na teleport pluginowy blisko srodka
+        // Pozwól na teleport pluginowy blisko środka
         if (event.getCause() == PlayerTeleportEvent.TeleportCause.PLUGIN) {
             Location to = event.getTo();
             if (to == null) return;
