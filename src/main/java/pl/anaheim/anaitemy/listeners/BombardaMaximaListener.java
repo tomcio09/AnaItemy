@@ -17,13 +17,16 @@ import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.BombardaMaximaItem;
+import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 
 public class BombardaMaximaListener implements Listener {
 
     private static final String META_BOMBARDA = "anaitemy_bombarda";
     private final AnaItemy plugin;
 
-    public BombardaMaximaListener(AnaItemy plugin) { this.plugin = plugin; }
+    public BombardaMaximaListener(AnaItemy plugin) {
+        this.plugin = plugin;
+    }
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onInteract(PlayerInteractEvent event) {
@@ -35,6 +38,16 @@ public class BombardaMaximaListener implements Listener {
         if (!BombardaMaximaItem.isBombardaMaxima(item)) return;
 
         event.setCancelled(true);
+
+        // ✅ Zablokuj użycie bombardy w klatce
+        HydroKlatkaManager klatkaManager = plugin.getHydroKlatkaManager();
+        if (klatkaManager.getKlatkaForPlayer(player) != null) {
+            klatkaManager.sendMessage(player,
+                    plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+            player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK,
+                    SoundCategory.PLAYERS, 1.0f, 0.8f);
+            return;
+        }
 
         if (plugin.getWorldGuardManager().isInNamedRegion(player.getLocation(),
                 plugin.getItemsConfig().getBombardaBlockedRegions())) return;
@@ -70,6 +83,9 @@ public class BombardaMaximaListener implements Listener {
             return;
         }
 
+        // ✅ Pobierz manager klatki
+        HydroKlatkaManager klatkaManager = plugin.getHydroKlatkaManager();
+
         for (int x = -radius; x <= radius; x++) {
             for (int y = -radius; y <= radius; y++) {
                 for (int z = -radius; z <= radius; z++) {
@@ -80,7 +96,9 @@ public class BombardaMaximaListener implements Listener {
                     if (block.getType() == Material.BEDROCK) continue;
                     if (block.getType().isAir()) continue;
 
-                    // ✅ setType(AIR) = bloki PO PROSTU ZNIKAJĄ (bez dropu)
+                    // ✅ NIE niszcz bloków klatki (shell ani wnętrze)
+                    if (klatkaManager.isKlatkaBlock(blockLoc)) continue;
+
                     block.setType(Material.AIR, false);
                 }
             }
