@@ -6,6 +6,7 @@ import pl.anaheim.anaitemy.commands.ItemyEventoweCommand;
 import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.listeners.*;
 import pl.anaheim.anaitemy.managers.*;
+import pl.anaheim.anaitemy.listeners.ItemPlaceBlocker;
 
 public class AnaItemy extends JavaPlugin {
 
@@ -154,6 +155,7 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CreeperZmutowanyListener(this), this);
         getServer().getPluginManager().registerEvents(new OlafListener(this), this);
         getServer().getPluginManager().registerEvents(new EnderchestListener(this), this);
+        getServer().getPluginManager().registerEvents(new ItemPlaceBlocker(this), this);
 
         getLogger().info("AnaItemy zostal wlaczony!");
     }
