@@ -19,6 +19,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.models.ActiveHydroKlatka;
@@ -31,21 +32,46 @@ public class HydroKlatkaBlockListener implements Listener {
         this.plugin = plugin;
     }
 
+    // ==================== HELPER: Sprawdza czy item to custom item pluginu ====================
+
+    private boolean isCustomPluginItem(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return false;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return false;
+
+        // Sprawdź PDC (PersistentDataContainer) lub display name
+        // Dostosuj do swoich itemów
+        if (meta.hasDisplayName()) {
+            String name = meta.getDisplayName();
+            // Sprawdź czy to jakikolwiek custom item z pluginu
+            if (name.contains("Bombarda") || name.contains("bombarda") ||
+                    name.contains("TurboTrap") || name.contains("turbotrap") ||
+                    name.contains("Turbo Trap") || name.contains("turbo trap") ||
+                    name.contains("HydroKlatka") || name.contains("hydroklatka") ||
+                    name.contains("Hydro Klatka") || name.contains("hydro klatka")) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // ==================== NISZCZENIE BLOKÓW ====================
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockBreak(BlockBreakEvent event) {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         Location location = event.getBlock().getLocation();
         Player player = event.getPlayer();
 
-        if (!manager.isKlatkaBlock(location)) {
-            return;
-        }
-
+        // ✅ Shell NIGDY nie może być zniszczony ręcznie
         if (manager.isShellBlock(location)) {
             event.setCancelled(true);
             manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+            return;
+        }
+
+        if (!manager.isKlatkaBlock(location)) {
             return;
         }
 
@@ -91,12 +117,27 @@ public class HydroKlatkaBlockListener implements Listener {
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
-        if (!manager.canUseItem(player, item.getType())) {
-            event.setCancelled(true);
-            manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+        // ✅ Sprawdź czy gracz jest w klatce
+        ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
+        if (klatka != null) {
 
-            player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK,
-                    SoundCategory.PLAYERS, 1.0f, 0.8f);
+            // ✅ Zablokuj WSZYSTKIE custom itemy pluginu w klatce
+            if (isCustomPluginItem(item)) {
+                event.setCancelled(true);
+                manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+                player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK,
+                        SoundCategory.PLAYERS, 1.0f, 0.8f);
+                return;
+            }
+
+            // ✅ Sprawdź blocked items z configu
+            if (!manager.canUseItem(player, item.getType())) {
+                event.setCancelled(true);
+                manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+                player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK,
+                        SoundCategory.PLAYERS, 1.0f, 0.8f);
+                return;
+            }
         }
     }
 
@@ -112,7 +153,6 @@ public class HydroKlatkaBlockListener implements Listener {
         if (!manager.canUseItem(player, item.getType())) {
             event.setCancelled(true);
             manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
-
             player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK,
                     SoundCategory.PLAYERS, 1.0f, 0.8f);
         }
@@ -241,13 +281,15 @@ public class HydroKlatkaBlockListener implements Listener {
 
     // ==================== EKSPLOZJE ====================
 
-    @EventHandler(priority = EventPriority.HIGH)
+    // ✅ HIGHEST priority - shell NIGDY nie może być zniszczony przez eksplozje
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent event) {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+        // Usuń WSZYSTKIE bloki klatki z listy eksplozji (nie mogą być zniszczone)
         event.blockList().removeIf(block -> manager.isKlatkaBlock(block.getLocation()));
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockExplode(BlockExplodeEvent event) {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         event.blockList().removeIf(block -> manager.isKlatkaBlock(block.getLocation()));
@@ -255,25 +297,66 @@ public class HydroKlatkaBlockListener implements Listener {
 
     // ==================== PISTONY ====================
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPistonExtend(BlockPistonExtendEvent event) {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         for (var block : event.getBlocks()) {
-            if (manager.isShellBlock(block.getLocation())) {
+            if (manager.isKlatkaBlock(block.getLocation())) {
                 event.setCancelled(true);
                 return;
             }
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPistonRetract(BlockPistonRetractEvent event) {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         for (var block : event.getBlocks()) {
-            if (manager.isShellBlock(block.getLocation())) {
+            if (manager.isKlatkaBlock(block.getLocation())) {
                 event.setCancelled(true);
                 return;
             }
+        }
+    }
+
+    // ==================== WODA/LAWA FLOW ====================
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onBlockFromTo(BlockFromToEvent event) {
+        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+        Location toLoc = event.getToBlock().getLocation();
+        Location fromLoc = event.getBlock().getLocation();
+
+        if (manager.isKlatkaBlock(toLoc) || manager.isKlatkaBlock(fromLoc)) {
+            event.setCancelled(true);
+        }
+    }
+
+    // ==================== FIRE ====================
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onBlockBurn(BlockBurnEvent event) {
+        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+        if (manager.isKlatkaBlock(event.getBlock().getLocation())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onBlockIgnite(BlockIgniteEvent event) {
+        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+        if (manager.isKlatkaBlock(event.getBlock().getLocation())) {
+            event.setCancelled(true);
+        }
+    }
+
+    // ==================== FADE (np. lód, śnieg) ====================
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onBlockFade(BlockFadeEvent event) {
+        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+        if (manager.isKlatkaBlock(event.getBlock().getLocation())) {
+            event.setCancelled(true);
         }
     }
 
@@ -288,7 +371,7 @@ public class HydroKlatkaBlockListener implements Listener {
 
     // ==================== ENTITY CHANGES ====================
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityChangeBlock(EntityChangeBlockEvent event) {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         Location location = event.getBlock().getLocation();
