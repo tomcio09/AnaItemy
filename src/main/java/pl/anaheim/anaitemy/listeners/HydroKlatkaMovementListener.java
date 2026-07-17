@@ -22,13 +22,16 @@ public class HydroKlatkaMovementListener implements Listener {
     private final AnaItemy plugin;
     private static final Material SHELL = Material.BLUE_GLAZED_TERRACOTTA;
 
+    // Margines od shella - gracz nie buguje się przy ścianie
     private static final double WALL_MARGIN = 0.8;
+
+    // Niewidzialna ściana jest 0.5 bloku ZA prawdziwym shellem
+    private static final double INVISIBLE_WALL_EXTRA = 0.5;
 
     public HydroKlatkaMovementListener(AnaItemy plugin) {
         this.plugin = plugin;
     }
 
-    // ✅ Pomocnicza metoda - sprawdza czy gracz jest w bloku shella
     private boolean isPlayerInShell(Location loc, HydroKlatkaManager manager) {
         Block feet = loc.getBlock();
         Block head = loc.clone().add(0, 1, 0).getBlock();
@@ -73,25 +76,27 @@ public class HydroKlatkaMovementListener implements Listener {
         double distanceTo = to.distance(center);
         double distanceFrom = from.distance(center);
 
-        if (!klatka.isAnimationComplete()) {
-            // ====================================================
-            // PODCZAS ANIMACJI: niewidzialna ściana sferyczna
-            // ====================================================
+        // ==============================================================
+        // NIEWIDZIALNA ŚCIANA - DZIAŁA ZAWSZE (podczas i po animacji)
+        // Jest 0.5 bloku za prawdziwym shellem
+        // ==============================================================
+        double invisibleWallRadius = radius - WALL_MARGIN + INVISIBLE_WALL_EXTRA;
+        // radius=8 -> invisibleWallRadius = 8 - 0.8 + 0.5 = 7.7
 
-            double wallRadius = radius - WALL_MARGIN;
+        // Jeśli gracz przekracza niewidzialną ścianę
+        if (distanceTo >= invisibleWallRadius) {
+            // Sprawdź czy region blokuje tu budowę shella
+            boolean regionBlocked = plugin.getWorldGuardManager()
+                    .isInBlockedRegion(to, blockedRegions);
 
-            if (distanceTo >= wallRadius) {
-                // Sprawdź czy region blokuje tu budowę shella
-                boolean regionBlocked = plugin.getWorldGuardManager()
-                        .isInBlockedRegion(to, blockedRegions);
+            if (regionBlocked) {
+                // Brak shella w tym kierunku = wypuść
+                manager.removePlayerFromKlatka(player);
+                return;
+            }
 
-                if (regionBlocked) {
-                    // Brak shella w tym kierunku = wypuść
-                    manager.removePlayerFromKlatka(player);
-                    return;
-                }
-
-                // Niewidzialna ściana — zatrzymaj gracza
+            // ❌ Elytra = cofnij, nie teleportuj
+            if (player.isGliding()) {
                 Location stuckLoc = from.clone();
                 stuckLoc.setYaw(to.getYaw());
                 stuckLoc.setPitch(to.getPitch());
@@ -99,17 +104,21 @@ public class HydroKlatkaMovementListener implements Listener {
                 return;
             }
 
-        } else {
-            // ====================================================
-            // PO ANIMACJI: shell fizycznie istnieje
-            // ====================================================
+            // Niewidzialna ściana — zatrzymaj gracza
+            Location stuckLoc = from.clone();
+            stuckLoc.setYaw(to.getYaw());
+            stuckLoc.setPitch(to.getPitch());
+            event.setTo(stuckLoc);
+            return;
+        }
 
-            // --------------------------------------------------
+        // ==============================================================
+        // DODATKOWE SPRAWDZENIA PO ANIMACJI
+        // ==============================================================
+        if (klatka.isAnimationComplete()) {
+
             // PRIORYTET 1: Gracz jest POZA klatką (exploit/bug)
-            // --------------------------------------------------
             if (distanceTo > radius) {
-
-                // ❌ Elytra = NIE teleportuj, tylko cofnij
                 if (player.isGliding()) {
                     Location stuckLoc = from.clone();
                     stuckLoc.setYaw(to.getYaw());
@@ -118,7 +127,7 @@ public class HydroKlatkaMovementListener implements Listener {
                     return;
                 }
 
-                // ✅ Nie-elytra poza klatką = teleport na środek
+                // Nie-elytra poza klatką = teleport na środek
                 Location teleportLoc = center.clone();
                 teleportLoc.setYaw(to.getYaw());
                 teleportLoc.setPitch(to.getPitch());
@@ -126,9 +135,7 @@ public class HydroKlatkaMovementListener implements Listener {
                 return;
             }
 
-            // --------------------------------------------------
             // PRIORYTET 2: Gracz jest W bloku shella
-            // --------------------------------------------------
             boolean playerInShellTo = isPlayerInShell(to, manager);
 
             if (playerInShellTo) {
@@ -142,12 +149,11 @@ public class HydroKlatkaMovementListener implements Listener {
                     return;
                 }
 
-                // Sprawdź czy FROM też jest w shellu
+                // Sprawdź czy FROM też jest w shellu = zakleszczony
                 boolean playerInShellFrom = isPlayerInShell(from, manager);
 
                 if (playerInShellFrom) {
-                    // ✅ Gracz jest ZAKLESZCZONY (i from i to w shellu)
-                    // Jedyny ratunek = teleport na środek
+                    // ✅ Gracz jest ZAKLESZCZONY = teleport na środek
                     Location teleportLoc = center.clone();
                     teleportLoc.setYaw(to.getYaw());
                     teleportLoc.setPitch(to.getPitch());
@@ -155,23 +161,20 @@ public class HydroKlatkaMovementListener implements Listener {
                     return;
                 }
 
-                // FROM nie jest w shellu = gracz dopiero wchodzi w shell
-                // Sprawdź kierunek ruchu
+                // FROM nie jest w shellu = gracz dopiero wchodzi
                 if (distanceFrom < distanceTo) {
-                    // Gracz idzie W STRONĘ shella = cofnij
+                    // Idzie W STRONĘ shella = cofnij
                     Location stuckLoc = from.clone();
                     stuckLoc.setYaw(to.getYaw());
                     stuckLoc.setPitch(to.getPitch());
                     event.setTo(stuckLoc);
                 } else {
-                    // Gracz idzie OD shella = pozwól wrócić do środka
+                    // Idzie OD shella = pozwól wrócić do środka
                 }
                 return;
             }
 
-            // --------------------------------------------------
             // PRIORYTET 3: Gracz zbliża się do shella od wewnątrz
-            // --------------------------------------------------
             if (distanceTo > radius - 1.5) {
                 Block feetBlock = to.getBlock();
                 Block headBlock = to.clone().add(0, 1, 0).getBlock();
@@ -180,7 +183,6 @@ public class HydroKlatkaMovementListener implements Listener {
                 boolean shellAtHead = manager.isShellBlock(headBlock.getLocation());
 
                 if (shellAtFeet || shellAtHead) {
-                    // Shell istnieje — zablokuj ruch
                     Location cancelLoc = from.clone();
                     cancelLoc.setYaw(to.getYaw());
                     cancelLoc.setPitch(to.getPitch());
@@ -188,7 +190,7 @@ public class HydroKlatkaMovementListener implements Listener {
                     return;
                 }
 
-                // Brak shella (region zablokował) = gracz może wyjść
+                // Brak shella = region zablokował = wypuść
                 if (distanceTo > radius - 0.5) {
                     manager.removePlayerFromKlatka(player);
                 }
@@ -207,10 +209,11 @@ public class HydroKlatkaMovementListener implements Listener {
         Location to = event.getTo();
         if (to == null) return;
         Location center = klatka.getCenter();
+        double radius = klatka.getRadius();
 
         // Pozwól na teleport pluginowy wewnątrz klatki
         if (event.getCause() == PlayerTeleportEvent.TeleportCause.PLUGIN) {
-            if (to.distance(center) < klatka.getRadius()) return;
+            if (to.distance(center) < radius) return;
         }
 
         ItemsConfig config = plugin.getItemsConfig();
@@ -222,27 +225,22 @@ public class HydroKlatkaMovementListener implements Listener {
             return;
         }
 
-        if (!klatka.isAnimationComplete()) {
-            double wallRadius = klatka.getRadius() - WALL_MARGIN;
-            if (to.distance(center) > wallRadius) {
-                event.setCancelled(true);
-                manager.sendMessage(player,
-                        plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
-            }
-        } else {
-            // Zablokuj teleport w shell
+        // ✅ Zablokuj KAŻDY teleport poza niewidzialną ścianę
+        double invisibleWallRadius = radius - WALL_MARGIN + INVISIBLE_WALL_EXTRA;
+
+        if (to.distance(center) > invisibleWallRadius) {
+            event.setCancelled(true);
+            manager.sendMessage(player,
+                    plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+            return;
+        }
+
+        // ✅ Zablokuj teleport w shell
+        if (klatka.isAnimationComplete()) {
             boolean hasShell = manager.isShellBlock(to.getBlock().getLocation())
                     || manager.isShellBlock(to.clone().add(0, 1, 0).getBlock().getLocation());
 
             if (hasShell) {
-                event.setCancelled(true);
-                manager.sendMessage(player,
-                        plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
-                return;
-            }
-
-            // Teleport poza klatkę = anuluj
-            if (to.distance(center) > klatka.getRadius()) {
                 event.setCancelled(true);
                 manager.sendMessage(player,
                         plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
