@@ -294,7 +294,10 @@ wzmocniana-elytra:
   gui-slot: 6
   enchants:
     unbreaking: 10
-
+  blocked-regions:
+    - spawn
+    - endspawn
+    - netherspawn
   respects-protection: true
   notify-attacker: false
   protection-messages:
