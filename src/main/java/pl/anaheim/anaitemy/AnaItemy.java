@@ -7,6 +7,7 @@ import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.listeners.*;
 import pl.anaheim.anaitemy.managers.*;
 import pl.anaheim.anaitemy.listeners.ItemPlaceBlocker;
+import pl.anaheim.anaitemy.api.HydroKlatkaAPI;
 
 public class AnaItemy extends JavaPlugin {
 
@@ -42,6 +43,7 @@ public class AnaItemy extends JavaPlugin {
     private ActionBarManager actionBarManager;
     private ItemProtectionManager itemProtectionManager;
     private TotemListener totemListener;
+    private HydroKlatkaAPI hydroKlatkaAPI;
 
     @Override
     public void onEnable() {
@@ -54,6 +56,7 @@ public class AnaItemy extends JavaPlugin {
         actionBarManager = new ActionBarManager(this);
         itemProtectionManager = new ItemProtectionManager(this);
         hydroKlatkaManager = new HydroKlatkaManager(this);
+        hydroKlatkaAPI = new HydroKlatkaAPI(this);
         rozdzkailuzjonistyManager = new RozdzkailuzjonistyManager(this);
         wedkaNielotaManager = new WedkaNielotaManager(this);
         wzmocnianaElytraManager = new WzmocnianaElytraManager(this);
@@ -156,7 +159,7 @@ public class AnaItemy extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new OlafListener(this), this);
         getServer().getPluginManager().registerEvents(new EnderchestListener(this), this);
         getServer().getPluginManager().registerEvents(new ItemPlaceBlocker(this), this);
-
+        getLogger().info("[AnaItemy] HydroKlatka API załadowane!");
         getLogger().info("AnaItemy zostal wlaczony!");
     }
 
@@ -224,4 +227,5 @@ public class AnaItemy extends JavaPlugin {
     public CombatIntegrationManager getCombatIntegrationManager() { return combatIntegrationManager; }
     public ActionBarManager getActionBarManager() { return actionBarManager; }
     public ItemProtectionManager getItemProtectionManager() { return itemProtectionManager; }
+    public HydroKlatkaAPI getHydroKlatkaAPI() { return hydroKlatkaAPI; }
 }
