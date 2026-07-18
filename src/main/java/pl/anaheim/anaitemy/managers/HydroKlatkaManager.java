@@ -84,6 +84,22 @@ public class HydroKlatkaManager {
         startCooldownDisplay(player);
     }
 
+    /**
+     * ✅ Ustawia cooldown z zewnętrznego API (inne pluginy)
+     *
+     * @param player  gracz
+     * @param seconds czas cooldownu w sekundach
+     */
+    public void setExternalCooldown(Player player, long seconds) {
+        long cooldownMillis = seconds * 1000;
+        playerCooldowns.put(player.getUniqueId(), System.currentTimeMillis() + cooldownMillis);
+
+        int cooldownTicks = (int) (seconds * 20);
+        player.setCooldown(Material.BLAZE_ROD, cooldownTicks);
+
+        startCooldownDisplay(player);
+    }
+
     public void resetCooldown(Player player) {
         playerCooldowns.remove(player.getUniqueId());
     }
@@ -215,8 +231,7 @@ public class HydroKlatkaManager {
         scheduleRemoval(klatka);
     }
 
-    // ✅ Oblicza pozycje shella (granica klatki) bez sprawdzania regionów
-    // Regiony sprawdzamy osobno w listenerze ruchu
+    // ✅ Oblicza pozycje shella (granica klatki)
     private Set<Location> calculateShellPositions(Location center, int radius, World world) {
         Set<Location> positions = new HashSet<>();
 
@@ -230,7 +245,7 @@ public class HydroKlatkaManager {
 
                     double distance = blockLoc.distance(center);
 
-                    // Shell jest dokładnie na granicy (radius-1.0, radius]
+                    // Shell jest na granicy (radius-1.0, radius]
                     if (distance > radius - 1.0 && distance <= radius) {
                         positions.add(blockLoc);
                     }
@@ -246,7 +261,6 @@ public class HydroKlatkaManager {
         if (klatka.isAnimationComplete()) {
             return isShellBlock(location);
         }
-        // Podczas animacji - sprawdź zaplanowane pozycje
         return klatka.isPlannedShellLocation(location);
     }
 
@@ -297,15 +311,15 @@ public class HydroKlatkaManager {
             double distance = loc.distance(center);
 
             if (klatka.isAnimationComplete()) {
-                // Po animacji:
-                // Jeśli gracz jest w bloku shella = teleportuj na środek
+                // Po animacji: sprawdź czy gracz jest w shellu
                 Block feetBlock = loc.getBlock();
                 Block headBlock = loc.clone().add(0, 1, 0).getBlock();
 
                 boolean inShell = (feetBlock.getType() == SHELL && isShellBlock(feetBlock.getLocation()))
                         || (headBlock.getType() == SHELL && isShellBlock(headBlock.getLocation()));
 
-                if (inShell) {
+                if (inShell && !player.isGliding()) {
+                    // Zakleszczony w shellu (nie elytra) = teleport na środek
                     Location teleportLoc = center.clone();
                     teleportLoc.setYaw(loc.getYaw());
                     teleportLoc.setPitch(loc.getPitch());
@@ -313,16 +327,15 @@ public class HydroKlatkaManager {
                     continue;
                 }
 
-                // Jeśli gracz jest poza klatką (exploit) = teleportuj na środek
-                if (distance > klatka.getRadius()) {
+                // Poza klatką (exploit) = teleport na środek (nie elytra)
+                if (distance > klatka.getRadius() && !player.isGliding()) {
                     Location teleportLoc = center.clone();
                     teleportLoc.setYaw(loc.getYaw());
                     teleportLoc.setPitch(loc.getPitch());
                     player.teleport(teleportLoc);
                 }
             } else {
-                // Podczas animacji:
-                // Jeśli gracz jakoś wyszedł poza granicę = teleportuj na środek
+                // Podczas animacji: poza granicą = teleport na środek
                 if (distance > klatka.getRadius()) {
                     Location teleportLoc = center.clone();
                     teleportLoc.setYaw(loc.getYaw());
@@ -585,6 +598,27 @@ public class HydroKlatkaManager {
 
     public boolean isKlatkaBlock(Location location) {
         return activeKlatki.values().stream().anyMatch(k -> k.hasOriginalBlock(location));
+    }
+
+    /**
+     * ✅ Sprawdza czy lokalizacja jest chroniona przez jakąkolwiek klatkę.
+     * Uwzględnia: zapisane bloki, wnętrze sfery, zaplanowane pozycje shella.
+     */
+    public boolean isProtectedByCage(Location blockLoc) {
+        if (isKlatkaBlock(blockLoc)) {
+            return true;
+        }
+
+        for (ActiveHydroKlatka klatka : activeKlatki.values()) {
+            if (klatka.isInsideCage(blockLoc)) {
+                return true;
+            }
+            if (!klatka.isAnimationComplete() && klatka.isPlannedShellLocation(blockLoc)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public boolean canUseItem(Player player, Material material) {
