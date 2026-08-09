@@ -33,20 +33,35 @@ public class HydroKlatkaMovementListener implements Listener {
     private static final long SOUND_COOLDOWN_MS = 400;
     private final Map<UUID, Long> lastSoundTime = new ConcurrentHashMap<>();
 
-    // ✅ Task który co tick sprawdza velocity graczy i koryguje pozycje
-    private BukkitTask velocityTask;
+    /**
+     * ✅ PROMIEŃ BARIERY:
+     * Shell jest budowany na: distance > radius - 1.0 && distance <= radius
+     * Bariera = wewnętrzna krawędź shella minus margines na hitbox gracza (0.3)
+     * Gracz ma hitbox 0.6 szeroki, więc środek gracza musi być 0.3 od bloku shella
+     */
+    private static final double BARRIER_INSET = 1.3;
+
+    private BukkitTask clampTask;
 
     public HydroKlatkaMovementListener(AnaItemy plugin) {
         this.plugin = plugin;
-        startVelocityTask();
+        startClampTask();
     }
 
-    // ==================== VELOCITY TASK ====================
-    // ✅ Co tick sprawdza WSZYSTKICH uwięzionych graczy i koryguje ich pozycję/velocity
-    // To jest kluczowe — PlayerMoveEvent nie wystarczy bo velocity działa między eventami
+    // ==================== CLAMP TASK — CO TICK ====================
 
-    private void startVelocityTask() {
-        velocityTask = new BukkitRunnable() {
+    /**
+     * ✅ HARD CLAMP: Co tick wymusza pozycję gracza wewnątrz bariery.
+     *
+     * Logika:
+     * 1. Oblicz dystans gracza od centrum klatki
+     * 2. Jeśli >= barrierRadius → clampuj pozycję NA granicy bariery
+     *    (nie na środek, tylko w tym samym kierunku ale bliżej)
+     * 3. Wyzeruj komponent velocity na zewnątrz
+     * 4. Teleport na środek TYLKO jeśli gracz > radius + 5 (exploit)
+     */
+    private void startClampTask() {
+        clampTask = new BukkitRunnable() {
             @Override
             public void run() {
                 HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
@@ -54,6 +69,7 @@ public class HydroKlatkaMovementListener implements Listener {
                 for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
                     Location center = klatka.getCenter();
                     double radius = klatka.getRadius();
+                    double barrierRadius = radius - BARRIER_INSET;
 
                     for (UUID playerId : klatka.getTrappedPlayers()) {
                         Player player = Bukkit.getPlayer(playerId);
@@ -62,105 +78,110 @@ public class HydroKlatkaMovementListener implements Listener {
                         Location loc = player.getLocation();
                         if (!loc.getWorld().equals(center.getWorld())) continue;
 
-                        // ✅ Sprawdź czy gracz jest w/przy strefie shella
                         double distance = loc.distance(center);
 
-                        // Strefa shella: distance > radius - 1.0 && distance <= radius
-                        // Bariera zaczyna się od radius - 1.3 (z marginesem dla hitboxa gracza)
-                        double barrierStart = radius - 1.3;
-
-                        if (distance >= barrierStart) {
-                            // ✅ Gracz jest przy/w barierze — koryguj velocity
-
-                            Vector velocity = player.getVelocity();
-                            Vector fromCenter = loc.toVector().subtract(center.toVector());
-
-                            if (fromCenter.lengthSquared() < 0.001) continue;
-
-                            Vector outwardDir = fromCenter.clone().normalize();
-
-                            // Oblicz komponent velocity w kierunku na zewnątrz
-                            double outwardSpeed = velocity.dot(outwardDir);
-
-                            if (outwardSpeed > 0) {
-                                // ✅ Gracz leci na zewnątrz — anuluj tę część velocity
-                                Vector corrected = velocity.clone().subtract(
-                                        outwardDir.clone().multiply(outwardSpeed));
-                                player.setVelocity(corrected);
-                            }
-
-                            // ✅ Sprawdź czy stopy/głowa są w bloku shella
-                            boolean feetInShell = isInShellZone(
-                                    loc.getBlock().getLocation(), center, radius);
-                            boolean headInShell = isInShellZone(
-                                    loc.clone().add(0, 1, 0).getBlock().getLocation(),
-                                    center, radius);
-
-                            if (feetInShell || headInShell) {
-                                // ✅ Gracz JEST w bloku shella — wypchnij do wewnątrz
-                                // NIE teleportuj na środek — tylko minimalnie cofnij
-
-                                Vector pushInward = center.toVector().subtract(loc.toVector());
-                                pushInward.normalize();
-
-                                // Znajdź bezpieczną pozycję tuż wewnątrz bariery
-                                Location safe = center.clone().add(
-                                        fromCenter.normalize().multiply(barrierStart - 0.3));
-                                safe.setY(loc.getY());
-                                safe.setYaw(loc.getYaw());
-                                safe.setPitch(loc.getPitch());
-
-                                // ✅ Sprawdź czy safe location nie jest też w shellu
-                                double safeDist = safe.distance(center);
-                                if (safeDist >= barrierStart) {
-                                    // Safe jest nadal za blisko — cofnij bardziej
-                                    safe = center.clone().add(
-                                            fromCenter.normalize().multiply(barrierStart - 1.0));
-                                    safe.setY(loc.getY());
-                                    safe.setYaw(loc.getYaw());
-                                    safe.setPitch(loc.getPitch());
-                                }
-
-                                player.teleport(safe);
-
-                                // Zeruj velocity
-                                Vector newVel = player.getVelocity();
-                                double out = newVel.dot(outwardDir);
-                                if (out > 0) {
-                                    newVel.subtract(outwardDir.clone().multiply(out));
-                                    player.setVelocity(newVel);
-                                }
-                            }
-                        }
-
-                        // ✅ Gracz daleko poza klatką (exploit) — teleport na środek
-                        // Ale TYLKO jeśli naprawdę daleko (>radius + 3 bloki)
-                        if (distance > radius + 3.0) {
+                        // ✅ EXPLOIT: Gracz daleko poza klatką → środek
+                        if (distance > radius + 5.0) {
                             Location tp = center.clone();
                             tp.setYaw(loc.getYaw());
                             tp.setPitch(loc.getPitch());
                             player.teleport(tp);
+                            player.setVelocity(new Vector(0, 0, 0));
+                            continue;
+                        }
+
+                        // ✅ HARD CLAMP: Gracz poza barierą → wymuś pozycję na granicy
+                        if (distance >= barrierRadius) {
+                            clampPlayerPosition(player, center, barrierRadius, distance);
                         }
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 1L); // ✅ CO TICK
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    // ==================== SHELL ZONE CHECK ====================
+    /**
+     * ✅ Wymusza pozycję gracza dokładnie na granicy bariery.
+     * Gracz zostaje w tym samym KIERUNKU od centrum, ale na bezpiecznym dystansie.
+     * NIE teleportuje na środek — gracz zostaje przy ścianie.
+     */
+    private void clampPlayerPosition(Player player, Location center,
+                                      double barrierRadius, double currentDistance) {
+        Location loc = player.getLocation();
+
+        // Kierunek od centrum do gracza
+        Vector fromCenter = loc.toVector().subtract(center.toVector());
+
+        if (fromCenter.lengthSquared() < 0.001) {
+            // Gracz dokładnie na środku — nie ruszaj
+            return;
+        }
+
+        Vector direction = fromCenter.clone().normalize();
+
+        // ✅ Bezpieczna pozycja = na granicy bariery minus mały margines
+        double safeDistance = barrierRadius - 0.05;
+
+        Location safeLoc = center.clone().add(direction.multiply(safeDistance));
+        safeLoc.setY(loc.getY()); // ✅ Zachowaj Y gracza — nie przesuwaj w pionie
+        safeLoc.setYaw(loc.getYaw());
+        safeLoc.setPitch(loc.getPitch());
+
+        // ✅ Sprawdź czy Y też nie wychodzi poza barierę
+        // (gracz spada przez dolną granicę lub wylatuje przez górną)
+        double safeLocDist = safeLoc.distance(center);
+        if (safeLocDist >= barrierRadius) {
+            // Y powoduje wyjście poza barierę — clampuj też Y
+            Vector safeFromCenter = safeLoc.toVector().subtract(center.toVector());
+            if (safeFromCenter.lengthSquared() > 0.001) {
+                safeFromCenter.normalize().multiply(safeDistance);
+                safeLoc = center.clone().add(safeFromCenter);
+                safeLoc.setYaw(loc.getYaw());
+                safeLoc.setPitch(loc.getPitch());
+            }
+        }
+
+        // ✅ Teleportuj gracza na bezpieczną pozycję
+        player.teleport(safeLoc);
+
+        // ✅ Wyzeruj velocity w kierunku na zewnątrz
+        clampVelocity(player, center);
+
+        // ✅ Feedback (dźwięk + subtitle) z anti-spam
+        playBarrierFeedback(player);
+    }
 
     /**
-     * ✅ Sprawdza czy dany blok jest w strefie shella (zbudowany, zaplanowany, lub powinien być).
-     * Używa dystansu od centrum — shell jest na distance > radius - 1.0 && distance <= radius
+     * ✅ Zeruje komponent velocity gracza w kierunku na zewnątrz klatki.
+     * Zachowuje velocity WZDŁUŻ ściany (ruch obrotowy) i w pionie (spadanie OK wewnątrz).
      */
-    private boolean isInShellZone(Location blockLoc, Location center, double radius) {
-        // Dystans od centrum do środka bloku
-        double distance = blockLoc.clone().add(0.5, 0.5, 0.5).distance(center);
-        return distance > radius - 1.0 && distance <= radius;
+    private void clampVelocity(Player player, Location center) {
+        Vector velocity = player.getVelocity();
+        if (velocity.lengthSquared() < 0.0001) return;
+
+        Location loc = player.getLocation();
+        Vector fromCenter = loc.toVector().subtract(center.toVector());
+
+        if (fromCenter.lengthSquared() < 0.001) return;
+
+        Vector outwardDir = fromCenter.clone().normalize();
+
+        // Oblicz ile velocity idzie "na zewnątrz"
+        double outwardSpeed = velocity.dot(outwardDir);
+
+        if (outwardSpeed > 0) {
+            // ✅ Usuń komponent na zewnątrz
+            velocity.subtract(outwardDir.clone().multiply(outwardSpeed));
+            player.setVelocity(velocity);
+        }
     }
 
     // ==================== PLAYER MOVE EVENT ====================
 
+    /**
+     * ✅ Dodatkowa warstwa ochrony — MoveEvent łapie ruch ZANIM gracz się przesunie.
+     * ClampTask koryguje PO przesunięciu. Razem = szczelna bariera.
+     */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
@@ -182,6 +203,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
         Location center = klatka.getCenter();
         double radius = klatka.getRadius();
+        double barrierRadius = radius - BARRIER_INSET;
 
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
@@ -192,71 +214,49 @@ public class HydroKlatkaMovementListener implements Listener {
             return;
         }
 
-        double barrierStart = radius - 1.3;
         double distanceTo = to.distance(center);
         double distanceFrom = from.distance(center);
 
-        // ✅ PRZYPADEK 1: Gracz próbuje wejść w strefę shella
-        if (distanceTo >= barrierStart && distanceFrom < barrierStart) {
-            // Gracz przekracza barierę — cofnij do FROM
-            Location stuckLoc = from.clone();
-            stuckLoc.setYaw(to.getYaw());
-            stuckLoc.setPitch(to.getPitch());
-            event.setTo(stuckLoc);
+        // ✅ Gracz próbuje przekroczyć barierę — cofnij do FROM
+        if (distanceTo >= barrierRadius) {
 
-            playBarrierFeedback(player);
-            return;
-        }
-
-        // ✅ PRZYPADEK 2: Gracz JUŻ jest w strefie shella (velocity go tam wrzuciło)
-        if (distanceTo >= barrierStart) {
-            // Cofnij w kierunku centrum — ale BEZ teleportu na sam środek
-            Vector toCenter = center.toVector().subtract(to.toVector());
-            if (toCenter.lengthSquared() > 0.01) {
-                toCenter.normalize();
-            }
-
-            // Znajdź punkt tuż wewnątrz bariery
-            Vector fromCenterDir = to.toVector().subtract(center.toVector());
-            if (fromCenterDir.lengthSquared() > 0.01) {
-                fromCenterDir.normalize();
-            }
-
-            Location safeLoc = center.clone().add(
-                    fromCenterDir.multiply(barrierStart - 0.5));
-            safeLoc.setY(to.getY());
-            safeLoc.setYaw(to.getYaw());
-            safeLoc.setPitch(to.getPitch());
-
-            // ✅ Sprawdź czy safeLoc nie jest za barierą
-            if (safeLoc.distance(center) >= barrierStart) {
-                safeLoc = from.clone();
-                safeLoc.setYaw(to.getYaw());
-                safeLoc.setPitch(to.getPitch());
-            }
-
-            event.setTo(safeLoc);
-            playBarrierFeedback(player);
-            return;
-        }
-
-        // ✅ PRZYPADEK 3: Gracz zbliża się szybko (elytra) — predykcja
-        if (distanceTo > barrierStart - 1.5 && distanceTo > distanceFrom) {
-            Vector velocity = player.getVelocity();
-            if (velocity.lengthSquared() > 0.3) {
-                // Przewiduj pozycję za 3 ticki
-                Location predicted = to.clone().add(velocity.clone().multiply(3));
-                double predictedDist = predicted.distance(center);
-
-                if (predictedDist >= barrierStart) {
-                    // Za chwilę uderzy w barierę — zatrzymaj
-                    Location stuckLoc = from.clone();
-                    stuckLoc.setYaw(to.getYaw());
-                    stuckLoc.setPitch(to.getPitch());
-                    event.setTo(stuckLoc);
-                    return;
+            if (distanceFrom < barrierRadius) {
+                // ✅ FROM jest bezpieczne — cofnij tam
+                Location stuckLoc = from.clone();
+                stuckLoc.setYaw(to.getYaw());
+                stuckLoc.setPitch(to.getPitch());
+                event.setTo(stuckLoc);
+            } else {
+                // ✅ FROM też jest poza barierą — clampuj TO na granicę
+                Vector fromCenterDir = to.toVector().subtract(center.toVector());
+                if (fromCenterDir.lengthSquared() > 0.001) {
+                    fromCenterDir.normalize();
                 }
+
+                Location clamped = center.clone().add(
+                        fromCenterDir.multiply(barrierRadius - 0.05));
+                clamped.setY(to.getY());
+                clamped.setYaw(to.getYaw());
+                clamped.setPitch(to.getPitch());
+
+                // Sprawdź czy clamped Y nie wychodzi poza barierę
+                if (clamped.distance(center) >= barrierRadius) {
+                    Vector clampedDir = clamped.toVector().subtract(center.toVector());
+                    if (clampedDir.lengthSquared() > 0.001) {
+                        clampedDir.normalize().multiply(barrierRadius - 0.05);
+                        clamped = center.clone().add(clampedDir);
+                        clamped.setYaw(to.getYaw());
+                        clamped.setPitch(to.getPitch());
+                    }
+                }
+
+                event.setTo(clamped);
             }
+
+            // ✅ Zeruj velocity na zewnątrz
+            clampVelocity(player, center);
+
+            playBarrierFeedback(player);
         }
     }
 
@@ -275,11 +275,11 @@ public class HydroKlatkaMovementListener implements Listener {
 
         Location center = klatka.getCenter();
         double radius = klatka.getRadius();
-        double barrierStart = radius - 1.3;
+        double barrierRadius = radius - BARRIER_INSET;
 
         // Teleport pluginowy wewnątrz klatki — pozwól
         if (event.getCause() == PlayerTeleportEvent.TeleportCause.PLUGIN) {
-            if (to.distance(center) < barrierStart) return;
+            if (to.distance(center) < barrierRadius) return;
         }
 
         ItemsConfig config = plugin.getItemsConfig();
@@ -291,7 +291,7 @@ public class HydroKlatkaMovementListener implements Listener {
         }
 
         // Blokuj teleport poza barierę
-        if (to.distance(center) >= barrierStart) {
+        if (to.distance(center) >= barrierRadius) {
             event.setCancelled(true);
             manager.sendMessage(player,
                     plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
@@ -345,9 +345,9 @@ public class HydroKlatkaMovementListener implements Listener {
      * ✅ Cleanup przy wyłączeniu pluginu.
      */
     public void stopTasks() {
-        if (velocityTask != null) {
-            velocityTask.cancel();
-            velocityTask = null;
+        if (clampTask != null) {
+            clampTask.cancel();
+            clampTask = null;
         }
         lastSoundTime.clear();
     }
