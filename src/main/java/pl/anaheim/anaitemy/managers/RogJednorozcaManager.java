@@ -148,14 +148,14 @@ public class RogJednorozcaManager {
             h.getInventory().setSaddle(new ItemStack(Material.SADDLE));
             h.setAdult();
 
-            if (h.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED) != null) {
-                h.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED).setBaseValue(0.3375);
+            if (h.getAttribute(Attribute.MOVEMENT_SPEED) != null) {
+                h.getAttribute(Attribute.MOVEMENT_SPEED).setBaseValue(0.3375);
             }
-            if (h.getAttribute(Attribute.HORSE_JUMP_STRENGTH) != null) {
-                h.getAttribute(Attribute.HORSE_JUMP_STRENGTH).setBaseValue(1.0);
+            if (h.getAttribute(Attribute.JUMP_STRENGTH) != null) {
+                h.getAttribute(Attribute.JUMP_STRENGTH).setBaseValue(1.0);
             }
-            if (h.getAttribute(Attribute.GENERIC_MAX_HEALTH) != null) {
-                h.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(30.0);
+            if (h.getAttribute(Attribute.MAX_HEALTH) != null) {
+                h.getAttribute(Attribute.MAX_HEALTH).setBaseValue(30.0);
                 h.setHealth(30.0);
             }
         });
