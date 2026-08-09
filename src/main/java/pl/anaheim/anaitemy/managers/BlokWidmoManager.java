@@ -93,6 +93,9 @@ public class BlokWidmoManager {
         cooldowns.remove(player.getUniqueId());
         player.setCooldown(Material.STRUCTURE_BLOCK, 0);
     }
+    public void setPostResetCooldown(Player player, int seconds) {
+        cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
+    }
 
     public void activate(Player activator, Location location) {
         ItemsConfig config = plugin.getItemsConfig();
