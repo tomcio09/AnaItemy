@@ -29,21 +29,12 @@ public class HydroKlatkaMovementListener implements Listener {
 
     private final AnaItemy plugin;
 
-    // ✅ Anti-spam: minimalny czas między dźwiękami (ms)
     private static final long SOUND_COOLDOWN_MS = 400;
     private final Map<UUID, Long> lastSoundTime = new ConcurrentHashMap<>();
-
-    // ✅ Bariera jest w środku bloku shella
-    // Shell jest na pozycjach gdzie distance > radius - 1.0 && distance <= radius
-    // Więc bariera zaczyna się od radius - 1.0 (wewnętrzna krawędź shella)
-    // Dodajemy 0.3 marginesu żeby gracz nie "wchodził" w blok
-    private static final double BARRIER_MARGIN = 0.3;
 
     public HydroKlatkaMovementListener(AnaItemy plugin) {
         this.plugin = plugin;
     }
-
-    // ==================== GŁÓWNA LOGIKA RUCHU ====================
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
@@ -57,7 +48,7 @@ public class HydroKlatkaMovementListener implements Listener {
         Location to = event.getTo();
         if (to == null) return;
 
-        // ✅ Ignoruj obroty głowy
+        // Ignoruj obroty głowy
         if (from.getBlockX() == to.getBlockX()
                 && from.getBlockY() == to.getBlockY()
                 && from.getBlockZ() == to.getBlockZ()) {
@@ -70,61 +61,32 @@ public class HydroKlatkaMovementListener implements Listener {
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
 
-        // ✅ Jeśli gracz jest na zablokowanym regionie - wypuść
         if (plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions)) {
             manager.removePlayerFromKlatka(player);
             return;
         }
 
-        // ✅ OBLICZ PROMIEŃ BARIERY
-        // Shell budowany jest na: distance > radius - 1.0 && distance <= radius
-        // Bariera = wewnętrzna krawędź shella - margines
-        double barrierRadius = radius - 1.0 - BARRIER_MARGIN;
+        // ✅ GŁÓWNA LOGIKA: Sprawdź czy NOWA pozycja gracza (stopy + głowa)
+        // koliduje z blokiem shella (istniejącym LUB zaplanowanym)
 
-        double distanceFrom = from.distance(center);
-        double distanceTo = to.distance(center);
+        // Pozycje do sprawdzenia: stopy gracza i głowa (2 bloki wysokości)
+        Location feetTo = to.getBlock().getLocation();
+        Location headTo = to.clone().add(0, 1, 0).getBlock().getLocation();
 
-        // ==========================================
-        // PRZYPADEK 1: Gracz jest WEWNĄTRZ bariery i próbuje wyjść
-        // ==========================================
-        if (distanceFrom < barrierRadius && distanceTo >= barrierRadius) {
-            // ✅ Gracz przekracza barierę - ZATRZYMAJ na granicy
+        boolean feetInShell = isShellOrPlannedShell(feetTo, klatka, manager);
+        boolean headInShell = isShellOrPlannedShell(headTo, klatka, manager);
 
-            // Oblicz punkt na granicy bariery (kierunek od centrum do gracza)
-            Vector direction = to.toVector().subtract(center.toVector());
-            if (direction.lengthSquared() < 0.001) {
-                direction = from.toVector().subtract(center.toVector());
-            }
-            if (direction.lengthSquared() < 0.001) {
-                direction = new Vector(1, 0, 0);
-            }
-            direction.normalize();
+        if (feetInShell || headInShell) {
+            // ✅ Gracz próbuje wejść w blok shella — COFNIJ
 
-            // Ustaw gracza na granicy bariery (cofnij do bezpiecznej pozycji)
-            Location safeLocation = center.clone().add(
-                    direction.multiply(barrierRadius - 0.1));
-            safeLocation.setY(from.getY()); // zachowaj Y z from (nie przesuwaj w pionie)
-            safeLocation.setYaw(to.getYaw());
-            safeLocation.setPitch(to.getPitch());
+            // Sprawdź czy FROM też jest w shellu (zakleszczony)
+            Location feetFrom = from.getBlock().getLocation();
+            Location headFrom = from.clone().add(0, 1, 0).getBlock().getLocation();
+            boolean feetFromInShell = isShellOrPlannedShell(feetFrom, klatka, manager);
+            boolean headFromInShell = isShellOrPlannedShell(headFrom, klatka, manager);
 
-            event.setTo(safeLocation);
-
-            // ✅ Zeruj velocity w kierunku na zewnątrz
-            cancelOutwardVelocity(player, center);
-
-            // ✅ Dźwięk + subtitle z anti-spam
-            playBarrierFeedback(player);
-            return;
-        }
-
-        // ==========================================
-        // PRZYPADEK 2: Gracz JUŻ jest za barierą (exploit/bug/animacja)
-        // ==========================================
-        if (distanceTo >= barrierRadius) {
-            // Gracz jest poza barierą
-
-            if (distanceTo > radius + 1.0) {
-                // ✅ Daleko poza klatką - teleport na środek
+            if (feetFromInShell || headFromInShell) {
+                // Zakleszczony w shellu — teleport na środek
                 Location teleportLoc = center.clone();
                 teleportLoc.setYaw(to.getYaw());
                 teleportLoc.setPitch(to.getPitch());
@@ -132,40 +94,67 @@ public class HydroKlatkaMovementListener implements Listener {
                 return;
             }
 
-            // ✅ Gracz próbuje się ruszać za barierą - cofnij do wewnątrz
-            // Oblicz kierunek od gracza do centrum
-            Vector toCenter = center.toVector().subtract(to.toVector());
-            if (toCenter.lengthSquared() < 0.001) {
-                toCenter = new Vector(1, 0, 0);
-            }
-            toCenter.normalize();
-
-            // Przesuń gracza do wnętrza bariery
-            Location pushBack = center.clone().add(
-                    to.toVector().subtract(center.toVector()).normalize()
-                            .multiply(barrierRadius - 0.3));
-            pushBack.setY(to.getY());
-            pushBack.setYaw(to.getYaw());
-            pushBack.setPitch(to.getPitch());
-
-            event.setTo(pushBack);
+            // Normalnie — cofnij do FROM
+            Location stuckLoc = from.clone();
+            stuckLoc.setYaw(to.getYaw());
+            stuckLoc.setPitch(to.getPitch());
+            event.setTo(stuckLoc);
 
             cancelOutwardVelocity(player, center);
             playBarrierFeedback(player);
             return;
         }
 
-        // ==========================================
-        // PRZYPADEK 3: Gracz jest blisko bariery i zbliża się do niej
-        // ==========================================
-        if (distanceTo > barrierRadius - 0.5 && distanceTo > distanceFrom) {
-            // Gracz zbliża się do bariery - sprawdź czy następny tick by go przeniosło za barierę
-            // Predykcja: velocity * 2 ticki
-            Vector velocity = player.getVelocity();
-            double predictedDistance = to.clone().add(velocity).distance(center);
+        // ✅ DODATKOWE SPRAWDZENIE: Gracz daleko poza klatką (exploit/bug)
+        double distanceTo = to.distance(center);
 
-            if (predictedDistance >= barrierRadius) {
-                // ✅ Elytra/sprint - zatrzymaj na granicy
+        if (distanceTo > radius + 1.0) {
+            // Daleko poza klatką — teleport na środek
+            Location teleportLoc = center.clone();
+            teleportLoc.setYaw(to.getYaw());
+            teleportLoc.setPitch(to.getPitch());
+            event.setTo(teleportLoc);
+            return;
+        }
+
+        // ✅ SPRAWDZENIE CIĄGŁE: Gracz jest poza shellem ale wewnątrz radius
+        // (może być w strefie powłoki gdzie blok jeszcze nie został zbudowany)
+        if (distanceTo > radius - 1.0) {
+            // Gracz jest w strefie gdzie powinien być shell
+            // Sprawdź czy bloki wokół gracza to shell/planned shell
+
+            // Sprawdź 8 kierunków + góra/dół czy gracz nie jest otoczony shellem
+            boolean surroundedByShell = checkSurroundingShell(to, klatka, manager);
+
+            if (surroundedByShell) {
+                // Gracz jest w strefie shella ale nie bezpośrednio w bloku
+                // Cofnij do bezpiecznej pozycji bliżej centrum
+                Vector toCenter = center.toVector().subtract(to.toVector());
+                if (toCenter.lengthSquared() > 0.01) {
+                    toCenter.normalize();
+                }
+                Location safeLoc = to.clone().add(toCenter.multiply(0.5));
+                safeLoc.setYaw(to.getYaw());
+                safeLoc.setPitch(to.getPitch());
+                event.setTo(safeLoc);
+
+                cancelOutwardVelocity(player, center);
+                playBarrierFeedback(player);
+                return;
+            }
+        }
+
+        // ✅ PREDYKCJA: Gracz z dużą prędkością (elytra) — sprawdź następny tick
+        Vector velocity = player.getVelocity();
+        if (velocity.lengthSquared() > 0.5) {
+            // Przewiduj pozycję za 2 ticki
+            Location predicted = to.clone().add(velocity.clone().multiply(2));
+            Location predFeet = predicted.getBlock().getLocation();
+            Location predHead = predicted.clone().add(0, 1, 0).getBlock().getLocation();
+
+            if (isShellOrPlannedShell(predFeet, klatka, manager)
+                    || isShellOrPlannedShell(predHead, klatka, manager)) {
+                // Zatrzymaj gracza zanim wleci w shell
                 Location stuckLoc = from.clone();
                 stuckLoc.setYaw(to.getYaw());
                 stuckLoc.setPitch(to.getPitch());
@@ -175,6 +164,49 @@ public class HydroKlatkaMovementListener implements Listener {
                 return;
             }
         }
+    }
+
+    // ==================== SHELL CHECK ====================
+
+    /**
+     * ✅ Sprawdza czy dana lokalizacja bloku jest shellem (zbudowanym LUB zaplanowanym).
+     * Działa zarówno podczas animacji jak i po niej.
+     */
+    private boolean isShellOrPlannedShell(Location blockLoc, ActiveHydroKlatka klatka,
+                                          HydroKlatkaManager manager) {
+        // 1. Sprawdź czy to już zbudowany shell
+        if (manager.isShellBlock(blockLoc)) return true;
+
+        // 2. Sprawdź czy to zaplanowana pozycja shella (podczas animacji)
+        if (!klatka.isAnimationComplete() && klatka.isPlannedShellLocation(blockLoc)) return true;
+
+        // 3. Nawet po animacji — sprawdź po dystansie czy pozycja powinna być shellem
+        double distance = blockLoc.clone().add(0.5, 0.5, 0.5).distance(klatka.getCenter());
+        double radius = klatka.getRadius();
+
+        // Shell jest na: distance > radius - 1.0 && distance <= radius
+        if (distance > radius - 1.0 && distance <= radius) {
+            // Ta pozycja POWINNA być shellem
+            // Mogła nie zostać zbudowana (blocked region, protected block)
+            // Ale bariera powinna tam i tak być
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * ✅ Sprawdza czy gracz jest otoczony shellem/planned shellem.
+     * Używane gdy gracz jest w strefie shella ale nie bezpośrednio w bloku.
+     */
+    private boolean checkSurroundingShell(Location playerLoc, ActiveHydroKlatka klatka,
+                                           HydroKlatkaManager manager) {
+        Location center = klatka.getCenter();
+        double radius = klatka.getRadius();
+
+        // Sprawdź dystans od centrum — jeśli w strefie shella
+        double distance = playerLoc.distance(center);
+        return distance > radius - 0.8;
     }
 
     // ==================== TELEPORT ====================
@@ -192,24 +224,35 @@ public class HydroKlatkaMovementListener implements Listener {
 
         Location center = klatka.getCenter();
         double radius = klatka.getRadius();
-        double barrierRadius = radius - 1.0 - BARRIER_MARGIN;
 
-        // ✅ Teleport pluginowy wewnątrz bariery - pozwól
+        // Teleport pluginowy wewnątrz klatki — pozwól
         if (event.getCause() == PlayerTeleportEvent.TeleportCause.PLUGIN) {
-            if (to.distance(center) < barrierRadius) return;
+            double dist = to.distance(center);
+            if (dist < radius - 1.0) return;
         }
 
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
 
-        // ✅ Teleport na zablokowany region - wypuść
         if (plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions)) {
             manager.removePlayerFromKlatka(player);
             return;
         }
 
-        // ✅ Blokuj teleport poza barierę
-        if (to.distance(center) >= barrierRadius) {
+        // Sprawdź czy cel teleportu jest w shellu
+        Location feetTo = to.getBlock().getLocation();
+        Location headTo = to.clone().add(0, 1, 0).getBlock().getLocation();
+
+        if (isShellOrPlannedShell(feetTo, klatka, manager)
+                || isShellOrPlannedShell(headTo, klatka, manager)) {
+            event.setCancelled(true);
+            manager.sendMessage(player,
+                    plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+            return;
+        }
+
+        // Blokuj teleport poza klatką
+        if (to.distance(center) > radius) {
             event.setCancelled(true);
             manager.sendMessage(player,
                     plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
@@ -218,32 +261,37 @@ public class HydroKlatkaMovementListener implements Listener {
 
     // ==================== VELOCITY CONTROL ====================
 
-    /**
-     * ✅ Anuluj velocity gracza w kierunku na zewnątrz klatki.
-     * Zachowaj velocity wzdłuż ściany (ruch obrotowy wokół centrum).
-     */
     private void cancelOutwardVelocity(Player player, Location center) {
         Vector velocity = player.getVelocity();
         if (velocity.lengthSquared() < 0.001) return;
 
-        // Kierunek od centrum do gracza (na zewnątrz)
         Vector outward = player.getLocation().toVector().subtract(center.toVector());
         outward.setY(0);
 
         if (outward.lengthSquared() < 0.001) return;
         outward.normalize();
 
-        // Oblicz komponent velocity w kierunku na zewnątrz
         double outwardComponent = velocity.dot(outward);
 
         if (outwardComponent > 0) {
-            // ✅ Usuń komponent na zewnątrz, zachowaj ruch wzdłuż ściany + Y
             Vector cancelVector = outward.clone().multiply(outwardComponent);
             velocity.subtract(cancelVector);
-
-            // ✅ Zachowaj spadanie (Y velocity)
-            if (velocity.getY() > 0.5) velocity.setY(0); // blokuj wyskakiwanie
             player.setVelocity(velocity);
+        }
+
+        // ✅ Blokuj również spadanie przez dolną granicę shella
+        // Sprawdź czy pod graczem jest shell
+        Location belowFeet = player.getLocation().clone().subtract(0, 1, 0);
+        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+        ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
+
+        if (klatka != null && velocity.getY() < -0.1) {
+            Location belowBlock = belowFeet.getBlock().getLocation();
+            if (isShellOrPlannedShell(belowBlock, klatka, manager)) {
+                // Pod graczem jest shell — zatrzymaj spadanie
+                velocity.setY(0);
+                player.setVelocity(velocity);
+            }
         }
     }
 
@@ -255,16 +303,14 @@ public class HydroKlatkaMovementListener implements Listener {
 
         Long lastSound = lastSoundTime.get(uuid);
         if (lastSound != null && now - lastSound < SOUND_COOLDOWN_MS) {
-            return; // anti-spam
+            return;
         }
 
         lastSoundTime.put(uuid, now);
 
-        // ✅ Dźwięk szkła
         player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK,
                 SoundCategory.PLAYERS, 0.5f, 1.2f);
 
-        // ✅ Subtitle
         player.showTitle(Title.title(
                 Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand()
