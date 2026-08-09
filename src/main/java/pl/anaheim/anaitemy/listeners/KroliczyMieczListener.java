@@ -6,6 +6,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityToggleGlideEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -37,7 +38,6 @@ public class KroliczyMieczListener implements Listener {
 
     /**
      * ✅ Blokada skoku przez PlayerMoveEvent.
-     * Manager decyduje czy ruch powinien być zablokowany.
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
@@ -51,17 +51,40 @@ public class KroliczyMieczListener implements Listener {
         if (to == null) return;
 
         if (manager.shouldBlockJump(player, from, to)) {
-            // ✅ Anuluj skok - trzymaj gracza na tej samej wysokości
             Location blocked = to.clone();
             blocked.setY(from.getY());
             event.setTo(blocked);
 
-            // ✅ Zeruj velocity w górę
             Vector vel = player.getVelocity();
             if (vel.getY() > 0) {
                 vel.setY(0);
                 player.setVelocity(vel);
             }
+        }
+    }
+
+    /**
+     * ✅ NOWE: Blokada otwierania elytry podczas klątwy.
+     * Dotyczy zarówno startu lotu jak i klatkania spacji w powietrzu.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void onToggleGlide(EntityToggleGlideEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+
+        // ✅ Blokujemy TYLKO próby WŁĄCZENIA elytry (isGliding = true = gracz próbuje włączyć)
+        if (!event.isGliding()) return;
+
+        KroliczyMieczManager manager = plugin.getKroliczyMieczManager();
+        if (!manager.isJumpBlocked(player)) return;
+
+        // ✅ Gracz ma klątwę - zablokuj otwieranie elytry
+        event.setCancelled(true);
+
+        // ✅ Zeruj velocity w górę żeby nie "podbijał" przy próbie lotu
+        Vector vel = player.getVelocity();
+        if (vel.getY() > 0) {
+            vel.setY(0);
+            player.setVelocity(vel);
         }
     }
 
