@@ -55,6 +55,9 @@ public class LopataGrinchaManager {
         cooldowns.remove(player.getUniqueId());
         player.setCooldown(Material.DIAMOND_SHOVEL, 0);
     }
+    public void setPostResetCooldown(Player player, int seconds) {
+        cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
+    }
 
     // ==================== ATAK ====================
 
