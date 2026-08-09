@@ -52,6 +52,9 @@ public class ZatrutyOlowekManager {
         cooldowns.remove(player.getUniqueId());
         player.setCooldown(Material.LIME_CANDLE, 0);
     }
+    public void setPostResetCooldown(Player player, int seconds) {
+        cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
+    }
 
     public boolean attack(Player attacker, Player victim) {
         ItemsConfig config = plugin.getItemsConfig();
