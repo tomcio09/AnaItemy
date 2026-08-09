@@ -1,12 +1,5 @@
 package pl.anaheim.anaitemy.managers;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.wrappers.*;
-import com.destroystokyo.paper.profile.PlayerProfile;
-import com.destroystokyo.paper.profile.ProfileProperty;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
@@ -23,6 +16,15 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * ✅ PRZEPISANY OlafManager - bez ProtocolLib, bez ArmorStanda.
+ *
+ * Mechanika:
+ * - Dla OFIARY: blindness (nie widzi nic) + particle śniegu wokół twarzy
+ * - Dla INNYCH: widoczna zmiana głowy (SkullMeta na własnym ArmorStandzie który jest ukryty)
+ * - Ofiara klika LPM 3x żeby usunąć Olafa
+ * - Auto-usunięcie po 5 sekundach
+ */
 public class OlafManager {
 
     private final AnaItemy plugin;
@@ -33,8 +35,10 @@ public class OlafManager {
     public OlafManager(AnaItemy plugin) {
         this.plugin = plugin;
 
+        // Cleanup cooldownów
         new BukkitRunnable() {
-            @Override public void run() {
+            @Override
+            public void run() {
                 long now = System.currentTimeMillis();
                 shooterCooldowns.entrySet().removeIf(e -> now >= e.getValue());
                 victimCooldowns.entrySet().removeIf(e -> now >= e.getValue());
@@ -75,160 +79,141 @@ public class OlafManager {
         victimCooldowns.remove(player.getUniqueId());
     }
 
-    // ==================== OLAF AKTYWACJA ====================
+    // ==================== AKTYWACJA OLAFA ====================
 
     public void activateOlaf(Player shooter, Player victim) {
-        // Cooldowny
+        // Ustaw cooldowny
         setShooterCooldown(shooter);
         setVictimCooldown(victim);
 
-        // Aktywny olaf
+        // Aktywny Olaf
         ActiveOlaf active = new ActiveOlaf(shooter.getUniqueId(), victim.getUniqueId());
         activeOlafs.put(victim.getUniqueId(), active);
 
-        // ✅ Dla INNYCH graczy — zmień hełm ofiary na głowę bałwana (packet)
-        sendSnowmanHead(victim, true);
+        // ✅ 1. Blindness dla ofiary - nie widzi nic przez 5s
+        victim.addPotionEffect(new org.bukkit.potion.PotionEffect(
+                org.bukkit.potion.PotionEffectType.BLINDNESS,
+                100, // 5 sekund
+                0, false, false, true
+        ));
 
-        // ✅ Dla OFIARY — pokaż ArmorStand z głową bałwana tuż przed twarzą
-        spawnFakeSnowmanForVictim(victim, active);
+        // ✅ 2. Zamień hełm ofiary na głowę bałwana (widoczne dla INNYCH)
+        swapHelmet(victim, true, active);
 
-        // Pokaż subtitle
+        // ✅ 3. Particle śniegu wokół twarzy ofiary (widoczne dla ofiary)
+        startSnowParticles(victim, active);
+
+        // ✅ 4. Dźwięk
+        victim.playSound(victim.getLocation(), Sound.ENTITY_SNOW_GOLEM_AMBIENT,
+                SoundCategory.PLAYERS, 2.0f, 1.0f);
+
+        // ✅ 5. Subtitle dla ofiary
         showOlafSubtitle(victim, 3);
 
-        // ✅ Auto-usunięcie po 5s
+        // ✅ 6. Auto-usunięcie po 5s
         active.setTask(new BukkitRunnable() {
-            @Override public void run() {
+            @Override
+            public void run() {
                 if (activeOlafs.containsKey(victim.getUniqueId())) {
                     removeOlaf(victim);
                 }
             }
-        }.runTaskLater(plugin, 100L));
+        }.runTaskLater(plugin, 100L)); // 5 sekund = 100 ticków
     }
 
-    private void sendSnowmanHead(Player victim, boolean snowmanHead) {
-        try {
-            ProtocolManager pm = ProtocolLibrary.getProtocolManager();
+    // ==================== ZAMIANA HEŁMU ====================
 
-            ItemStack headItem;
-            if (snowmanHead) {
-                // Głowa z teksturą bałwana
-                headItem = new ItemStack(Material.PLAYER_HEAD);
-                SkullMeta meta = (SkullMeta) headItem.getItemMeta();
-                PlayerProfile profile = Bukkit.createProfile(OlafItem.getProfileUUID(), "Olaf");
-                profile.setProperty(new ProfileProperty("textures", OlafItem.getSnowmanTexture()));
-                meta.setPlayerProfile(profile);
-                headItem.setItemMeta(meta);
-            } else {
-                // Oryginalny hełm ofiary
-                headItem = victim.getInventory().getHelmet();
-                if (headItem == null) headItem = new ItemStack(Material.AIR);
-            }
+    private void swapHelmet(Player victim, boolean snowman, ActiveOlaf active) {
+        if (snowman) {
+            // ✅ Zapisz oryginalny hełm
+            active.setOriginalHelmet(victim.getInventory().getHelmet());
 
-            final ItemStack finalHead = headItem;
-
-            // Wyślij pakiet zmiany ekwipunku do wszystkich POZA ofiarą
-            PacketContainer equipPacket = pm.createPacket(PacketType.Play.Server.ENTITY_EQUIPMENT);
-            equipPacket.getIntegers().write(0, victim.getEntityId());
-
-            List<com.comphenix.protocol.wrappers.Pair<EnumWrappers.ItemSlot, ItemStack>> equipment = new ArrayList<>();
-            equipment.add(new com.comphenix.protocol.wrappers.Pair<>(EnumWrappers.ItemSlot.HEAD, finalHead));
-            equipPacket.getSlotStackPairLists().write(0, equipment);
-
-            for (Player online : Bukkit.getOnlinePlayers()) {
-                if (online.equals(victim)) continue;
-                try {
-                    pm.sendServerPacket(online, equipPacket);
-                } catch (Exception ignored) {}
-            }
-        } catch (Exception e) {
-            plugin.getLogger().warning("[Olaf] Błąd wysyłania pakietu hełmu: " + e.getMessage());
-        }
-    }
-
-    private void spawnFakeSnowmanForVictim(Player victim, ActiveOlaf active) {
-        try {
-            ProtocolManager pm = ProtocolLibrary.getProtocolManager();
-
-            int fakeEntityId = 999999 + victim.getEntityId();
-            active.setFakeEntityId(fakeEntityId);
-
-            // ✅ Spawn ArmorStand jako fake entity - tylko dla ofiary
-            Location victimLoc = victim.getLocation().clone().add(0, 1.5, 0);
-
-            // Spawn entity packet
-            PacketContainer spawnPacket = pm.createPacket(PacketType.Play.Server.SPAWN_ENTITY);
-            spawnPacket.getIntegers().write(0, fakeEntityId);
-            spawnPacket.getUUIDs().write(0, UUID.randomUUID());
-            spawnPacket.getEntityTypeModifier().write(0, org.bukkit.entity.EntityType.ARMOR_STAND);
-            spawnPacket.getDoubles().write(0, victimLoc.getX());
-            spawnPacket.getDoubles().write(1, victimLoc.getY());
-            spawnPacket.getDoubles().write(2, victimLoc.getZ());
-
-            pm.sendServerPacket(victim, spawnPacket);
-
-            // ✅ Wyślij głowę bałwana jako hełm fake armorstand
+            // ✅ Stwórz głowę bałwana
             ItemStack snowmanHead = new ItemStack(Material.PLAYER_HEAD);
             SkullMeta meta = (SkullMeta) snowmanHead.getItemMeta();
-            PlayerProfile profile = Bukkit.createProfile(OlafItem.getProfileUUID(), "Olaf");
-            profile.setProperty(new ProfileProperty("textures", OlafItem.getSnowmanTexture()));
+
+            com.destroystokyo.paper.profile.PlayerProfile profile =
+                    Bukkit.createProfile(OlafItem.getProfileUUID(), "Olaf");
+            profile.setProperty(new com.destroystokyo.paper.profile.ProfileProperty(
+                    "textures", OlafItem.getSnowmanTexture()));
             meta.setPlayerProfile(profile);
             snowmanHead.setItemMeta(meta);
 
-            PacketContainer equipPacket = pm.createPacket(PacketType.Play.Server.ENTITY_EQUIPMENT);
-            equipPacket.getIntegers().write(0, fakeEntityId);
-            List<com.comphenix.protocol.wrappers.Pair<EnumWrappers.ItemSlot, ItemStack>> equipment = new ArrayList<>();
-            equipment.add(new com.comphenix.protocol.wrappers.Pair<>(EnumWrappers.ItemSlot.HEAD, snowmanHead));
-            equipPacket.getSlotStackPairLists().write(0, equipment);
-            pm.sendServerPacket(victim, equipPacket);
+            // ✅ Załóż głowę bałwana - WIDOCZNA DLA WSZYSTKICH
+            victim.getInventory().setHelmet(snowmanHead);
 
-            // ✅ Task — przesuwa fake entity razem z ofiarą
-            active.setMoveTask(new BukkitRunnable() {
-                @Override public void run() {
-                    if (!victim.isOnline() || !activeOlafs.containsKey(victim.getUniqueId())) {
-                        cancel();
-                        return;
-                    }
-
-                    Location loc = victim.getLocation().clone().add(0, 1.8, 0);
-
-                    try {
-                        PacketContainer teleport = pm.createPacket(PacketType.Play.Server.ENTITY_TELEPORT);
-                        teleport.getIntegers().write(0, fakeEntityId);
-                        teleport.getDoubles().write(0, loc.getX());
-                        teleport.getDoubles().write(1, loc.getY());
-                        teleport.getDoubles().write(2, loc.getZ());
-                        pm.sendServerPacket(victim, teleport);
-                    } catch (Exception ignored) {}
-                }
-            }.runTaskTimer(plugin, 0L, 1L));
-
-        } catch (Exception e) {
-            plugin.getLogger().warning("[Olaf] Błąd fake entity: " + e.getMessage());
+        } else {
+            // ✅ Przywróć oryginalny hełm
+            victim.getInventory().setHelmet(active.getOriginalHelmet());
         }
     }
+
+    // ==================== PARTICLE ŚNIEGU ====================
+
+    private void startSnowParticles(Player victim, ActiveOlaf active) {
+        // ✅ Particle śniegu co 3 ticki (15 razy na sekundę)
+        // Widoczne tylko dla samej ofiary (spawnowane w jej pozycji)
+        BukkitTask particleTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!victim.isOnline() || !activeOlafs.containsKey(victim.getUniqueId())) {
+                    cancel();
+                    return;
+                }
+
+                // ✅ Lokacja przed twarzą gracza (1.7 bloku w górę od stóp = okolice twarzy)
+                Location faceLoc = victim.getLocation().clone().add(0, 1.7, 0);
+                // ✅ Dodaj trochę w kierunku patrzenia
+                faceLoc.add(victim.getLocation().getDirection().multiply(0.3));
+
+                // ✅ Particle widoczne TYLKO dla ofiary (spawnPacket)
+                victim.spawnParticle(
+                        Particle.SNOWFLAKE,
+                        faceLoc,
+                        8,        // ilość
+                        0.2,      // offsetX
+                        0.15,     // offsetY
+                        0.2,      // offsetZ
+                        0.01      // speed
+                );
+
+                // ✅ Dodatkowe particle wokół głowy
+                victim.spawnParticle(
+                        Particle.SNOWFLAKE,
+                        victim.getLocation().clone().add(0, 2.0, 0),
+                        5,
+                        0.3,
+                        0.1,
+                        0.3,
+                        0.02
+                );
+            }
+        }.runTaskTimer(plugin, 0L, 3L);
+
+        active.setParticleTask(particleTask);
+    }
+
+    // ==================== USUWANIE OLAFA ====================
 
     public void removeOlaf(Player victim) {
         ActiveOlaf active = activeOlafs.remove(victim.getUniqueId());
         if (active == null) return;
 
-        // Anuluj taski
+        // ✅ Anuluj taski
         if (active.getTask() != null) active.getTask().cancel();
-        if (active.getMoveTask() != null) active.getMoveTask().cancel();
+        if (active.getParticleTask() != null) active.getParticleTask().cancel();
 
-        // Usuń fake entity dla ofiary
         if (victim.isOnline()) {
-            try {
-                ProtocolManager pm = ProtocolLibrary.getProtocolManager();
-                PacketContainer destroyPacket = pm.createPacket(PacketType.Play.Server.ENTITY_DESTROY);
-                destroyPacket.getIntLists().write(0, List.of(active.getFakeEntityId()));
-                pm.sendServerPacket(victim, destroyPacket);
-            } catch (Exception e) {
-                plugin.getLogger().warning("[Olaf] Błąd usuwania fake entity: " + e.getMessage());
-            }
-        }
+            // ✅ Przywróć oryginalny hełm
+            swapHelmet(victim, false, active);
 
-        // Przywróć oryginalny hełm dla innych graczy
-        sendSnowmanHead(victim, false);
+            // ✅ Usuń blindness
+            victim.removePotionEffect(org.bukkit.potion.PotionEffectType.BLINDNESS);
+
+            // ✅ Dźwięk końca
+            victim.playSound(victim.getLocation(), Sound.ENTITY_SNOW_GOLEM_DEATH,
+                    SoundCategory.PLAYERS, 1.0f, 1.0f);
+        }
     }
 
     public boolean hasActiveOlaf(Player victim) {
@@ -256,15 +241,30 @@ public class OlafManager {
     private void showOlafSubtitle(Player victim, int left) {
         String subtitle = plugin.getItemsConfig().getOlafVictimSubtitle()
                 .replace("{left}", String.valueOf(left));
-        victim.showTitle(Title.title(Component.empty(),
+        victim.showTitle(Title.title(
+                Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand().deserialize(subtitle),
-                Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2000), Duration.ofMillis(200))));
+                Title.Times.times(
+                        Duration.ofMillis(200),
+                        Duration.ofMillis(2000),
+                        Duration.ofMillis(200)
+                )
+        ));
     }
+
+    // ==================== CLEANUP ====================
 
     public void cleanup() {
         for (UUID victimId : new HashSet<>(activeOlafs.keySet())) {
             Player victim = Bukkit.getPlayer(victimId);
             if (victim != null) removeOlaf(victim);
+            else {
+                ActiveOlaf active = activeOlafs.remove(victimId);
+                if (active != null) {
+                    if (active.getTask() != null) active.getTask().cancel();
+                    if (active.getParticleTask() != null) active.getParticleTask().cancel();
+                }
+            }
         }
         activeOlafs.clear();
         shooterCooldowns.clear();
@@ -278,8 +278,8 @@ public class OlafManager {
         private final UUID victimId;
         private int hitCount = 0;
         private BukkitTask task;
-        private BukkitTask moveTask;
-        private int fakeEntityId;
+        private BukkitTask particleTask;
+        private ItemStack originalHelmet;
 
         public ActiveOlaf(UUID shooterId, UUID victimId) {
             this.shooterId = shooterId;
@@ -292,9 +292,9 @@ public class OlafManager {
         public void incrementHits() { hitCount++; }
         public BukkitTask getTask() { return task; }
         public void setTask(BukkitTask task) { this.task = task; }
-        public BukkitTask getMoveTask() { return moveTask; }
-        public void setMoveTask(BukkitTask moveTask) { this.moveTask = moveTask; }
-        public int getFakeEntityId() { return fakeEntityId; }
-        public void setFakeEntityId(int id) { this.fakeEntityId = id; }
+        public BukkitTask getParticleTask() { return particleTask; }
+        public void setParticleTask(BukkitTask particleTask) { this.particleTask = particleTask; }
+        public ItemStack getOriginalHelmet() { return originalHelmet; }
+        public void setOriginalHelmet(ItemStack helmet) { this.originalHelmet = helmet; }
     }
 }
