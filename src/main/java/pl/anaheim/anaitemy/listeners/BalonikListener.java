@@ -4,8 +4,6 @@ import com.destroystokyo.paper.profile.PlayerProfile;
 import com.destroystokyo.paper.profile.ProfileProperty;
 import org.bukkit.*;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
-import org.bukkit.block.Skull;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -29,7 +27,7 @@ public class BalonikListener implements Listener {
     private static final String BALLOON_TEXTURE = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYTFiZTQ0ZTg0ZjAxMmY0M2ZhODExNzI3ZDJkNzQ2YTEwYjc1ZGQ5MjQzNzZkZDgwZmJjYjE3NzY4M2QzNTNjZSJ9fX0=";
     private static final UUID BALLOON_PROFILE_UUID = UUID.fromString("C3C4C5C6-D7D8-E9E0-F1F2-A3A4A5A6A7A8");
     private static final int MAX_HEIGHT = 400;
-    private static final double SPEED = 5.0; // bloków na sekundę
+    private static final double SPEED = 5.0;
 
     public BalonikListener(AnaItemy plugin) {
         this.plugin = plugin;
@@ -48,18 +46,23 @@ public class BalonikListener implements Listener {
 
         event.setCancelled(true);
 
-        // ✅ Zużyj 1 sztukę
+        // ✅ 4s protection - gracz nie może być spamowany balonikami
+        if (plugin.getItemProtectionManager().isProtected(player, "balonik")) {
+            return;
+        }
+
+        // ✅ Nałóż ochronę
+        plugin.getItemProtectionManager().applyProtection(player, "balonik");
+
         if (item.getAmount() > 1) {
             item.setAmount(item.getAmount() - 1);
         } else {
             player.getInventory().setItemInMainHand(null);
         }
 
-        // ✅ Dźwięk fajerwerki
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_LAUNCH,
                 SoundCategory.PLAYERS, 1.5f, 1.0f);
 
-        // ✅ Spawn armor stand z głową balonika
         Location spawnLoc = player.getLocation().clone().add(0, 0.5, 0);
 
         ArmorStand balloon = player.getWorld().spawn(spawnLoc, ArmorStand.class, stand -> {
@@ -70,7 +73,6 @@ public class BalonikListener implements Listener {
             stand.setMarker(true);
             stand.setCustomNameVisible(false);
 
-            // ✅ Ustaw głowę z teksturą balonika
             ItemStack head = new ItemStack(Material.PLAYER_HEAD);
             SkullMeta meta = (SkullMeta) head.getItemMeta();
 
@@ -82,43 +84,24 @@ public class BalonikListener implements Listener {
             stand.getEquipment().setHelmet(head);
         });
 
-        // ✅ Animacja unoszenia się + niszczenie bloków
         new BukkitRunnable() {
             int blocksUp = 0;
             double currentY = spawnLoc.getY();
             final int blockX = spawnLoc.getBlockX();
             final int blockZ = spawnLoc.getBlockZ();
             final World world = spawnLoc.getWorld();
-
-            // 5 bloków/s = 0.25 bloków/tick (20 ticków/s)
             final double yPerTick = SPEED / 20.0;
 
             @Override
             public void run() {
-                if (!balloon.isValid() || balloon.isDead()) {
-                    cancel();
-                    return;
-                }
+                if (!balloon.isValid() || balloon.isDead()) { cancel(); return; }
+                if (blocksUp >= MAX_HEIGHT) { balloon.remove(); cancel(); return; }
+                if (currentY >= world.getMaxHeight()) { balloon.remove(); cancel(); return; }
 
-                if (blocksUp >= MAX_HEIGHT) {
-                    balloon.remove();
-                    cancel();
-                    return;
-                }
-
-                // ✅ Sprawdź limit świata
-                if (currentY >= world.getMaxHeight()) {
-                    balloon.remove();
-                    cancel();
-                    return;
-                }
-
-                // ✅ Przesuń balonik w górę
                 currentY += yPerTick;
                 Location newLoc = new Location(world, spawnLoc.getX(), currentY, spawnLoc.getZ());
                 balloon.teleport(newLoc);
 
-                // ✅ Niszcz bloki nad balonem
                 int checkY = (int) Math.ceil(currentY) + 1;
 
                 for (int dy = 0; dy <= 1; dy++) {
@@ -132,8 +115,7 @@ public class BalonikListener implements Listener {
                             && block.getType() != Material.VOID_AIR
                             && block.getType() != Material.BEDROCK) {
 
-                        // ✅ Particle przy niszczeniu
-                        world.spawnParticle(Particle.BLOCK_CRACK,
+                        world.spawnParticle(Particle.BLOCK,
                                 block.getLocation().add(0.5, 0.5, 0.5),
                                 10, 0.3, 0.3, 0.3, 0.1,
                                 block.getBlockData());
@@ -144,7 +126,6 @@ public class BalonikListener implements Listener {
 
                 blocksUp++;
 
-                // ✅ Particle za balonem
                 if (blocksUp % 4 == 0) {
                     world.spawnParticle(Particle.END_ROD,
                             newLoc.clone().add(0, 0.5, 0),
