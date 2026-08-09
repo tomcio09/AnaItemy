@@ -19,14 +19,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PiekielnyMieczListener implements Listener {
 
     private final AnaItemy plugin;
-
-    // UUID -> czas wygaśnięcia piekielnego ognia
     private final Map<UUID, Long> hellFirePlayers = new ConcurrentHashMap<>();
 
     public PiekielnyMieczListener(AnaItemy plugin) {
         this.plugin = plugin;
 
-        // ✅ Co sekundę zadaj fire damage ręcznie (jak vanilla ogień)
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -46,26 +43,21 @@ public class PiekielnyMieczListener implements Listener {
                         continue;
                     }
 
-                    // ✅ Vanilla fire damage = 1 HP co sekundę
-                    // Redukowane przez zbroję i enchanty
                     double damage = calculateFireDamageWithArmor(victim, 1.0);
-
                     if (damage <= 0) continue;
 
-                    // ✅ Wizualnie podpal (żeby gracz widział ogień na sobie)
-                    victim.setFireTicks(25); // Krótko - odnawiane co sekundę
+                    victim.setFireTicks(25);
 
                     double health = victim.getHealth();
                     if (health - damage <= 0) {
                         victim.setHealth(0.0);
                     } else {
                         victim.setHealth(health - damage);
-                        // ✅ Czerwony efekt obrażeń
-                        victim.damage(0.001); // Minimalny damage żeby pokazać animację
+                        victim.damage(0.001);
                     }
                 }
             }
-        }.runTaskTimer(plugin, 20L, 20L); // Co sekundę
+        }.runTaskTimer(plugin, 20L, 20L);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -80,17 +72,9 @@ public class PiekielnyMieczListener implements Listener {
         long fireEnd = System.currentTimeMillis() + (fireDuration * 1000L);
         hellFirePlayers.put(victim.getUniqueId(), fireEnd);
 
-        // ✅ Wizualnie podpal natychmiast
         victim.setFireTicks(fireDuration * 20);
     }
 
-    /**
-     * ✅ Oblicza fire damage z uwzględnieniem zbroi i enchantów.
-     * 
-     * Protection: każdy level = 4% redukcji (max łącznie 80%)
-     * Fire Protection: każdy level = 8% redukcji od ognia
-     * Łączna max redukcja z enchantów = 80%
-     */
     private double calculateFireDamageWithArmor(Player player, double baseDamage) {
         int totalProtectionLevel = 0;
         int totalFireProtectionLevel = 0;
@@ -98,9 +82,9 @@ public class PiekielnyMieczListener implements Listener {
         ItemStack[] armor = player.getInventory().getArmorContents();
         for (ItemStack piece : armor) {
             if (piece == null || piece.getType().isAir()) continue;
-
-            totalProtectionLevel += piece.getEnchantmentLevel(Enchantment.PROTECTION_ENVIRONMENTAL);
-            totalFireProtectionLevel += piece.getEnchantmentLevel(Enchantment.PROTECTION_FIRE);
+            // ✅ 1.21.4 - nowe nazwy enchantów
+            totalProtectionLevel += piece.getEnchantmentLevel(Enchantment.PROTECTION);
+            totalFireProtectionLevel += piece.getEnchantmentLevel(Enchantment.FIRE_PROTECTION);
         }
 
         double enchantReduction = Math.min(80.0,
