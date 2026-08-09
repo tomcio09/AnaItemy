@@ -33,11 +33,9 @@ public class SniezkaZamianyListener implements Listener {
             if (!SniezkaZamianyItem.isSniezkaZamiany(item)) return;
         }
 
-        // ✅ Oznacz śnieżkę
         snowball.setMetadata(META_SNIEZKA,
                 new FixedMetadataValue(plugin, shooter.getUniqueId().toString()));
 
-        // ✅ Zapisz lokalizację strzelca w momencie rzutu
         Location shooterLoc = shooter.getLocation().clone();
         snowball.setMetadata(META_SNIEZKA_LOC,
                 new FixedMetadataValue(plugin,
@@ -61,30 +59,30 @@ public class SniezkaZamianyListener implements Listener {
         if (shooter == null || !shooter.isOnline()) return;
         if (shooter.equals(victim)) return;
 
-        // ✅ Parsuj oryginalną lokalizację strzelca
+        // ✅ 4s protection
+        if (plugin.getItemProtectionManager().isProtected(victim, "sniezka-zamiany")) {
+            int sl = plugin.getItemProtectionManager().getRemainingSeconds(victim, "sniezka-zamiany");
+            plugin.getItemProtectionManager().notifyAttacker(shooter, "sniezka-zamiany", sl);
+            return;
+        }
+
         String locData = snowball.getMetadata(META_SNIEZKA_LOC).get(0).asString();
         String[] parts = locData.split(";");
         String originalWorld = parts[0];
 
-        // ✅ Sprawdź czy strzelec się przeteleportował (zmienił świat)
         if (!shooter.getWorld().getName().equals(originalWorld)) return;
 
-        // ✅ Sprawdź odległość strzelca od oryginalnej pozycji (>100 = anuluj)
         double origX = Double.parseDouble(parts[1]);
         double origY = Double.parseDouble(parts[2]);
         double origZ = Double.parseDouble(parts[3]);
         Location originalLoc = new Location(shooter.getWorld(), origX, origY, origZ);
 
         if (shooter.getLocation().distance(originalLoc) > 100) return;
-
-        // ✅ Sprawdź dystans między graczami (>100 = anuluj)
         if (shooter.getLocation().distance(victim.getLocation()) > 100) return;
 
-        // ✅ Zamień miejscami
         Location shooterLoc = shooter.getLocation().clone();
         Location victimLoc = victim.getLocation().clone();
 
-        // Zamień looking direction
         float tempYaw = shooterLoc.getYaw();
         float tempPitch = shooterLoc.getPitch();
 
@@ -93,11 +91,12 @@ public class SniezkaZamianyListener implements Listener {
         victimLoc.setYaw(tempYaw);
         victimLoc.setPitch(tempPitch);
 
-        // Teleportuj
         shooter.teleport(victimLoc);
         victim.teleport(shooterLoc);
 
-        // ✅ Combat tag
+        // ✅ Nałóż ochronę
+        plugin.getItemProtectionManager().applyProtection(victim, "sniezka-zamiany");
+
         if (plugin.getCombatIntegrationManager().isEnabled()) {
             plugin.getCombatIntegrationManager().tagPlayer(victim, shooter);
             plugin.getCombatIntegrationManager().tagPlayer(shooter, victim);
