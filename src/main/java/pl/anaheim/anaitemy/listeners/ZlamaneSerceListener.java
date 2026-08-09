@@ -28,7 +28,6 @@ public class ZlamaneSerceListener implements Listener {
 
     private final AnaItemy plugin;
 
-    // ✅ Cooldown żeby nie można było spamować
     private final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
     private static final long COOLDOWN_MS = 3000L;
 
@@ -36,96 +35,69 @@ public class ZlamaneSerceListener implements Listener {
         this.plugin = plugin;
     }
 
-    /**
-     * ✅ POPRAWKA: Złamane serce używa PPM na gracza (PlayerInteractEntityEvent)
-     * zamiast EntityDamageByEntityEvent, bo PURPLE_DYE nie zadaje damage'u.
-     * Nie zadaje damage - tylko nakłada slow falling i pokazuje subtitle.
-     */
     @EventHandler(priority = EventPriority.HIGH)
     public void onInteractEntity(PlayerInteractEntityEvent event) {
-        // ✅ Tylko main hand
         if (event.getHand() == EquipmentSlot.OFF_HAND) return;
-
-        // ✅ Tylko gracze
         if (!(event.getRightClicked() instanceof Player victim)) return;
 
         Player attacker = event.getPlayer();
         ItemStack mainHand = attacker.getInventory().getItemInMainHand();
 
         if (!ZlamaneSerceItem.isZlamaneSerce(mainHand)) return;
-
-        // ✅ Nie możesz użyć na sobie
         if (attacker.equals(victim)) return;
 
         event.setCancelled(true);
 
-        // ✅ Cooldown dla atakującego
+        // ✅ Cooldown
         long now = System.currentTimeMillis();
         Long lastUse = cooldowns.get(attacker.getUniqueId());
-        if (lastUse != null && now - lastUse < COOLDOWN_MS) {
+        if (lastUse != null && now - lastUse < COOLDOWN_MS) return;
+        cooldowns.put(attacker.getUniqueId(), now);
+
+        // ✅ 4s protection
+        if (plugin.getItemProtectionManager().isProtected(victim, "zlamane-serce")) {
+            int sl = plugin.getItemProtectionManager().getRemainingSeconds(victim, "zlamane-serce");
+            plugin.getItemProtectionManager().notifyAttacker(attacker, "zlamane-serce", sl);
             return;
         }
-        cooldowns.put(attacker.getUniqueId(), now);
 
         int duration = plugin.getItemsConfig().getZlamaneSerceSlowFallingDuration() * 20;
 
-        // ✅ Nakładamy tylko slow falling - BEZ damage
         victim.addPotionEffect(new PotionEffect(
                 PotionEffectType.SLOW_FALLING, duration, 0, false, true, true));
 
-        // ✅ Dźwięk złamanego serca
         victim.playSound(victim.getLocation(), Sound.ENTITY_PLAYER_HURT,
                 SoundCategory.PLAYERS, 0.5f, 2.0f);
         attacker.playSound(attacker.getLocation(), Sound.ENTITY_PLAYER_HURT,
                 SoundCategory.PLAYERS, 0.5f, 2.0f);
 
-        // ✅ Subtitle dla atakującego
         String attackerSub = plugin.getItemsConfig().getZlamaneSerceAttackerSubtitle()
                 .replace("{nick}", victim.getName());
-        attacker.showTitle(Title.title(
-                Component.empty(),
+        attacker.showTitle(Title.title(Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand().deserialize(attackerSub),
-                Title.Times.times(
-                        Duration.ofMillis(200),
-                        Duration.ofMillis(2000),
-                        Duration.ofMillis(200)
-                )
-        ));
+                Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2000), Duration.ofMillis(200))));
 
-        // ✅ Subtitle dla ofiary
-        victim.showTitle(Title.title(
-                Component.empty(),
+        victim.showTitle(Title.title(Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand().deserialize(
                         plugin.getItemsConfig().getZlamaneSerceVictimSubtitle()),
-                Title.Times.times(
-                        Duration.ofMillis(200),
-                        Duration.ofMillis(2000),
-                        Duration.ofMillis(200)
-                )
-        ));
+                Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2000), Duration.ofMillis(200))));
 
-        // ✅ Combat tag
+        // ✅ Nałóż ochronę
+        plugin.getItemProtectionManager().applyProtection(victim, "zlamane-serce");
+
         if (plugin.getCombatIntegrationManager().isEnabled()) {
             plugin.getCombatIntegrationManager().tagPlayer(victim, attacker);
             plugin.getCombatIntegrationManager().tagPlayer(attacker, victim);
         }
 
-        // ✅ Zużyj item (jednorazowy)
-        if (mainHand.getAmount() > 1) {
-            mainHand.setAmount(mainHand.getAmount() - 1);
-        } else {
-            attacker.getInventory().setItemInMainHand(null);
-        }
+        if (mainHand.getAmount() > 1) mainHand.setAmount(mainHand.getAmount() - 1);
+        else attacker.getInventory().setItemInMainHand(null);
     }
 
-    /**
-     * ✅ Blokuj stawianie PURPLE_DYE na bloku
-     */
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlace(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         if (event.getHand() == EquipmentSlot.OFF_HAND) return;
-
         if (ZlamaneSerceItem.isZlamaneSerce(event.getItem())) {
             event.setCancelled(true);
         }
