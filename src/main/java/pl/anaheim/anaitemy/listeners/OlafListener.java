@@ -71,20 +71,27 @@ public class OlafListener implements Listener {
 
         OlafManager manager = plugin.getOlafManager();
 
-        // Sprawdź victim cooldown
         if (manager.isVictimOnCooldown(victim)) return;
 
-        // Sprawdź region
         if (plugin.getWorldGuardManager().isInNamedRegion(victim.getLocation(),
                 plugin.getItemsConfig().getOlafBlockedRegions())) return;
 
-        // Aktywuj Olafa
+        // ✅ 4s protection
+        if (plugin.getItemProtectionManager().isProtected(victim, "olaf")) {
+            int sl = plugin.getItemProtectionManager().getRemainingSeconds(victim, "olaf");
+            plugin.getItemProtectionManager().notifyAttacker(shooter, "olaf", sl);
+            egg.remove();
+            return;
+        }
+
+        // ✅ Nałóż ochronę
+        plugin.getItemProtectionManager().applyProtection(victim, "olaf");
+
         manager.activateOlaf(shooter, victim);
 
         egg.remove();
     }
 
-    // ✅ Gracz ofiary klika LPM — zmniejsz licznik
     @EventHandler(priority = EventPriority.MONITOR)
     public void onInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
