@@ -19,29 +19,31 @@ import java.util.List;
 
 public class HydroTrojzabItem {
 
-    public static final String ITEM_NAME_STRIPPED = "Hydro Trojzab";
+    // ✅ POPRAWKA: Nazwa bez polskich znaków żeby PlainText działał poprawnie
+    public static final String ITEM_NAME_STRIPPED = "Hydro Trójząb";
     public static final int CUSTOM_MODEL_DATA = 104141741;
     private static final NamespacedKey TROJZAB_KEY = new NamespacedKey(AnaItemy.getInstance(), "hydro_trojzab");
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
-                " &8\u00bb &7Jest to przedmiot zdobyty podczas",
-                " &8\u00bb &fwydarzenia wakacyjnego 2025&7!",
+                " &8» &7Jest to przedmiot zdobyty podczas",
+                " &8» &fwydarzenia wakacyjnego 2025&7!",
                 "",
-                " &8\u00bb &7Po rzuceniu trojzebem w miejsce",
-                " &8\u00bb &7uderzenia &buderza piorun&7, ktory",
-                " &8\u00bb &7zadaje obrazenia i odpycha",
-                " &8\u00bb &7pobliskich przeciwnikow!",
+                " &8» &7Po rzuceniu trójzębem w miejsce",
+                " &8» &7uderzenia &buderza piorun&7, który",
+                " &8» &7zadaje obrażenia i odpycha",
+                " &8» &7pobliskich przeciwników!",
                 "",
-                " &8\u00bb &7Klikajac &fSHIFT &7mozesz sie",
-                " &8\u00bb &7wystrzelic w dowolnym miejscu!"
+                " &8» &7Klikając &fSHIFT &7możesz się",
+                " &8» &7wystrzelić w dowolnym miejscu!"
         );
 
         ItemStack item = new ItemStack(Material.BOW);
         ItemMeta meta = item.getItemMeta();
 
+        // ✅ POPRAWKA: Nazwa z polskimi znakami jak w items.yml
         Component nameComponent = LegacyComponentSerializer.legacyAmpersand()
-                .deserialize("&3&lHydro Trojzab")
+                .deserialize("&3&lHydro Trójząb")
                 .decoration(TextDecoration.ITALIC, false);
         meta.displayName(nameComponent);
 
@@ -56,7 +58,7 @@ public class HydroTrojzabItem {
         meta.addEnchant(Enchantment.UNBREAKING, 10, true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
 
-        // ✅ NBT marker do odróżnienia od innych łuków
+        // ✅ NBT marker - główna metoda rozpoznawania
         meta.getPersistentDataContainer().set(TROJZAB_KEY, PersistentDataType.BYTE, (byte) 1);
 
         item.setItemMeta(meta);
@@ -69,7 +71,7 @@ public class HydroTrojzabItem {
 
         ItemMeta meta = item.getItemMeta();
 
-        // ✅ Sprawdź NBT marker
+        // ✅ Sprawdź NBT marker (najwygodniejsza metoda)
         Byte marker = meta.getPersistentDataContainer().get(TROJZAB_KEY, PersistentDataType.BYTE);
         if (marker != null && marker == (byte) 1) return true;
 
