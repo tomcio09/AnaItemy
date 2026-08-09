@@ -36,14 +36,11 @@ public class BlokWidmoManager {
         startTickTask();
     }
 
-    // ==================== TICK TASK ====================
-
     private void startTickTask() {
         tickTask = new BukkitRunnable() {
             @Override
             public void run() {
                 long now = System.currentTimeMillis();
-
                 cooldowns.entrySet().removeIf(e -> now >= e.getValue());
 
                 for (AffectedData data : new ArrayList<>(affectedPlayers.values())) {
@@ -74,8 +71,6 @@ public class BlokWidmoManager {
         }.runTaskTimer(plugin, 0L, 20L);
     }
 
-    // ==================== COOLDOWN ====================
-
     public boolean isOnCooldown(Player player) {
         Long end = cooldowns.get(player.getUniqueId());
         return end != null && System.currentTimeMillis() < end;
@@ -99,8 +94,6 @@ public class BlokWidmoManager {
         player.setCooldown(Material.STRUCTURE_BLOCK, 0);
     }
 
-    // ==================== AKTYWACJA ====================
-
     public void activate(Player activator, Location location) {
         ItemsConfig config = plugin.getItemsConfig();
         int radius = config.getBlokWidmoRadius();
@@ -108,11 +101,8 @@ public class BlokWidmoManager {
         double healthReduction = config.getBlokWidmoHealthReduction();
         double minimumHealth = config.getBlokWidmoMinimumHealth();
 
-        // ✅ 1. NATYCHMIAST ustaw cooldown (żeby nie można było spamować)
         setCooldown(activator);
 
-        // ✅ 2. NATYCHMIAST zainfekuj graczy - ZANIM cokolwiek innego
-        // To jest SYNCHRONICZNE - serca znikają w tym samym ticku
         List<Player> infectedPlayers = new ArrayList<>();
         World world = location.getWorld();
 
@@ -125,16 +115,12 @@ public class BlokWidmoManager {
                 continue;
             }
 
-            // ✅ NATYCHMIASTOWE zabranie serc
             boolean applied = applyEffect(victim, effectDuration, healthReduction, minimumHealth);
             if (applied) {
                 infectedPlayers.add(victim);
             }
         }
 
-        // ✅ 3. DOPIERO TERAZ - efekty wizualne i dźwiękowe (nie blokują mechaniki)
-
-        // Dźwięk dla atakującego
         try {
             Sound activateSound = Sound.valueOf(config.getBlokWidmoActivateSound());
             activator.playSound(activator.getLocation(), activateSound, 1.0f, 1.0f);
@@ -143,7 +129,6 @@ public class BlokWidmoManager {
                     config.getBlokWidmoActivateSound());
         }
 
-        // Subtitle dla atakującego
         activator.showTitle(Title.title(
                 Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand()
@@ -155,11 +140,9 @@ public class BlokWidmoManager {
                 )
         ));
 
-        // Particle effect
-        location.getWorld().spawnParticle(Particle.SPELL_WITCH, location, 100, 2, 2, 2, 0.1);
-        location.getWorld().spawnParticle(Particle.SMOKE_LARGE, location, 50, 1, 1, 1, 0.05);
+        location.getWorld().spawnParticle(Particle.WITCH, location, 100, 2, 2, 2, 0.1);
+        location.getWorld().spawnParticle(Particle.LARGE_SMOKE, location, 50, 1, 1, 1, 0.05);
 
-        // Title/subtitle dla zainfekowanych
         for (Player victim : infectedPlayers) {
             victim.showTitle(Title.title(
                     LegacyComponentSerializer.legacyAmpersand()
@@ -175,32 +158,24 @@ public class BlokWidmoManager {
         }
     }
 
-    // ==================== EFEKT ====================
-
-    /**
-     * ✅ Natychmiastowe zabranie serc. Zwraca true jeśli efekt został nałożony.
-     */
     private boolean applyEffect(Player victim, int durationSeconds, double healthReduction, double minimumHealth) {
         UUID victimId = victim.getUniqueId();
 
-        // Jeśli gracz już ma efekt - zresetuj czas (ale nie stackuj)
         if (affectedPlayers.containsKey(victimId)) {
             restoreHealth(victim);
             removeEffect(victimId);
         }
 
-        AttributeInstance maxHealthAttr = victim.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        // ✅ 1.21.4 - nowa nazwa atrybutu
+        AttributeInstance maxHealthAttr = victim.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr == null) return false;
 
         double currentMaxHealth = maxHealthAttr.getValue();
         double targetMaxHealth = Math.max(minimumHealth, currentMaxHealth - healthReduction);
         double actualReduction = currentMaxHealth - targetMaxHealth;
 
-        if (actualReduction <= 0) {
-            return false;
-        }
+        if (actualReduction <= 0) return false;
 
-        // ✅ NATYCHMIAST dodaj modifier - serca znikają W TYM TICKU
         AttributeModifier modifier = new AttributeModifier(
                 MODIFIER_UUID,
                 MODIFIER_NAME,
@@ -211,24 +186,19 @@ public class BlokWidmoManager {
         removeModifier(maxHealthAttr);
         maxHealthAttr.addModifier(modifier);
 
-        // ✅ NATYCHMIAST obetnij zdrowie jeśli przekracza nowy max
         double newMaxHealth = maxHealthAttr.getValue();
         if (victim.getHealth() > newMaxHealth) {
             victim.setHealth(Math.max(1.0, newMaxHealth));
         }
 
-        // Zapisz dane
         long expirationTime = System.currentTimeMillis() + (durationSeconds * 1000L);
         AffectedData data = new AffectedData(victimId, expirationTime, durationSeconds, actualReduction);
         affectedPlayers.put(victimId, data);
 
-        // Stwórz bossbar
         createBossBar(victim, data);
 
-        // Dźwięk
         try {
-            Sound sound = Sound.valueOf(
-                    plugin.getItemsConfig().getBlokWidmoDeactivateSound());
+            Sound sound = Sound.valueOf(plugin.getItemsConfig().getBlokWidmoDeactivateSound());
             victim.playSound(victim.getLocation(), sound, 1.0f, 0.5f);
         } catch (IllegalArgumentException ignored) {}
 
@@ -236,7 +206,8 @@ public class BlokWidmoManager {
     }
 
     private void restoreHealth(Player player) {
-        AttributeInstance maxHealthAttr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        // ✅ 1.21.4 - nowa nazwa atrybutu
+        AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr == null) return;
         removeModifier(maxHealthAttr);
     }
@@ -263,7 +234,8 @@ public class BlokWidmoManager {
     }
 
     private void ensureModifierExists(Player player, AffectedData data) {
-        AttributeInstance maxHealthAttr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        // ✅ 1.21.4 - nowa nazwa atrybutu
+        AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr == null) return;
 
         boolean hasModifier = false;
@@ -282,15 +254,14 @@ public class BlokWidmoManager {
     }
 
     public void cleanupStaleModifier(Player player) {
-        AttributeInstance maxHealthAttr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        // ✅ 1.21.4 - nowa nazwa atrybutu
+        AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr == null) return;
 
         if (!affectedPlayers.containsKey(player.getUniqueId())) {
             removeModifier(maxHealthAttr);
         }
     }
-
-    // ==================== BOSSBAR ====================
 
     private void createBossBar(Player player, AffectedData data) {
         ItemsConfig config = plugin.getItemsConfig();
@@ -340,8 +311,6 @@ public class BlokWidmoManager {
         bossBar.progress(progress);
     }
 
-    // ==================== FORMAT CZASU ====================
-
     private String formatTime(long totalSeconds) {
         if (totalSeconds < 60) {
             return totalSeconds + "s";
@@ -350,8 +319,6 @@ public class BlokWidmoManager {
         long seconds = totalSeconds % 60;
         return minutes + "m" + String.format("%02d", seconds) + "s";
     }
-
-    // ==================== API PUBLICZNE ====================
 
     public boolean isAffected(Player player) {
         return affectedPlayers.containsKey(player.getUniqueId());
@@ -384,8 +351,6 @@ public class BlokWidmoManager {
         return plugin.getWorldGuardManager().isInBlockedRegion(location, blockedRegions);
     }
 
-    // ==================== CLEANUP ====================
-
     public void cleanup() {
         if (tickTask != null) tickTask.cancel();
 
@@ -407,8 +372,6 @@ public class BlokWidmoManager {
         bossBars.clear();
         cooldowns.clear();
     }
-
-    // ==================== INNER CLASS ====================
 
     public static class AffectedData {
         private final UUID victimId;
