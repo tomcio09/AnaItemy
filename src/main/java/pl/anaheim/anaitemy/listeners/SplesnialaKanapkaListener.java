@@ -4,12 +4,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerItemConsumeEvent;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.SplesnialaKanapkaItem;
 
@@ -19,14 +17,6 @@ public class SplesnialaKanapkaListener implements Listener {
 
     public SplesnialaKanapkaListener(AnaItemy plugin) { this.plugin = plugin; }
 
-    // ✅ Blokuj jedzenie
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onConsume(PlayerItemConsumeEvent event) {
-        if (SplesnialaKanapkaItem.isSplesnialaKanapka(event.getItem())) {
-            event.setCancelled(true);
-        }
-    }
-
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onAttack(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Player attacker)) return;
@@ -35,17 +25,23 @@ public class SplesnialaKanapkaListener implements Listener {
         ItemStack mainHand = attacker.getInventory().getItemInMainHand();
         if (!SplesnialaKanapkaItem.isSplesnialaKanapka(mainHand)) return;
 
-        int duration = plugin.getItemsConfig().getSplesnialaKanapkaGlowingDuration() * 20;
+        // ✅ 4s protection
+        if (plugin.getItemProtectionManager().isProtected(victim, "splesniale-kanapka")) {
+            int sl = plugin.getItemProtectionManager().getRemainingSeconds(victim, "splesniale-kanapka");
+            plugin.getItemProtectionManager().notifyAttacker(attacker, "splesniale-kanapka", sl);
+            return;
+        }
 
-        // ✅ Glowing na 20 sekund
-        victim.setGlowing(true);
+        int glowingDuration = plugin.getItemsConfig().getSplesnialaKanapkaGlowingDuration() * 20;
+        victim.addPotionEffect(new PotionEffect(
+                PotionEffectType.GLOWING, glowingDuration, 0, false, true, true));
 
-        org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (victim.isOnline()) victim.setGlowing(false);
-        }, duration);
+        // ✅ Nałóż ochronę
+        plugin.getItemProtectionManager().applyProtection(victim, "splesniale-kanapka");
 
-        // Zużyj
-        if (mainHand.getAmount() > 1) mainHand.setAmount(mainHand.getAmount() - 1);
-        else attacker.getInventory().setItemInMainHand(null);
+        if (plugin.getCombatIntegrationManager().isEnabled()) {
+            plugin.getCombatIntegrationManager().tagPlayer(victim, attacker);
+            plugin.getCombatIntegrationManager().tagPlayer(attacker, victim);
+        }
     }
 }
