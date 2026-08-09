@@ -213,7 +213,6 @@ public class CudownaLatarniaManager {
         int strengthDuration = config.getCudownaLatarniaStrengthDuration() * 20;
         int strengthLevel = config.getCudownaLatarniaStrengthLevel() - 1;
 
-        // ✅ Regeneracja - nadpisywalna (tylko jeśli nasza jest silniejsza lub równa)
         PotionEffect currentRegen = player.getPotionEffect(PotionEffectType.REGENERATION);
         if (currentRegen == null || currentRegen.getAmplifier() <= regenLevel) {
             player.addPotionEffect(new PotionEffect(
@@ -221,7 +220,6 @@ public class CudownaLatarniaManager {
             ));
         }
 
-        // ✅ Absorpcja
         PotionEffect currentAbsorption = player.getPotionEffect(PotionEffectType.ABSORPTION);
         if (currentAbsorption == null || currentAbsorption.getAmplifier() <= absorptionLevel) {
             player.addPotionEffect(new PotionEffect(
@@ -229,13 +227,20 @@ public class CudownaLatarniaManager {
             ));
         }
 
-        // ✅ Siła
-        PotionEffect currentStrength = player.getPotionEffect(PotionEffectType.INCREASE_DAMAGE);
+        // ✅ 1.21.4 - nowa nazwa PotionEffectType
+        PotionEffect currentStrength = player.getPotionEffect(PotionEffectType.STRENGTH);
         if (currentStrength == null || currentStrength.getAmplifier() <= strengthLevel) {
             player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.INCREASE_DAMAGE, strengthDuration, strengthLevel, false, true, true
+                    PotionEffectType.STRENGTH, strengthDuration, strengthLevel, false, true, true
             ));
         }
+    }
+
+    private void removeEffects(Player player) {
+        player.removePotionEffect(PotionEffectType.REGENERATION);
+        player.removePotionEffect(PotionEffectType.ABSORPTION);
+        // ✅ 1.21.4 - nowa nazwa PotionEffectType
+        player.removePotionEffect(PotionEffectType.STRENGTH);
     }
 
     private void removeEffects(Player player) {
