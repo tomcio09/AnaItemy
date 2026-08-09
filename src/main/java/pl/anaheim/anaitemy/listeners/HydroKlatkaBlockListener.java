@@ -1,5 +1,8 @@
 package pl.anaheim.anaitemy.listeners;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -24,26 +27,33 @@ import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.models.ActiveHydroKlatka;
 
+import java.time.Duration;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 public class HydroKlatkaBlockListener implements Listener {
 
     private final AnaItemy plugin;
+
+    // ✅ Anti-spam dla dźwięku niszczenia powłoki
+    private static final int BREAK_SOUND_COOLDOWN_MS = 400;
+    private final Map<UUID, Long> lastBreakSoundTime = new ConcurrentHashMap<>();
+
+    private static final Material SHELL_MATERIAL = Material.BLUE_GLAZED_TERRACOTTA;
 
     public HydroKlatkaBlockListener(AnaItemy plugin) {
         this.plugin = plugin;
     }
 
-    // ==================== HELPER: Sprawdza czy item to custom item pluginu ====================
+    // ==================== HELPER ====================
 
     private boolean isCustomPluginItem(ItemStack item) {
         if (item == null || !item.hasItemMeta()) return false;
         ItemMeta meta = item.getItemMeta();
         if (meta == null) return false;
-
-        // Sprawdź PDC (PersistentDataContainer) lub display name
-        // Dostosuj do swoich itemów
         if (meta.hasDisplayName()) {
             String name = meta.getDisplayName();
-            // Sprawdź czy to jakikolwiek custom item z pluginu
             if (name.contains("Bombarda") || name.contains("bombarda") ||
                     name.contains("TurboTrap") || name.contains("turbotrap") ||
                     name.contains("Turbo Trap") || name.contains("turbo trap") ||
@@ -52,7 +62,6 @@ public class HydroKlatkaBlockListener implements Listener {
                 return true;
             }
         }
-
         return false;
     }
 
@@ -64,11 +73,20 @@ public class HydroKlatkaBlockListener implements Listener {
         Location location = event.getBlock().getLocation();
         Player player = event.getPlayer();
 
-        // ✅ Shell NIGDY nie może być zniszczony ręcznie
+        // ✅ Shell NIE może być zniszczony - dźwięk + subtitle
         if (manager.isShellBlock(location)) {
             event.setCancelled(true);
-            manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+            playShellBreakFeedback(player);
             return;
+        }
+
+        // ✅ Blok planowanego shella (podczas animacji) - też nie można niszczyć
+        for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
+            if (!klatka.isAnimationComplete() && klatka.isPlannedShellLocation(location)) {
+                event.setCancelled(true);
+                playShellBreakFeedback(player);
+                return;
+            }
         }
 
         if (!manager.isKlatkaBlock(location)) {
@@ -82,6 +100,36 @@ public class HydroKlatkaBlockListener implements Listener {
         }
 
         manager.markBlockAsDestroyed(location);
+    }
+
+    // ==================== FEEDBACK DLA POWŁOKI ====================
+
+    private void playShellBreakFeedback(Player player) {
+        long now = System.currentTimeMillis();
+        UUID uuid = player.getUniqueId();
+
+        Long lastSound = lastBreakSoundTime.get(uuid);
+        if (lastSound != null && now - lastSound < BREAK_SOUND_COOLDOWN_MS) {
+            return; // anti-spam
+        }
+
+        lastBreakSoundTime.put(uuid, now);
+
+        // ✅ Dźwięk szkła
+        player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK,
+                SoundCategory.PLAYERS, 0.8f, 0.8f);
+
+        // ✅ Subtitle
+        player.showTitle(Title.title(
+                Component.empty(),
+                LegacyComponentSerializer.legacyAmpersand()
+                        .deserialize("&cNie możesz zniszczyć granicy podwodnej klatki!"),
+                Title.Times.times(
+                        Duration.ofMillis(0),
+                        Duration.ofMillis(800),
+                        Duration.ofMillis(200)
+                )
+        ));
     }
 
     // ==================== STAWIANIE BLOKÓW ====================
@@ -117,11 +165,8 @@ public class HydroKlatkaBlockListener implements Listener {
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
-        // ✅ Sprawdź czy gracz jest w klatce
         ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
         if (klatka != null) {
-
-            // ✅ Zablokuj WSZYSTKIE custom itemy pluginu w klatce
             if (isCustomPluginItem(item)) {
                 event.setCancelled(true);
                 manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
@@ -130,13 +175,11 @@ public class HydroKlatkaBlockListener implements Listener {
                 return;
             }
 
-            // ✅ Sprawdź blocked items z configu
             if (!manager.canUseItem(player, item.getType())) {
                 event.setCancelled(true);
                 manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
                 player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK,
                         SoundCategory.PLAYERS, 1.0f, 0.8f);
-                return;
             }
         }
     }
@@ -169,7 +212,8 @@ public class HydroKlatkaBlockListener implements Listener {
 
         for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
             if (klatka.isPlayerTrapped(player.getUniqueId())) {
-                pearl.setMetadata("from_cage", new org.bukkit.metadata.FixedMetadataValue(plugin, klatka.getId().toString()));
+                pearl.setMetadata("from_cage",
+                        new org.bukkit.metadata.FixedMetadataValue(plugin, klatka.getId().toString()));
                 return;
             }
         }
@@ -181,29 +225,20 @@ public class HydroKlatkaBlockListener implements Listener {
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         Location hitLocation = pearl.getLocation();
+        double barrierOffset = 0.5;
 
         for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
-            if (!klatka.isAnimationComplete()) {
-                if (klatka.isInsideCage(hitLocation) || hitLocation.distance(klatka.getCenter()) <= klatka.getRadius()) {
-                    event.setCancelled(true);
-                    pearl.remove();
-                    return;
-                }
+            double barrierRadius = klatka.getRadius() - barrierOffset;
+            if (hitLocation.distance(klatka.getCenter()) >= barrierRadius) {
+                event.setCancelled(true);
+                pearl.remove();
+                return;
             }
         }
 
         if (manager.isShellBlock(hitLocation) || manager.isKlatkaBlock(hitLocation)) {
             event.setCancelled(true);
             pearl.remove();
-            return;
-        }
-
-        for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
-            if (klatka.isInsideCage(hitLocation)) {
-                event.setCancelled(true);
-                pearl.remove();
-                return;
-            }
         }
     }
 
@@ -216,44 +251,26 @@ public class HydroKlatkaBlockListener implements Listener {
         if (to == null) return;
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+        double barrierOffset = 0.5;
 
         for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
-            if (!klatka.isAnimationComplete()) {
-                double distance = to.distance(klatka.getCenter());
+            double barrierRadius = klatka.getRadius() - barrierOffset;
 
-                if (klatka.isPlayerTrapped(player.getUniqueId())) {
-                    if (distance > klatka.getRadius() - 1.0) {
-                        event.setCancelled(true);
-                        manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
-                        return;
-                    }
+            if (klatka.isPlayerTrapped(player.getUniqueId())) {
+                if (to.distance(klatka.getCenter()) >= barrierRadius) {
+                    event.setCancelled(true);
+                    manager.sendMessage(player,
+                            plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+                    return;
                 }
+            }
 
-                if (!klatka.isPlayerTrapped(player.getUniqueId())) {
-                    if (klatka.isInsideCage(to)) {
-                        event.setCancelled(true);
-                        manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
-                        return;
-                    }
-                }
-            } else {
-                if (klatka.isPlayerTrapped(player.getUniqueId())) {
-                    boolean hasShell = manager.isShellBlock(to.getBlock().getLocation())
-                            || manager.isShellBlock(to.clone().add(0, 1, 0).getBlock().getLocation());
-
-                    if (hasShell) {
-                        event.setCancelled(true);
-                        manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
-                        return;
-                    }
-                }
-
-                if (!klatka.isPlayerTrapped(player.getUniqueId())) {
-                    if (klatka.isInsideCage(to)) {
-                        event.setCancelled(true);
-                        manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
-                        return;
-                    }
+            if (!klatka.isPlayerTrapped(player.getUniqueId())) {
+                if (klatka.isInsideCage(to)) {
+                    event.setCancelled(true);
+                    manager.sendMessage(player,
+                            plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+                    return;
                 }
             }
         }
@@ -272,7 +289,8 @@ public class HydroKlatkaBlockListener implements Listener {
             for (var klatka : manager.getActiveKlatki()) {
                 if (klatka.isPlayerTrapped(player.getUniqueId())) {
                     event.setCancelled(true);
-                    manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+                    manager.sendMessage(player,
+                            plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
                     return;
                 }
             }
@@ -281,11 +299,9 @@ public class HydroKlatkaBlockListener implements Listener {
 
     // ==================== EKSPLOZJE ====================
 
-    // ✅ HIGHEST priority - shell NIGDY nie może być zniszczony przez eksplozje
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent event) {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
-        // Usuń WSZYSTKIE bloki klatki z listy eksplozji (nie mogą być zniszczone)
         event.blockList().removeIf(block -> manager.isKlatkaBlock(block.getLocation()));
     }
 
@@ -350,7 +366,7 @@ public class HydroKlatkaBlockListener implements Listener {
         }
     }
 
-    // ==================== FADE (np. lód, śnieg) ====================
+    // ==================== FADE ====================
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockFade(BlockFadeEvent event) {
