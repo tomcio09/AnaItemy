@@ -26,8 +26,9 @@ public class BlokWidmoManager {
     private final Map<UUID, AffectedData> affectedPlayers = new ConcurrentHashMap<>();
     private final Map<UUID, BossBar> bossBars = new ConcurrentHashMap<>();
 
-    private static final UUID MODIFIER_UUID = UUID.fromString("A1B2C3D4-E5F6-7890-ABCD-EF1234567890");
-    private static final String MODIFIER_NAME = "blok_widmo_reduction";
+    // ✅ 1.21.4 - NamespacedKey zamiast UUID dla AttributeModifier
+    private static final NamespacedKey MODIFIER_KEY =
+            new NamespacedKey("anaitemy", "blok_widmo_reduction");
 
     private BukkitTask tickTask;
 
@@ -71,6 +72,8 @@ public class BlokWidmoManager {
         }.runTaskTimer(plugin, 0L, 20L);
     }
 
+    // ==================== COOLDOWN ====================
+
     public boolean isOnCooldown(Player player) {
         Long end = cooldowns.get(player.getUniqueId());
         return end != null && System.currentTimeMillis() < end;
@@ -85,7 +88,8 @@ public class BlokWidmoManager {
     public void setCooldown(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
         long cooldownSeconds = config.getBlokWidmoCooldown();
-        cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (cooldownSeconds * 1000));
+        cooldowns.put(player.getUniqueId(),
+                System.currentTimeMillis() + (cooldownSeconds * 1000));
         player.setCooldown(Material.STRUCTURE_BLOCK, (int) (cooldownSeconds * 20));
     }
 
@@ -93,9 +97,15 @@ public class BlokWidmoManager {
         cooldowns.remove(player.getUniqueId());
         player.setCooldown(Material.STRUCTURE_BLOCK, 0);
     }
+
+    // ✅ Post-reset cooldown
     public void setPostResetCooldown(Player player, int seconds) {
-        cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
+        cooldowns.put(player.getUniqueId(),
+                System.currentTimeMillis() + (seconds * 1000L));
+        player.setCooldown(Material.STRUCTURE_BLOCK, seconds * 20);
     }
+
+    // ==================== AKTYWACJA ====================
 
     public void activate(Player activator, Location location) {
         ItemsConfig config = plugin.getItemsConfig();
@@ -114,22 +124,21 @@ public class BlokWidmoManager {
             if (victim.getLocation().distance(location) > radius) continue;
 
             List<String> blockedRegions = config.getBlokWidmoBlockedRegions();
-            if (plugin.getWorldGuardManager().isInBlockedRegion(victim.getLocation(), blockedRegions)) {
+            if (plugin.getWorldGuardManager().isInBlockedRegion(
+                    victim.getLocation(), blockedRegions)) {
                 continue;
             }
 
             boolean applied = applyEffect(victim, effectDuration, healthReduction, minimumHealth);
-            if (applied) {
-                infectedPlayers.add(victim);
-            }
+            if (applied) infectedPlayers.add(victim);
         }
 
         try {
             Sound activateSound = Sound.valueOf(config.getBlokWidmoActivateSound());
             activator.playSound(activator.getLocation(), activateSound, 1.0f, 1.0f);
         } catch (IllegalArgumentException e) {
-            plugin.getLogger().warning("Nieprawidłowy dźwięk aktywacji bloku widmo: " +
-                    config.getBlokWidmoActivateSound());
+            plugin.getLogger().warning("Nieprawidłowy dźwięk aktywacji: "
+                    + config.getBlokWidmoActivateSound());
         }
 
         activator.showTitle(Title.title(
@@ -161,7 +170,10 @@ public class BlokWidmoManager {
         }
     }
 
-    private boolean applyEffect(Player victim, int durationSeconds, double healthReduction, double minimumHealth) {
+    // ==================== EFEKT ====================
+
+    private boolean applyEffect(Player victim, int durationSeconds,
+                                 double healthReduction, double minimumHealth) {
         UUID victimId = victim.getUniqueId();
 
         if (affectedPlayers.containsKey(victimId)) {
@@ -179,9 +191,9 @@ public class BlokWidmoManager {
 
         if (actualReduction <= 0) return false;
 
+        // ✅ 1.21.4 - nowe API AttributeModifier z NamespacedKey
         AttributeModifier modifier = new AttributeModifier(
-                MODIFIER_UUID,
-                MODIFIER_NAME,
+                MODIFIER_KEY,
                 -actualReduction,
                 AttributeModifier.Operation.ADD_NUMBER
         );
@@ -195,7 +207,8 @@ public class BlokWidmoManager {
         }
 
         long expirationTime = System.currentTimeMillis() + (durationSeconds * 1000L);
-        AffectedData data = new AffectedData(victimId, expirationTime, durationSeconds, actualReduction);
+        AffectedData data = new AffectedData(
+                victimId, expirationTime, durationSeconds, actualReduction);
         affectedPlayers.put(victimId, data);
 
         createBossBar(victim, data);
@@ -209,19 +222,14 @@ public class BlokWidmoManager {
     }
 
     private void restoreHealth(Player player) {
-        // ✅ 1.21.4 - nowa nazwa atrybutu
         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr == null) return;
         removeModifier(maxHealthAttr);
     }
 
     private void removeModifier(AttributeInstance attribute) {
-        for (AttributeModifier modifier : new ArrayList<>(attribute.getModifiers())) {
-            if (modifier.getUniqueId().equals(MODIFIER_UUID) ||
-                    MODIFIER_NAME.equals(modifier.getName())) {
-                attribute.removeModifier(modifier);
-            }
-        }
+        // ✅ 1.21.4 - usuń po NamespacedKey
+        attribute.removeModifier(MODIFIER_KEY);
     }
 
     private void removeEffect(UUID playerId) {
@@ -237,27 +245,20 @@ public class BlokWidmoManager {
     }
 
     private void ensureModifierExists(Player player, AffectedData data) {
-        // ✅ 1.21.4 - nowa nazwa atrybutu
         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr == null) return;
 
-        boolean hasModifier = false;
-        for (AttributeModifier modifier : maxHealthAttr.getModifiers()) {
-            if (modifier.getUniqueId().equals(MODIFIER_UUID)) {
-                hasModifier = true;
-                break;
-            }
-        }
+        // ✅ 1.21.4 - sprawdź po NamespacedKey
+        boolean hasModifier = maxHealthAttr.getModifier(MODIFIER_KEY) != null;
 
         if (!hasModifier && !data.isExpired()) {
-            plugin.getLogger().info("[BlokWidmo] Modifier usunięty przez zewnętrzny plugin dla gracza " +
-                    player.getName() + " - kończę efekt.");
+            plugin.getLogger().info("[BlokWidmo] Modifier usunięty przez zewnętrzny plugin dla gracza "
+                    + player.getName() + " - kończę efekt.");
             removeEffect(player.getUniqueId());
         }
     }
 
     public void cleanupStaleModifier(Player player) {
-        // ✅ 1.21.4 - nowa nazwa atrybutu
         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr == null) return;
 
@@ -265,6 +266,8 @@ public class BlokWidmoManager {
             removeModifier(maxHealthAttr);
         }
     }
+
+    // ==================== BOSSBAR ====================
 
     private void createBossBar(Player player, AffectedData data) {
         ItemsConfig config = plugin.getItemsConfig();
@@ -287,9 +290,7 @@ public class BlokWidmoManager {
         );
 
         BossBar old = bossBars.remove(player.getUniqueId());
-        if (old != null) {
-            player.hideBossBar(old);
-        }
+        if (old != null) player.hideBossBar(old);
 
         player.showBossBar(bossBar);
         bossBars.put(player.getUniqueId(), bossBar);
@@ -315,13 +316,13 @@ public class BlokWidmoManager {
     }
 
     private String formatTime(long totalSeconds) {
-        if (totalSeconds < 60) {
-            return totalSeconds + "s";
-        }
+        if (totalSeconds < 60) return totalSeconds + "s";
         long minutes = totalSeconds / 60;
         long seconds = totalSeconds % 60;
         return minutes + "m" + String.format("%02d", seconds) + "s";
     }
+
+    // ==================== API ====================
 
     public boolean isAffected(Player player) {
         return affectedPlayers.containsKey(player.getUniqueId());
@@ -354,6 +355,8 @@ public class BlokWidmoManager {
         return plugin.getWorldGuardManager().isInBlockedRegion(location, blockedRegions);
     }
 
+    // ==================== CLEANUP ====================
+
     public void cleanup() {
         if (tickTask != null) tickTask.cancel();
 
@@ -376,13 +379,16 @@ public class BlokWidmoManager {
         cooldowns.clear();
     }
 
+    // ==================== INNER CLASS ====================
+
     public static class AffectedData {
         private final UUID victimId;
         private final long expirationTime;
         private final int totalDuration;
         private final double reduction;
 
-        public AffectedData(UUID victimId, long expirationTime, int totalDuration, double reduction) {
+        public AffectedData(UUID victimId, long expirationTime,
+                            int totalDuration, double reduction) {
             this.victimId = victimId;
             this.expirationTime = expirationTime;
             this.totalDuration = totalDuration;
@@ -394,7 +400,8 @@ public class BlokWidmoManager {
         public double getReduction() { return reduction; }
 
         public int getRemainingSeconds() {
-            return (int) Math.max(0, (expirationTime - System.currentTimeMillis()) / 1000);
+            return (int) Math.max(0,
+                    (expirationTime - System.currentTimeMillis()) / 1000);
         }
 
         public boolean isExpired() {
