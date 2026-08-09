@@ -21,11 +21,20 @@ public class CiepleMlekoListener implements Listener {
 
     private final AnaItemy plugin;
 
+    // ✅ 1.21.4 - nowe nazwy PotionEffectType
     private static final Set<PotionEffectType> NEGATIVE_EFFECTS = Set.of(
-            PotionEffectType.BLINDNESS, PotionEffectType.CONFUSION, PotionEffectType.HUNGER,
-            PotionEffectType.POISON, PotionEffectType.SLOW, PotionEffectType.SLOW_DIGGING,
-            PotionEffectType.WEAKNESS, PotionEffectType.WITHER, PotionEffectType.UNLUCK,
-            PotionEffectType.BAD_OMEN, PotionEffectType.DARKNESS, PotionEffectType.SLOW_FALLING,
+            PotionEffectType.BLINDNESS,
+            PotionEffectType.NAUSEA,        // było CONFUSION
+            PotionEffectType.HUNGER,
+            PotionEffectType.POISON,
+            PotionEffectType.SLOWNESS,      // było SLOW
+            PotionEffectType.MINING_FATIGUE, // było SLOW_DIGGING
+            PotionEffectType.WEAKNESS,
+            PotionEffectType.WITHER,
+            PotionEffectType.UNLUCK,
+            PotionEffectType.BAD_OMEN,
+            PotionEffectType.DARKNESS,
+            PotionEffectType.SLOW_FALLING,
             PotionEffectType.LEVITATION
     );
 
@@ -42,7 +51,6 @@ public class CiepleMlekoListener implements Listener {
 
         event.setCancelled(true);
 
-        // Usuń negatywne efekty
         for (PotionEffect effect : player.getActivePotionEffects()) {
             if (NEGATIVE_EFFECTS.contains(effect.getType())) {
                 player.removePotionEffect(effect.getType());
