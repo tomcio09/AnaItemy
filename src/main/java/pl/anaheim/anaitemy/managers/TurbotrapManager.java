@@ -259,14 +259,14 @@ public class TurbotrapManager {
 
     private static class BlockPlacement {
         final int x, y, z;
-        final Material material;
+        // ✅ Usunięte nieużywane pole 'material'
         final org.bukkit.block.data.BlockData blockData;
 
         BlockPlacement(int x, int y, int z, Material material, org.bukkit.block.data.BlockData blockData) {
             this.x = x;
             this.y = y;
             this.z = z;
-            this.material = material;
+            // material nieużywane - pomijamy przypisanie
             this.blockData = blockData;
         }
     }
