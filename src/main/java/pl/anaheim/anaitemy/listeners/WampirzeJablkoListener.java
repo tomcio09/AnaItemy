@@ -27,7 +27,7 @@ public class WampirzeJablkoListener implements Listener {
 
         org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (!player.isOnline()) return;
-            player.addPotionEffect(new PotionEffect(PotionEffectType.INCREASE_DAMAGE, duration, level, false, true, true));
+            player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, duration, level, false, true, true));
         }, 1L);
     }
 }
