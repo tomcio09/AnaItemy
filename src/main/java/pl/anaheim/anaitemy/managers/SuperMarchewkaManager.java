@@ -8,7 +8,6 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -52,8 +51,6 @@ public class SuperMarchewkaManager {
         }.runTaskTimer(plugin, 0L, 20L);
     }
 
-    // ==================== COOLDOWN ====================
-
     public boolean isOnCooldown(Player player) {
         Long end = cooldowns.get(player.getUniqueId());
         return end != null && System.currentTimeMillis() < end;
@@ -77,8 +74,6 @@ public class SuperMarchewkaManager {
         player.setCooldown(Material.GOLDEN_CARROT, 0);
     }
 
-    // ==================== AKTYWACJA ====================
-
     public void activate(Player player, boolean inHydroKlatka) {
         ItemsConfig config = plugin.getItemsConfig();
 
@@ -92,14 +87,11 @@ public class SuperMarchewkaManager {
         int effectTicks = effectDuration * 20;
 
         if (inHydroKlatka) {
-            // ✅ MINI MARCHEWKA - pomniejszenie o 50%
-            applyScale(player, -0.5); // -50%
-
-            // Odporność III
+            applyScale(player, -0.5);
+            // ✅ 1.21.4 - nowe nazwy PotionEffectType
             player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.DAMAGE_RESISTANCE, effectTicks, 2, false, true, true));
+                    PotionEffectType.RESISTANCE, effectTicks, 2, false, true, true));
 
-            // Crit boost 1.2x
             applyCritBoost(player);
 
             player.showTitle(Title.title(
@@ -110,18 +102,13 @@ public class SuperMarchewkaManager {
                     Title.Times.times(Duration.ofMillis(250), Duration.ofMillis(3000), Duration.ofMillis(500))
             ));
         } else {
-            // ✅ SUPER MARCHEWKA - powiększenie x2
-            applyScale(player, 1.0); // +100% = x2
-
-            // Odporność III
+            applyScale(player, 1.0);
+            // ✅ 1.21.4 - nowe nazwy PotionEffectType
             player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.DAMAGE_RESISTANCE, effectTicks, 2, false, true, true));
-
-            // Spowolnienie II
+                    PotionEffectType.RESISTANCE, effectTicks, 2, false, true, true));
             player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.SLOW, effectTicks, 1, false, true, true));
+                    PotionEffectType.SLOWNESS, effectTicks, 1, false, true, true));
 
-            // Crit boost 1.2x
             applyCritBoost(player);
 
             player.showTitle(Title.title(
@@ -151,10 +138,9 @@ public class SuperMarchewkaManager {
         }, effectTicks);
     }
 
-    // ==================== SKALOWANIE ====================
-
     private void applyScale(Player player, double scaleModifier) {
-        AttributeInstance scaleAttr = player.getAttribute(Attribute.GENERIC_SCALE);
+        // ✅ 1.21.4 - nowa nazwa atrybutu
+        AttributeInstance scaleAttr = player.getAttribute(Attribute.SCALE);
         if (scaleAttr == null) return;
 
         removeScaleModifier(scaleAttr);
@@ -170,10 +156,9 @@ public class SuperMarchewkaManager {
         attribute.removeModifier(SCALE_KEY);
     }
 
-    // ==================== CRIT BOOST ====================
-
     private void applyCritBoost(Player player) {
-        AttributeInstance attackDamage = player.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE);
+        // ✅ 1.21.4 - nowa nazwa atrybutu
+        AttributeInstance attackDamage = player.getAttribute(Attribute.ATTACK_DAMAGE);
         if (attackDamage == null) return;
 
         removeCritModifier(attackDamage);
@@ -189,23 +174,20 @@ public class SuperMarchewkaManager {
         attribute.removeModifier(CRIT_KEY);
     }
 
-    // ==================== USUWANIE EFEKTU ====================
-
     public void removeEffect(Player player) {
         ActiveEffect effect = activeEffects.remove(player.getUniqueId());
         if (effect == null) return;
 
-        // Usuń skalowanie
-        AttributeInstance scaleAttr = player.getAttribute(Attribute.GENERIC_SCALE);
+        // ✅ 1.21.4 - nowe nazwy atrybutów
+        AttributeInstance scaleAttr = player.getAttribute(Attribute.SCALE);
         if (scaleAttr != null) removeScaleModifier(scaleAttr);
 
-        // Usuń crit boost
-        AttributeInstance attackDamage = player.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE);
+        AttributeInstance attackDamage = player.getAttribute(Attribute.ATTACK_DAMAGE);
         if (attackDamage != null) removeCritModifier(attackDamage);
 
-        // Usuń efekty mikstur
-        player.removePotionEffect(PotionEffectType.DAMAGE_RESISTANCE);
-        player.removePotionEffect(PotionEffectType.SLOW);
+        // ✅ 1.21.4 - nowe nazwy PotionEffectType
+        player.removePotionEffect(PotionEffectType.RESISTANCE);
+        player.removePotionEffect(PotionEffectType.SLOWNESS);
 
         player.showTitle(Title.title(
                 Component.empty(),
@@ -218,8 +200,6 @@ public class SuperMarchewkaManager {
                 SoundCategory.PLAYERS, 1.0f, 1.0f);
     }
 
-    // ==================== CHECKS ====================
-
     public boolean hasActiveEffect(Player player) {
         return activeEffects.containsKey(player.getUniqueId());
     }
@@ -228,8 +208,6 @@ public class SuperMarchewkaManager {
         return plugin.getWorldGuardManager().isInNamedRegion(
                 location, plugin.getItemsConfig().getSuperMarchewkaBlockedRegions());
     }
-
-    // ==================== CLEANUP ====================
 
     public void cleanup() {
         for (ActiveEffect effect : new ArrayList<>(activeEffects.values())) {
@@ -243,14 +221,13 @@ public class SuperMarchewkaManager {
     public void cleanupPlayer(Player player) {
         if (activeEffects.containsKey(player.getUniqueId())) removeEffect(player);
 
-        AttributeInstance scaleAttr = player.getAttribute(Attribute.GENERIC_SCALE);
+        // ✅ 1.21.4 - nowe nazwy atrybutów
+        AttributeInstance scaleAttr = player.getAttribute(Attribute.SCALE);
         if (scaleAttr != null) removeScaleModifier(scaleAttr);
 
-        AttributeInstance attackDamage = player.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE);
+        AttributeInstance attackDamage = player.getAttribute(Attribute.ATTACK_DAMAGE);
         if (attackDamage != null) removeCritModifier(attackDamage);
     }
-
-    // ==================== INNER CLASS ====================
 
     public static class ActiveEffect {
         private final UUID playerId;
