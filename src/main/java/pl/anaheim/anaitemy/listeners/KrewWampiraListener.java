@@ -62,12 +62,14 @@ public class KrewWampiraListener implements Listener {
 
         event.setCancelled(true);
 
-        AttributeInstance maxHealthAttr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        // ✅ 1.21.4 - nowa nazwa atrybutu
+        AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr != null) player.setHealth(maxHealthAttr.getValue());
 
         if (plugin.getBlokWidmoManager().isAffected(player)) {
             plugin.getBlokWidmoManager().forceRemoveEffect(player);
-            maxHealthAttr = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+            // ✅ 1.21.4 - nowa nazwa atrybutu
+            maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
             if (maxHealthAttr != null) player.setHealth(maxHealthAttr.getValue());
         }
 
