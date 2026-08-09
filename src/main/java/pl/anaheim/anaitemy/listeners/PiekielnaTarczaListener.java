@@ -3,6 +3,7 @@ package pl.anaheim.anaitemy.listeners;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -31,10 +32,8 @@ public class PiekielnaTarczaListener implements Listener {
         if (!(event.getDamager() instanceof Player attacker)) return;
         if (!(event.getEntity() instanceof Player defender)) return;
 
-        // ✅ Sprawdź czy obrońca blokuje tarczą
         if (!defender.isBlocking()) return;
 
-        // ✅ Sprawdź czy to piekielna tarcza
         ItemStack offHand = defender.getInventory().getItemInOffHand();
         ItemStack mainHand = defender.getInventory().getItemInMainHand();
 
@@ -43,35 +42,28 @@ public class PiekielnaTarczaListener implements Listener {
 
         if (!hasPiekielnaTarcza) return;
 
-        // ✅ Sprawdź czy atakujący używa siekiery (siekiera zbija tarczę - nie odbijamy)
         ItemStack attackerItem = attacker.getInventory().getItemInMainHand();
         if (attackerItem.getType().name().endsWith("_AXE")) return;
 
-        // ✅ Cooldown 5s
         Long cooldownEnd = reflectCooldowns.get(defender.getUniqueId());
         if (cooldownEnd != null && System.currentTimeMillis() < cooldownEnd) return;
 
-        // ✅ 25% szans
         if (ThreadLocalRandom.current().nextDouble() > 0.25) return;
 
-        // ✅ Oblicz damage jakby atakujący sam siebie uderzył
-        double baseDamage = 1.0; // Pięść
+        double baseDamage = 1.0;
 
-        // Sharpness atakującego
-        int sharpness = attackerItem.getEnchantmentLevel(Enchantment.DAMAGE_ALL);
+        // ✅ 1.21.4 - nowa nazwa enchanta
+        int sharpness = attackerItem.getEnchantmentLevel(Enchantment.SHARPNESS);
         if (sharpness > 0) {
             baseDamage += 0.5 * sharpness + 0.5;
         }
 
-        // Bazowy damage broni
         baseDamage += getWeaponDamage(attackerItem);
 
-        // ✅ Redukcja od zbroi atakującego
         double armorReduction = calculateArmorReduction(attacker);
         double finalDamage = baseDamage * (1.0 - armorReduction);
         finalDamage = Math.max(0.5, finalDamage);
 
-        // ✅ Zadaj damage atakującemu
         double health = attacker.getHealth();
         if (health - finalDamage <= 0) {
             attacker.setHealth(0.0);
@@ -79,13 +71,10 @@ public class PiekielnaTarczaListener implements Listener {
             attacker.setHealth(health - finalDamage);
         }
 
-        // ✅ Animacja obrażeń
         attacker.damage(0.001);
 
-        // ✅ Cooldown
         reflectCooldowns.put(defender.getUniqueId(), System.currentTimeMillis() + 5000);
 
-        // ✅ Subtitles
         String attackerSub = plugin.getItemsConfig().getPiekielnaTarczaAttackerSubtitle()
                 .replace("{shield_handler}", defender.getName());
         attacker.showTitle(Title.title(Component.empty(),
@@ -121,13 +110,15 @@ public class PiekielnaTarczaListener implements Listener {
         int totalProtection = 0;
         for (ItemStack piece : player.getInventory().getArmorContents()) {
             if (piece == null || piece.getType().isAir()) continue;
-            totalProtection += piece.getEnchantmentLevel(Enchantment.PROTECTION_ENVIRONMENTAL);
+            // ✅ 1.21.4 - nowa nazwa enchanta
+            totalProtection += piece.getEnchantmentLevel(Enchantment.PROTECTION);
         }
         double enchantReduction = Math.min(80.0, totalProtection * 4.0);
 
         double armorPoints = 0;
-        if (player.getAttribute(org.bukkit.attribute.Attribute.GENERIC_ARMOR) != null) {
-            armorPoints = player.getAttribute(org.bukkit.attribute.Attribute.GENERIC_ARMOR).getValue();
+        // ✅ 1.21.4 - nowa nazwa atrybutu
+        if (player.getAttribute(Attribute.ARMOR) != null) {
+            armorPoints = player.getAttribute(Attribute.ARMOR).getValue();
         }
         double armorReduction = Math.min(0.8, armorPoints * 0.04);
 
