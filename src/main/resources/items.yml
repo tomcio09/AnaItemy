@@ -1013,8 +1013,11 @@ kostka-rubika:
 # ==========================================
 sniezka-zamiany:
   gui-slot: 1
-  respects-protection: false
-  notify-attacker: false
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 # ==========================================
 #         TURBO-TRAP
 # ==========================================
@@ -1030,8 +1033,11 @@ turbotrap:
     - endpvp
     - spawnpvp
     - netherspawnpvp
-  respects-protection: false
-  notify-attacker: false
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 
 # ==========================================
 #         KREW WAMPIRA
@@ -1048,8 +1054,11 @@ krew-wampira:
 # ==========================================
 balonik:
   gui-slot: 4
-  respects-protection: false
-  notify-attacker: false
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 # ==========================================
 #         WATA CUKROWA
 # ==========================================
@@ -1086,8 +1095,11 @@ zlamane-serce:
   messages:
     attacker-subtitle: '&7Złamałeś &dserduszko &7graczowi &f{nick}&7!'
     victim-subtitle: '&7Twoje &dserduszko &7zostało &fzłamane&7!'
-  respects-protection: false
-  notify-attacker: false
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 # ==========================================
 #         WAMPIRZE JABŁKO
 # ==========================================
@@ -1112,6 +1124,7 @@ cieple-mleko:
   respects-protection: false
   notify-attacker: false
 
+
 # ==========================================
 #         PARAWAN
 # ==========================================
@@ -1120,8 +1133,11 @@ parawan:
   name: '&e&lParawan'
   custom-model-data: 1
   gui-slot: 10
-  respects-protection: false
-  notify-attacker: false
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 
 # ==========================================
 #         SPLEŚNIAŁA KANAPKA
@@ -1132,8 +1148,11 @@ splesniale-kanapka:
   custom-model-data: 53
   gui-slot: 11
   glowing-duration: 20
-  respects-protection: false
-  notify-attacker: false
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 
 # ==========================================
 #         LEWE JAJKO
@@ -1142,8 +1161,11 @@ lewe-jajko:
   material: EGG
   name: '&eLewe jajko'
   gui-slot: 12
-  respects-protection: false
-  notify-attacker: false
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 
 # ==========================================
 #         PRZETERMINOWANY TRUNEK
@@ -1241,8 +1263,11 @@ olaf:
   messages:
     cooldown-subtitle: '&bOlafa &7możesz użyć za: &b{seconds_left}&7!'
     victim-subtitle: '&3Olaf! &7zostało uderzeń: &b{left}&7!'
-  respects-protection: false
-  notify-attacker: false
+  respects-protection: true
+  notify-attacker: true
+  protection-messages:
+    title: '&c&lNie zadziałało!'
+    subtitle: '&7Spróbuj ponownie za: &e{seconds_left}&7!'
 # ==========================================
 #         ROZSZERZENIE ENDERCHESTA
 # ==========================================
