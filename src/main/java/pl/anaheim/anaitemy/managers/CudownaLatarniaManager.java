@@ -87,6 +87,12 @@ public class CudownaLatarniaManager {
         playerCooldowns.remove(player.getUniqueId());
         player.setCooldown(Material.BEACON, 0);
     }
+    
+    public void setPostResetCooldown(Player player, int seconds) {
+        playerCooldowns.put(player.getUniqueId(),
+                System.currentTimeMillis() + (seconds * 1000L));
+        player.setCooldown(Material.BEACON, seconds * 20);
+    }
 
     // ==================== CHUNK COOLDOWN ====================
 
