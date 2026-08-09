@@ -60,6 +60,11 @@ public class OslepienieManager {
         kosaCooldowns.remove(player.getUniqueId());
         player.setCooldown(Material.NETHERITE_HOE, 0);
     }
+    public void setPostResetCooldowns(Player player, int seconds) {
+        long end = System.currentTimeMillis() + (seconds * 1000L);
+        kosaCooldowns.put(player.getUniqueId(), end);
+        lukCooldowns.put(player.getUniqueId(), end);
+    }
 
     // ==================== ŁUK KUPIDYNA COOLDOWN ====================
 
