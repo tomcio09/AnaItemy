@@ -33,9 +33,6 @@ public class SakiewkaGUIListener implements Listener {
         this.plugin = plugin;
     }
 
-    /**
-     * ✅ Otwieranie sakiewki PPM.
-     */
     @EventHandler(priority = EventPriority.HIGH)
     public void onSakiewkaOpen(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR &&
@@ -48,24 +45,15 @@ public class SakiewkaGUIListener implements Listener {
 
         event.setCancelled(true);
 
-        // ✅ Sprawdź czy gracz nie jest w trakcie teleportacji
         if (player.hasMetadata("sakiewka_teleporting")) {
             return;
         }
 
-        // ✅ Sprawdź czy gracz jest w walce
         ItemsConfig config = plugin.getItemsConfig();
 
-        // ✅ DEBUG LOG
-        plugin.getLogger().info("[Sakiewka] Gracz " + player.getName() + " probuje otworzyc sakiewke");
-        plugin.getLogger().info("[Sakiewka] Config block-in-combat: " + config.isBlockSakiewkaInCombat());
-        plugin.getLogger().info("[Sakiewka] Combat integration enabled: " + plugin.getCombatIntegrationManager().isEnabled());
-
+        // ✅ Usunięte debug logi - sprawdzanie walki bez logowania
         if (config.isBlockSakiewkaInCombat()) {
             boolean inCombat = plugin.getCombatIntegrationManager().isInCombat(player);
-
-            // ✅ DEBUG LOG
-            plugin.getLogger().info("[Sakiewka] Is in combat: " + inCombat);
 
             if (inCombat) {
                 String message = config.getSakiewkaCombatBlockedMessage();
@@ -74,27 +62,19 @@ public class SakiewkaGUIListener implements Listener {
 
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO,
                         SoundCategory.PLAYERS, 1.0f, 1.0f);
-
-                plugin.getLogger().info("[Sakiewka] ZABLOKOWANO otwieranie sakiewki dla " + player.getName());
                 return;
             }
         }
 
-        // Wiadomość na chacie
         player.sendMessage(LegacyComponentSerializer.legacyAmpersand()
                 .deserialize("&aOtwieranie worka..."));
 
-        // Dźwięk
         player.playSound(player.getLocation(), Sound.BLOCK_SHULKER_BOX_OPEN,
                 SoundCategory.PLAYERS, 1.0f, 1.0f);
 
-        // Otwórz GUI
         openGUI(player, item);
     }
 
-    /**
-     * Otwiera GUI sakiewki.
-     */
     private void openGUI(Player player, ItemStack sakiewka) {
         openSakiewki.put(player.getUniqueId(), sakiewka);
 
@@ -103,46 +83,33 @@ public class SakiewkaGUIListener implements Listener {
 
         Inventory gui = Bukkit.createInventory(null, 54, title);
 
-        // ✅ Załaduj itemy z sakiewki (sloty 0-44)
         List<ItemStack> items = SakiewkaData.loadItems(sakiewka);
         for (int i = 0; i < Math.min(items.size(), 45); i++) {
-            ItemStack item = items.get(i);
-            if (item != null && !item.getType().isAir()) {
-                gui.setItem(i, item);
+            ItemStack it = items.get(i);
+            if (it != null && !it.getType().isAir()) {
+                gui.setItem(i, it);
             }
         }
 
-        // Slot 49 - Barrier (zamknij)
         gui.setItem(49, createBarrier());
-
-        // Slot 50 - Lime Dye (wypłać wszystko)
         gui.setItem(50, createPayoutButton());
 
         player.openInventory(gui);
     }
 
-    /**
-     * Tworzy barrier (zamknij).
-     */
     private ItemStack createBarrier() {
         ItemStack barrier = new ItemStack(Material.BARRIER);
         ItemMeta meta = barrier.getItemMeta();
-
         meta.displayName(LegacyComponentSerializer.legacyAmpersand()
                 .deserialize("&cZamknij")
                 .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-
         barrier.setItemMeta(meta);
         return barrier;
     }
 
-    /**
-     * Tworzy lime_dye (wypłać wszystko).
-     */
     private ItemStack createPayoutButton() {
         ItemStack button = new ItemStack(Material.LIME_DYE);
         ItemMeta meta = button.getItemMeta();
-
         meta.displayName(LegacyComponentSerializer.legacyAmpersand()
                 .deserialize("&aWypłać wszystko")
                 .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
@@ -155,14 +122,10 @@ public class SakiewkaGUIListener implements Listener {
                 .deserialize(" &8» &7przedmioty z sakiewki")
                 .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
         meta.lore(lore);
-
         button.setItemMeta(meta);
         return button;
     }
 
-    /**
-     * ✅ Obsługa kliknięć w GUI.
-     */
     @EventHandler(priority = EventPriority.HIGH)
     public void onGUIClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -179,7 +142,6 @@ public class SakiewkaGUIListener implements Listener {
 
         if (clicked == null || clicked.getType().isAir()) return;
 
-        // Slot 49 - Zamknij
         if (slot == 49 && clicked.getType() == Material.BARRIER) {
             player.closeInventory();
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK,
@@ -187,21 +149,16 @@ public class SakiewkaGUIListener implements Listener {
             return;
         }
 
-        // Slot 50 - Wypłać wszystko
         if (slot == 50 && clicked.getType() == Material.LIME_DYE) {
             handlePayoutAll(player);
             return;
         }
 
-        // Sloty 0-44 - Wypłacanie pojedynczego itemu
         if (slot >= 0 && slot < 45) {
             handlePayoutSingle(player, slot, clicked);
         }
     }
 
-    /**
-     * Wypłaca pojedynczy item z sakiewki.
-     */
     private void handlePayoutSingle(Player player, int slot, ItemStack item) {
         if (player.getInventory().firstEmpty() == -1) {
             player.closeInventory();
@@ -234,14 +191,10 @@ public class SakiewkaGUIListener implements Listener {
         player.getOpenInventory().getTopInventory().setItem(slot, null);
     }
 
-    /**
-     * Wypłaca wszystkie itemy z sakiewki.
-     */
     private void handlePayoutAll(Player player) {
         ItemStack sakiewka = openSakiewki.get(player.getUniqueId());
         if (sakiewka == null) return;
 
-        // ✅ Sprawdź zablokowane regiony
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getSakiewkaBlockedRegionsNoPayout();
         if (plugin.getWorldGuardManager().isInBlockedRegion(player.getLocation(), blockedRegions)) {
@@ -281,9 +234,6 @@ public class SakiewkaGUIListener implements Listener {
         }
     }
 
-    /**
-     * ✅ Cleanup przy zamykaniu GUI.
-     */
     @EventHandler
     public void onGUIClose(InventoryCloseEvent event) {
         if (!(event.getPlayer() instanceof Player player)) return;
