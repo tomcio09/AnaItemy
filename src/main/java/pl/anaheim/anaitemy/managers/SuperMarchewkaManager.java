@@ -73,6 +73,9 @@ public class SuperMarchewkaManager {
         cooldowns.remove(player.getUniqueId());
         player.setCooldown(Material.GOLDEN_CARROT, 0);
     }
+    public void setPostResetCooldown(Player player, int seconds) {
+        cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
+    }
 
     public void activate(Player player, boolean inHydroKlatka) {
         ItemsConfig config = plugin.getItemsConfig();
