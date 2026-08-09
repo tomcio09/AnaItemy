@@ -50,12 +50,11 @@ public class KroliczyMieczItem {
 
         meta.setCustomModelData(CUSTOM_MODEL_DATA);
 
-        // ✅ Enchanty WIDOCZNE (bez hide enchants)
+        // ✅ 1.21.4 - nowe nazwy enchantów
         meta.addEnchant(Enchantment.FIRE_ASPECT, 2, true);
-        meta.addEnchant(Enchantment.DAMAGE_ALL, 6, true);
-        meta.addEnchant(Enchantment.DURABILITY, 3, true);
+        meta.addEnchant(Enchantment.SHARPNESS, 6, true);
+        meta.addEnchant(Enchantment.UNBREAKING, 3, true);
 
-        // ✅ Marker NBT żeby odróżnić od Excalibura (też netherite sword)
         meta.getPersistentDataContainer().set(KROLICZY_KEY, PersistentDataType.BYTE, (byte) 1);
 
         item.setItemMeta(meta);
@@ -69,7 +68,6 @@ public class KroliczyMieczItem {
         if (item.getItemMeta().getCustomModelData() != CUSTOM_MODEL_DATA) return false;
         if (item.getItemMeta().displayName() == null) return false;
 
-        // ✅ Sprawdź marker NBT (żeby nie mylić z Excaliburem)
         Byte marker = item.getItemMeta().getPersistentDataContainer()
                 .get(KROLICZY_KEY, PersistentDataType.BYTE);
         if (marker == null || marker != (byte) 1) return false;
