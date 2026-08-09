@@ -171,6 +171,9 @@ public class MarchewkowaKuszaManager {
         cooldowns.remove(player.getUniqueId());
         player.setCooldown(Material.CROSSBOW, 0);
     }
+    public void setPostResetCooldown(Player player, int seconds) {
+        cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
+    }
 
     // ==================== STRZAŁ ====================
 
