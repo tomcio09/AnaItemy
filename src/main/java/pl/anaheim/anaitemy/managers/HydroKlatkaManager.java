@@ -293,7 +293,6 @@ public class HydroKlatkaManager {
         Location center = klatka.getCenter();
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
-        double radius = klatka.getRadius();
 
         for (UUID playerId : new ArrayList<>(klatka.getTrappedPlayers())) {
             Player player = Bukkit.getPlayer(playerId);
@@ -306,47 +305,9 @@ public class HydroKlatkaManager {
                 klatka.removeTrappedPlayer(playerId);
                 BossBar bossBar = playerBossBars.remove(playerId);
                 if (bossBar != null) player.hideBossBar(bossBar);
-                continue;
             }
 
-            double distance = loc.distance(center);
-
-            // ✅ Gracz jest poza klatką (daleko) — teleport na środek
-            if (distance > radius + 1.0) {
-                Location teleportLoc = center.clone();
-                teleportLoc.setYaw(loc.getYaw());
-                teleportLoc.setPitch(loc.getPitch());
-                player.teleport(teleportLoc);
-                continue;
-            }
-
-            // ✅ Gracz jest w strefie shella — sprawdź czy stoi w bloku shella
-            if (distance > radius - 1.0) {
-                Location feetBlock = loc.getBlock().getLocation();
-                Location headBlock = loc.clone().add(0, 1, 0).getBlock().getLocation();
-
-                boolean feetInShell = isShellBlock(feetBlock)
-                        || (!klatka.isAnimationComplete() && klatka.isPlannedShellLocation(feetBlock));
-                boolean headInShell = isShellBlock(headBlock)
-                        || (!klatka.isAnimationComplete() && klatka.isPlannedShellLocation(headBlock));
-
-                // Sprawdź też po dystansie
-                double feetDist = feetBlock.clone().add(0.5, 0.5, 0.5).distance(center);
-                double headDist = headBlock.clone().add(0.5, 0.5, 0.5).distance(center);
-
-                if (feetDist > radius - 1.0 && feetDist <= radius) feetInShell = true;
-                if (headDist > radius - 1.0 && headDist <= radius) headInShell = true;
-
-                if (feetInShell || headInShell) {
-                    // Gracz zakleszczony w shellu — teleport na środek
-                    if (!player.isGliding()) {
-                        Location teleportLoc = center.clone();
-                        teleportLoc.setYaw(loc.getYaw());
-                        teleportLoc.setPitch(loc.getPitch());
-                        player.teleport(teleportLoc);
-                    }
-                }
-            }
+            // ✅ NIE teleportujemy na środek tutaj — clampTask w listenerze się tym zajmuje
         }
     }
 
