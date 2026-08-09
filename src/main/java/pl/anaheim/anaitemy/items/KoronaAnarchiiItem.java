@@ -54,10 +54,11 @@ public class KoronaAnarchiiItem {
         meta.lore(loreComponents);
 
         meta.setCustomModelData(CUSTOM_MODEL_DATA);
-        meta.addEnchant(Enchantment.PROTECTION_PROJECTILE, 4, true);
+        // ✅ 1.21.4 - nowe nazwy enchantów
+        meta.addEnchant(Enchantment.PROJECTILE_PROTECTION, 4, true);
         meta.addEnchant(Enchantment.MENDING, 1, true);
-        meta.addEnchant(Enchantment.WATER_WORKER, 1, true);
-        meta.addEnchant(Enchantment.OXYGEN, 3, true);
+        meta.addEnchant(Enchantment.AQUA_AFFINITY, 1, true);
+        meta.addEnchant(Enchantment.RESPIRATION, 3, true);
         meta.setUnbreakable(true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE);
 
