@@ -17,6 +17,8 @@ import java.util.List;
 public class RozgaItem {
 
     public static final String ITEM_NAME_STRIPPED = "Rózga";
+    // ✅ POPRAWKA: CMD=1 żeby isRozga() działało poprawnie
+    public static final int CUSTOM_MODEL_DATA = 1;
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
@@ -44,7 +46,8 @@ public class RozgaItem {
         }
         meta.lore(loreComponents);
 
-        meta.setCustomModelData(0);
+        // ✅ POPRAWKA: CMD=1 zamiast 0 (isRozga sprawdza CMD=1)
+        meta.setCustomModelData(CUSTOM_MODEL_DATA);
         meta.addEnchant(Enchantment.KNOCKBACK, 4, true);
         meta.setUnbreakable(true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE);
@@ -57,7 +60,7 @@ public class RozgaItem {
         if (item == null || item.getType() != Material.STICK) return false;
         if (!item.hasItemMeta()) return false;
         if (!item.getItemMeta().hasCustomModelData()) return false;
-        if (item.getItemMeta().getCustomModelData() != 1) return false;
+        if (item.getItemMeta().getCustomModelData() != CUSTOM_MODEL_DATA) return false;
         if (item.getItemMeta().displayName() == null) return false;
 
         String plainName = PlainTextComponentSerializer.plainText()
