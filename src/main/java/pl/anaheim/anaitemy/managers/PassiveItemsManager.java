@@ -44,18 +44,18 @@ public class PassiveItemsManager {
                     boolean hasRoza = checkRoza(player);
                     boolean hasLizak = checkLizak(player);
 
-                    // ✅ Korona - efekty na głowie
                     if (hasKorona) {
                         applyEffect(player, PotionEffectType.SPEED, 1);
                         applyEffect(player, PotionEffectType.FIRE_RESISTANCE, 0);
-                        applyEffect(player, PotionEffectType.INCREASE_DAMAGE, 1);
-                        applyEffect(player, PotionEffectType.DAMAGE_RESISTANCE, 2);
+                        // ✅ 1.21.4 - nowe nazwy PotionEffectType
+                        applyEffect(player, PotionEffectType.STRENGTH, 1);
+                        applyEffect(player, PotionEffectType.RESISTANCE, 2);
                         applyEffect(player, PotionEffectType.LUCK, 0);
                     }
 
-                    // ✅ Róża kupidyna - ręka/offhand
                     if (hasRoza) {
-                        applyEffect(player, PotionEffectType.DAMAGE_RESISTANCE, 0);
+                        // ✅ 1.21.4 - nowe nazwy PotionEffectType
+                        applyEffect(player, PotionEffectType.RESISTANCE, 0);
                         applyEffect(player, PotionEffectType.REGENERATION, 1);
                         applyRozaHealth(player);
                     } else {
@@ -67,9 +67,9 @@ public class PassiveItemsManager {
                     if (hasRoza) hadRozaLastTick.add(player.getUniqueId());
                     else hadRozaLastTick.remove(player.getUniqueId());
 
-                    // ✅ Lizak - ręka/offhand
                     if (hasLizak) {
-                        applyEffect(player, PotionEffectType.INCREASE_DAMAGE, 0);
+                        // ✅ 1.21.4 - nowa nazwa PotionEffectType
+                        applyEffect(player, PotionEffectType.STRENGTH, 0);
                         applyLizakScale(player);
                     } else {
                         if (hadLizakLastTick.contains(player.getUniqueId())) {
@@ -81,7 +81,7 @@ public class PassiveItemsManager {
                     else hadLizakLastTick.remove(player.getUniqueId());
                 }
             }
-        }.runTaskTimer(plugin, 0L, 16L); // co 0.8 sekundy
+        }.runTaskTimer(plugin, 0L, 16L);
     }
 
     private void applyEffect(Player player, PotionEffectType type, int amplifier) {
@@ -107,24 +107,23 @@ public class PassiveItemsManager {
         return LizakItem.isLizak(mainHand) || LizakItem.isLizak(offHand);
     }
 
-    // ==================== RÓŻA +5 SERC ====================
-
     private void applyRozaHealth(Player player) {
-        AttributeInstance maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        // ✅ 1.21.4 - nowa nazwa atrybutu
+        AttributeInstance maxHealth = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealth == null) return;
 
-        // Sprawdź czy już ma modifier
         if (maxHealth.getModifier(ROZA_HEALTH_KEY) != null) return;
 
         maxHealth.addModifier(new AttributeModifier(
                 ROZA_HEALTH_KEY,
-                10.0, // +5 serc = +10 HP
+                10.0,
                 AttributeModifier.Operation.ADD_NUMBER
         ));
     }
 
     private void removeRozaHealth(Player player) {
-        AttributeInstance maxHealth = player.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        // ✅ 1.21.4 - nowa nazwa atrybutu
+        AttributeInstance maxHealth = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealth == null) return;
 
         maxHealth.removeModifier(ROZA_HEALTH_KEY);
@@ -134,16 +133,14 @@ public class PassiveItemsManager {
         }
     }
 
-    // ==================== LIZAK POMNIEJSZENIE ====================
-
     private void applyLizakScale(Player player) {
-        AttributeInstance scaleAttr = player.getAttribute(Attribute.GENERIC_SCALE);
+        // ✅ 1.21.4 - nowa nazwa atrybutu
+        AttributeInstance scaleAttr = player.getAttribute(Attribute.SCALE);
         if (scaleAttr == null) return;
 
         if (scaleAttr.getModifier(LIZAK_SCALE_KEY) != null) return;
 
         double scaleMultiplier = plugin.getItemsConfig().getLizakScaleMultiplier();
-        // scaleMultiplier = 0.9 oznacza 90% rozmiaru, więc modifier = -0.1
         double modifier = scaleMultiplier - 1.0;
 
         scaleAttr.addModifier(new AttributeModifier(
@@ -154,13 +151,12 @@ public class PassiveItemsManager {
     }
 
     private void removeLizakScale(Player player) {
-        AttributeInstance scaleAttr = player.getAttribute(Attribute.GENERIC_SCALE);
+        // ✅ 1.21.4 - nowa nazwa atrybutu
+        AttributeInstance scaleAttr = player.getAttribute(Attribute.SCALE);
         if (scaleAttr == null) return;
 
         scaleAttr.removeModifier(LIZAK_SCALE_KEY);
     }
-
-    // ==================== CLEANUP ====================
 
     public void cleanupPlayer(Player player) {
         removeRozaHealth(player);
