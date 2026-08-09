@@ -48,7 +48,8 @@ public class PiekielnyMieczItem {
         meta.lore(loreComponents);
 
         meta.setCustomModelData(CUSTOM_MODEL_DATA);
-        meta.addEnchant(Enchantment.DAMAGE_ALL, 6, true);
+        // ✅ 1.21.4 - nowe nazwy enchantów
+        meta.addEnchant(Enchantment.SHARPNESS, 6, true);
         meta.addEnchant(Enchantment.FIRE_ASPECT, 2, true);
 
         meta.getPersistentDataContainer().set(PIEKIELNY_KEY, PersistentDataType.BYTE, (byte) 1);
