@@ -149,6 +149,9 @@ public class WedkaNielotaManager {
         wedkaCooldowns.remove(player.getUniqueId());
         player.setCooldown(Material.FISHING_ROD, 0);
     }
+    public void setPostResetCooldown(Player player, int seconds) {
+        wedkaCooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
+    }
 
     // ==================== KLĄTWA ====================
 
