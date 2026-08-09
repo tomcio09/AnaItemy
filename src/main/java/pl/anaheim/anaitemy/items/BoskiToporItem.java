@@ -47,8 +47,9 @@ public class BoskiToporItem {
         meta.lore(loreComponents);
 
         meta.setCustomModelData(CUSTOM_MODEL_DATA);
-        meta.addEnchant(Enchantment.DURABILITY, 10, true);
-        meta.addEnchant(Enchantment.DIG_SPEED, 5, true);
+        // ✅ 1.21.4 - nowe nazwy enchantów
+        meta.addEnchant(Enchantment.UNBREAKING, 10, true);
+        meta.addEnchant(Enchantment.EFFICIENCY, 5, true);
         meta.setUnbreakable(true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE);
 
