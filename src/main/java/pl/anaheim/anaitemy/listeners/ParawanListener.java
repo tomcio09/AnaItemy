@@ -33,9 +33,15 @@ public class ParawanListener implements Listener {
         event.setCancelled(true);
 
         Location center = player.getLocation();
+        boolean hitAnyone = false;
 
         for (Player target : center.getWorld().getNearbyPlayers(center, 5.0)) {
             if (target.equals(player)) continue;
+
+            // ✅ 4s protection
+            if (plugin.getItemProtectionManager().isProtected(target, "parawan")) {
+                continue;
+            }
 
             Vector knockback = target.getLocation().toVector().subtract(center.toVector());
             knockback.setY(0);
@@ -43,10 +49,15 @@ public class ParawanListener implements Listener {
             knockback.normalize().multiply(1.8).setY(0.4);
 
             target.setVelocity(target.getVelocity().add(knockback));
-            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 40, 1, false, false, true));
+            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1, false, false, true));
             target.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 40, 0, false, false, true));
+
+            // ✅ Nałóż ochronę
+            plugin.getItemProtectionManager().applyProtection(target, "parawan");
+            hitAnyone = true;
         }
 
+        // ✅ Zużyj item tylko jeśli trafił kogokolwiek lub nie ma nikogo w pobliżu
         if (item.getAmount() > 1) item.setAmount(item.getAmount() - 1);
         else player.getInventory().setItemInMainHand(null);
     }
