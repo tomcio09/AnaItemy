@@ -78,7 +78,11 @@ public class OlafManager {
         shooterCooldowns.remove(player.getUniqueId());
         victimCooldowns.remove(player.getUniqueId());
     }
-
+    public void setPostResetCooldowns(Player player, int seconds) {
+        long end = System.currentTimeMillis() + (seconds * 1000L);
+        shooterCooldowns.put(player.getUniqueId(), end);
+        victimCooldowns.put(player.getUniqueId(), end);
+    }
     // ==================== AKTYWACJA OLAFA ====================
 
     public void activateOlaf(Player shooter, Player victim) {
