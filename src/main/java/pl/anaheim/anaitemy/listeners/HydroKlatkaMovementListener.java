@@ -33,9 +33,16 @@ public class HydroKlatkaMovementListener implements Listener {
     private static final long SOUND_COOLDOWN_MS = 400;
     private final Map<UUID, Long> lastSoundTime = new ConcurrentHashMap<>();
 
-    // ✅ Hitbox gracza
-    private static final double PLAYER_WIDTH_HALF = 0.3;  // pół szerokości hitboxa
-    private static final double PLAYER_HEIGHT = 1.8;       // wysokość gracza
+    private static final double PLAYER_WIDTH_HALF = 0.3;
+    private static final double PLAYER_HEIGHT = 1.8;
+
+    /**
+     * ✅ Bariera jest w POŁOWIE bloku shella.
+     * Blok shella to 1x1x1. Bariera jest 0.5 bloku od wewnętrznej krawędzi.
+     * Gracz może wejść w zewnętrzną połowę bloku (bliżej centrum klatki),
+     * ale nie może przejść przez środek bloku (połowa = bariera).
+     */
+    private static final double SHELL_BARRIER_DEPTH = 0.5;
 
     private BukkitTask clampTask;
 
@@ -44,26 +51,52 @@ public class HydroKlatkaMovementListener implements Listener {
         startClampTask();
     }
 
-    // ==================== SPRAWDZANIE BLOKU SHELLA ====================
+    // ==================== SPRAWDZANIE SHELLA ====================
 
     /**
-     * ✅ Sprawdza czy dany BLOK jest shellem (zbudowanym LUB zaplanowanym).
-     * Shell to blok na granicy klatki: distance od centrum > radius-1.0 && <= radius
+     * ✅ Sprawdza czy blok na (bx, by, bz) jest SHELLEM.
+     * TYLKO zbudowany shell lub zaplanowany shell — BEZ fallbacku dystansowego.
      */
-    private boolean isShellBlock(int bx, int by, int bz,
-                                  ActiveHydroKlatka klatka, HydroKlatkaManager manager) {
+    private boolean isShell(int bx, int by, int bz,
+                            ActiveHydroKlatka klatka, HydroKlatkaManager manager) {
         Location blockLoc = new Location(klatka.getCenter().getWorld(), bx, by, bz);
 
-        // 1. Już zbudowany shell
+        // Zbudowany shell
         if (manager.isShellBlock(blockLoc)) return true;
 
-        // 2. Zaplanowany shell (podczas animacji)
+        // Zaplanowany shell (podczas animacji)
         if (!klatka.isAnimationComplete() && klatka.isPlannedShellLocation(blockLoc)) return true;
 
-        // 3. Fallback: pozycja POWINNA być shellem na podstawie dystansu
-        double dist = blockLoc.clone().add(0.5, 0.5, 0.5).distance(klatka.getCenter());
-        double radius = klatka.getRadius();
-        return dist > radius - 1.0 && dist <= radius;
+        return false;
+    }
+
+    /**
+     * ✅ Oblicza jak głęboko gracz wchodzi w blok shella od WEWNĘTRZNEJ strony.
+     * Zwraca wartość 0.0-1.0 gdzie 0.0 = krawędź bloku, 1.0 = druga strona.
+     * Bariera jest na SHELL_BARRIER_DEPTH (0.5) — gracz może wejść do 0.5, ale nie dalej.
+     *
+     * @param playerEdge pozycja krawędzi hitboxa gracza na danej osi
+     * @param blockCoord koordynat bloku (int)
+     * @param fromInside true jeśli gracz wchodzi od strony centrum klatki
+     * @return penetracja (ile gracz wchodzi w blok), lub -1 jeśli nie koliduje
+     */
+    private double getPenetration(double playerEdge, int blockCoord, boolean fromInside) {
+        if (fromInside) {
+            // Gracz wchodzi od wewnętrznej strony (od centrum)
+            // Blok jest od blockCoord do blockCoord+1
+            // Gracz wchodzi od strony bliższej centrum
+            double penetration = playerEdge - blockCoord;
+            if (penetration > 0 && penetration < 1.0) {
+                return penetration;
+            }
+        } else {
+            // Gracz wchodzi od zewnętrznej strony
+            double penetration = (blockCoord + 1.0) - playerEdge;
+            if (penetration > 0 && penetration < 1.0) {
+                return penetration;
+            }
+        }
+        return -1;
     }
 
     // ==================== CLAMP TASK — CO TICK ====================
@@ -75,17 +108,19 @@ public class HydroKlatkaMovementListener implements Listener {
                 HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
                 for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
+                    Location center = klatka.getCenter();
+                    double radius = klatka.getRadius();
+
                     for (UUID playerId : klatka.getTrappedPlayers()) {
                         Player player = Bukkit.getPlayer(playerId);
                         if (player == null || !player.isOnline()) continue;
 
                         Location loc = player.getLocation();
-                        if (!loc.getWorld().equals(klatka.getCenter().getWorld())) continue;
+                        if (!loc.getWorld().equals(center.getWorld())) continue;
 
-                        // ✅ EXPLOIT: Gracz daleko poza klatką
-                        double dist = loc.distance(klatka.getCenter());
-                        if (dist > klatka.getRadius() + 5.0) {
-                            Location tp = klatka.getCenter().clone();
+                        // EXPLOIT check
+                        if (loc.distance(center) > radius + 5.0) {
+                            Location tp = center.clone();
                             tp.setYaw(loc.getYaw());
                             tp.setPitch(loc.getPitch());
                             player.teleport(tp);
@@ -93,8 +128,8 @@ public class HydroKlatkaMovementListener implements Listener {
                             continue;
                         }
 
-                        // ✅ HARD CLAMP: Sprawdź kolizje z blokami shella
-                        clampPlayerToShell(player, klatka, manager);
+                        // ✅ HARD CLAMP per-blok
+                        handleCollisions(player, klatka, manager);
                     }
                 }
             }
@@ -102,162 +137,215 @@ public class HydroKlatkaMovementListener implements Listener {
     }
 
     /**
-     * ✅ GŁÓWNA LOGIKA: Sprawdza kolizję hitboxa gracza z blokami shella.
-     * Jeśli koliduje → przesuwa gracza NA krawędź bloku (jak niewidzialny blok).
-     *
-     * Hitbox gracza: 0.6 x 1.8 x 0.6 (centered na X/Z, od stóp w górę na Y)
-     * Sprawdzamy 3 warstwy Y (stopy, środek, głowa) i 4 roqi X/Z hitboxa.
+     * ✅ Sprawdza kolizje hitboxa gracza z blokami shella.
+     * Bariera jest w POŁOWIE bloku — gracz może wejść do 0.5 bloku od wewnętrznej strony,
+     * ale jeśli przekroczy połowę → zostaje cofnięty NA pozycję bariery.
      */
-    private void clampPlayerToShell(Player player, ActiveHydroKlatka klatka,
-                                     HydroKlatkaManager manager) {
+    private void handleCollisions(Player player, ActiveHydroKlatka klatka,
+                                   HydroKlatkaManager manager) {
         Location loc = player.getLocation();
+        Location center = klatka.getCenter();
         double px = loc.getX();
         double py = loc.getY();
         double pz = loc.getZ();
 
-        boolean clamped = false;
-        double clampedX = px;
-        double clampedY = py;
-        double clampedZ = pz;
+        boolean didClamp = false;
+        double newX = px;
+        double newY = py;
+        double newZ = pz;
 
-        // ✅ 1. SPRAWDŹ DÓŁ (spadanie) — czy pod stopami gracza jest shell
+        // ✅ 1. DÓŁ — spadanie na shell
         {
-            // Blok pod stopami (Y - 0.01 żeby złapać moment wejścia)
-            int by = (int) Math.floor(py - 0.01);
+            int belowY = (int) Math.floor(py) - 1;
+            // Sprawdź pod każdym rogiem hitboxa
+            boolean shellBelow = false;
+            for (int cx = (int) Math.floor(px - PLAYER_WIDTH_HALF);
+                 cx <= (int) Math.floor(px + PLAYER_WIDTH_HALF); cx++) {
+                for (int cz = (int) Math.floor(pz - PLAYER_WIDTH_HALF);
+                     cz <= (int) Math.floor(pz + PLAYER_WIDTH_HALF); cz++) {
+                    if (isShell(cx, belowY, cz, klatka, manager)) {
+                        shellBelow = true;
+                        break;
+                    }
+                }
+                if (shellBelow) break;
+            }
 
-            // Sprawdź wszystkie bloki pod hitboxem gracza (może stać na 4 blokach)
-            for (int checkX = (int) Math.floor(px - PLAYER_WIDTH_HALF);
-                 checkX <= (int) Math.floor(px + PLAYER_WIDTH_HALF); checkX++) {
-                for (int checkZ = (int) Math.floor(pz - PLAYER_WIDTH_HALF);
-                     checkZ <= (int) Math.floor(pz + PLAYER_WIDTH_HALF); checkZ++) {
+            if (shellBelow) {
+                // Bariera jest w połowie bloku shella
+                double barrierY = belowY + 1.0 - SHELL_BARRIER_DEPTH;
+                // barrierY = górna krawędź dolnej połowy bloku
 
-                    if (isShellBlock(checkX, by, checkZ, klatka, manager)) {
-                        // ✅ Pod graczem jest shell → ustaw Y na górę tego bloku
-                        clampedY = by + 1.0;
-                        clamped = true;
+                // Gracz stoi PONIŻEJ bariery?
+                if (py < belowY + 1.0 - SHELL_BARRIER_DEPTH + 0.5) {
+                    // Gracz jest w dolnej połowie — ale bariera jest na 0.5
+                    // Jeśli stopy gracza < belowY + 0.5 (połowa bloku) → cofnij na górę połowy
+                    if (py < belowY + SHELL_BARRIER_DEPTH) {
+                        // Gracz spadł poniżej bariery — nie powinien tu być
+                        // Ale może to normalne chodzenie po bloku wewnętrznym
+                    }
+                }
 
-                        // Zeruj velocity spadania
-                        Vector vel = player.getVelocity();
-                        if (vel.getY() < 0) {
-                            vel.setY(0);
-                            player.setVelocity(vel);
+                // Prostsze: jeśli stopy gracza wchodzą w blok shella poniżej
+                // i gracz spada (velY < 0), zatrzymaj na górze bloku
+                double feetInBlock = (belowY + 1.0) - py;
+                if (feetInBlock > SHELL_BARRIER_DEPTH && player.getVelocity().getY() <= 0) {
+                    newY = belowY + 1.0 - SHELL_BARRIER_DEPTH + 0.001;
+                    didClamp = true;
+                    clampVel(player, 'y', false);
+                }
+            }
+
+            // ✅ Sprawdź też blok na którym gracz stoi (Y pozycja gracza)
+            int feetBlockY = (int) Math.floor(py);
+            boolean shellAtFeet = false;
+            for (int cx = (int) Math.floor(px - PLAYER_WIDTH_HALF);
+                 cx <= (int) Math.floor(px + PLAYER_WIDTH_HALF); cx++) {
+                for (int cz = (int) Math.floor(pz - PLAYER_WIDTH_HALF);
+                     cz <= (int) Math.floor(pz + PLAYER_WIDTH_HALF); cz++) {
+                    if (isShell(cx, feetBlockY, cz, klatka, manager)) {
+                        shellAtFeet = true;
+                        break;
+                    }
+                }
+                if (shellAtFeet) break;
+            }
+
+            if (shellAtFeet) {
+                // Stopy gracza SĄ w bloku shella
+                // Oblicz ile gracz wchodzi od wewnętrznej strony (od centrum)
+                double distFromCenter = loc.distance(center);
+                double centerDist = new Location(center.getWorld(),
+                        px, center.getY(), pz).distance(center);
+
+                // Jeśli gracz jest bliżej centrum niż blok — wchodzi od wewnątrz
+                // Bariera w połowie bloku: gracz nie może przekroczyć środka bloku
+                double penetrationInBlock = py - feetBlockY;
+
+                // Gracz powinien stać NA bloku, nie W nim
+                if (penetrationInBlock < SHELL_BARRIER_DEPTH) {
+                    newY = feetBlockY + SHELL_BARRIER_DEPTH + 0.001;
+                    didClamp = true;
+                    clampVel(player, 'y', false);
+                }
+            }
+        }
+
+        // ✅ 2. GÓRA — lot w górę do shella
+        {
+            int headBlockY = (int) Math.floor(newY + PLAYER_HEIGHT);
+            boolean shellAbove = false;
+            for (int cx = (int) Math.floor(px - PLAYER_WIDTH_HALF);
+                 cx <= (int) Math.floor(px + PLAYER_WIDTH_HALF); cx++) {
+                for (int cz = (int) Math.floor(pz - PLAYER_WIDTH_HALF);
+                     cz <= (int) Math.floor(pz + PLAYER_WIDTH_HALF); cz++) {
+                    if (isShell(cx, headBlockY, cz, klatka, manager)) {
+                        shellAbove = true;
+                        break;
+                    }
+                }
+                if (shellAbove) break;
+            }
+
+            if (shellAbove) {
+                // Głowa gracza wchodzi w blok shella od dołu
+                double headInBlock = (newY + PLAYER_HEIGHT) - headBlockY;
+                if (headInBlock > SHELL_BARRIER_DEPTH) {
+                    newY = headBlockY + SHELL_BARRIER_DEPTH - PLAYER_HEIGHT - 0.001;
+                    didClamp = true;
+                    clampVel(player, 'y', true);
+                }
+            }
+        }
+
+        // ✅ 3. BOKI X
+        {
+            for (int by = (int) Math.floor(newY);
+                 by <= (int) Math.floor(newY + PLAYER_HEIGHT); by++) {
+                for (int cz = (int) Math.floor(pz - PLAYER_WIDTH_HALF);
+                     cz <= (int) Math.floor(pz + PLAYER_WIDTH_HALF); cz++) {
+
+                    // +X: gracz idzie w prawo, shell jest na prawo
+                    int bxRight = (int) Math.floor(newX + PLAYER_WIDTH_HALF);
+                    if (isShell(bxRight, by, cz, klatka, manager)) {
+                        double edgeInBlock = (newX + PLAYER_WIDTH_HALF) - bxRight;
+                        if (edgeInBlock > SHELL_BARRIER_DEPTH) {
+                            newX = bxRight + SHELL_BARRIER_DEPTH - PLAYER_WIDTH_HALF - 0.001;
+                            didClamp = true;
+                            clampVel(player, 'x', true);
+                        }
+                    }
+
+                    // -X: gracz idzie w lewo, shell jest na lewo
+                    int bxLeft = (int) Math.floor(newX - PLAYER_WIDTH_HALF);
+                    if (isShell(bxLeft, by, cz, klatka, manager)) {
+                        double edgeInBlock = (bxLeft + 1.0) - (newX - PLAYER_WIDTH_HALF);
+                        if (edgeInBlock > SHELL_BARRIER_DEPTH) {
+                            newX = bxLeft + 1.0 - SHELL_BARRIER_DEPTH + PLAYER_WIDTH_HALF + 0.001;
+                            didClamp = true;
+                            clampVel(player, 'x', false);
                         }
                     }
                 }
             }
         }
 
-        // ✅ 2. SPRAWDŹ GÓRĘ — czy nad głową gracza jest shell
+        // ✅ 4. BOKI Z
         {
-            int by = (int) Math.floor(clampedY + PLAYER_HEIGHT + 0.01);
+            for (int by = (int) Math.floor(newY);
+                 by <= (int) Math.floor(newY + PLAYER_HEIGHT); by++) {
+                for (int cx = (int) Math.floor(newX - PLAYER_WIDTH_HALF);
+                     cx <= (int) Math.floor(newX + PLAYER_WIDTH_HALF); cx++) {
 
-            for (int checkX = (int) Math.floor(px - PLAYER_WIDTH_HALF);
-                 checkX <= (int) Math.floor(px + PLAYER_WIDTH_HALF); checkX++) {
-                for (int checkZ = (int) Math.floor(pz - PLAYER_WIDTH_HALF);
-                     checkZ <= (int) Math.floor(pz + PLAYER_WIDTH_HALF); checkZ++) {
+                    // +Z
+                    int bzFront = (int) Math.floor(newZ + PLAYER_WIDTH_HALF);
+                    if (isShell(cx, by, bzFront, klatka, manager)) {
+                        double edgeInBlock = (newZ + PLAYER_WIDTH_HALF) - bzFront;
+                        if (edgeInBlock > SHELL_BARRIER_DEPTH) {
+                            newZ = bzFront + SHELL_BARRIER_DEPTH - PLAYER_WIDTH_HALF - 0.001;
+                            didClamp = true;
+                            clampVel(player, 'z', true);
+                        }
+                    }
 
-                    if (isShellBlock(checkX, by, checkZ, klatka, manager)) {
-                        // ✅ Nad graczem jest shell → obniż Y
-                        clampedY = by - PLAYER_HEIGHT - 0.01;
-                        clamped = true;
-
-                        Vector vel = player.getVelocity();
-                        if (vel.getY() > 0) {
-                            vel.setY(0);
-                            player.setVelocity(vel);
+                    // -Z
+                    int bzBack = (int) Math.floor(newZ - PLAYER_WIDTH_HALF);
+                    if (isShell(cx, by, bzBack, klatka, manager)) {
+                        double edgeInBlock = (bzBack + 1.0) - (newZ - PLAYER_WIDTH_HALF);
+                        if (edgeInBlock > SHELL_BARRIER_DEPTH) {
+                            newZ = bzBack + 1.0 - SHELL_BARRIER_DEPTH + PLAYER_WIDTH_HALF + 0.001;
+                            didClamp = true;
+                            clampVel(player, 'z', false);
                         }
                     }
                 }
             }
         }
 
-        // ✅ 3. SPRAWDŹ BOKI X — czy obok gracza jest shell (kierunek X)
-        {
-            // Sprawdź na wysokości stóp i głowy
-            for (int by = (int) Math.floor(clampedY);
-                 by <= (int) Math.floor(clampedY + PLAYER_HEIGHT); by++) {
-                for (int checkZ = (int) Math.floor(pz - PLAYER_WIDTH_HALF);
-                     checkZ <= (int) Math.floor(pz + PLAYER_WIDTH_HALF); checkZ++) {
-
-                    // Sprawdź kierunek +X
-                    int bxPlus = (int) Math.floor(px + PLAYER_WIDTH_HALF + 0.01);
-                    if (isShellBlock(bxPlus, by, checkZ, klatka, manager)) {
-                        double maxX = bxPlus - PLAYER_WIDTH_HALF - 0.01;
-                        if (clampedX > maxX) {
-                            clampedX = maxX;
-                            clamped = true;
-                            clampVelocityAxis(player, 'x', true);
-                        }
-                    }
-
-                    // Sprawdź kierunek -X
-                    int bxMinus = (int) Math.floor(px - PLAYER_WIDTH_HALF - 0.01);
-                    if (isShellBlock(bxMinus, by, checkZ, klatka, manager)) {
-                        double minX = bxMinus + 1.0 + PLAYER_WIDTH_HALF + 0.01;
-                        if (clampedX < minX) {
-                            clampedX = minX;
-                            clamped = true;
-                            clampVelocityAxis(player, 'x', false);
-                        }
-                    }
-                }
-            }
-        }
-
-        // ✅ 4. SPRAWDŹ BOKI Z — czy obok gracza jest shell (kierunek Z)
-        {
-            for (int by = (int) Math.floor(clampedY);
-                 by <= (int) Math.floor(clampedY + PLAYER_HEIGHT); by++) {
-                for (int checkX = (int) Math.floor(clampedX - PLAYER_WIDTH_HALF);
-                     checkX <= (int) Math.floor(clampedX + PLAYER_WIDTH_HALF); checkX++) {
-
-                    // Sprawdź kierunek +Z
-                    int bzPlus = (int) Math.floor(pz + PLAYER_WIDTH_HALF + 0.01);
-                    if (isShellBlock(checkX, by, bzPlus, klatka, manager)) {
-                        double maxZ = bzPlus - PLAYER_WIDTH_HALF - 0.01;
-                        if (clampedZ > maxZ) {
-                            clampedZ = maxZ;
-                            clamped = true;
-                            clampVelocityAxis(player, 'z', true);
-                        }
-                    }
-
-                    // Sprawdź kierunek -Z
-                    int bzMinus = (int) Math.floor(pz - PLAYER_WIDTH_HALF - 0.01);
-                    if (isShellBlock(checkX, by, bzMinus, klatka, manager)) {
-                        double minZ = bzMinus + 1.0 + PLAYER_WIDTH_HALF + 0.01;
-                        if (clampedZ < minZ) {
-                            clampedZ = minZ;
-                            clamped = true;
-                            clampVelocityAxis(player, 'z', false);
-                        }
-                    }
-                }
-            }
-        }
-
-        // ✅ Jeśli clampowaliśmy — teleportuj gracza
-        if (clamped) {
+        // ✅ Teleportuj tylko jeśli faktycznie clampowaliśmy
+        if (didClamp) {
             Location safeLoc = new Location(loc.getWorld(),
-                    clampedX, clampedY, clampedZ,
-                    loc.getYaw(), loc.getPitch());
+                    newX, newY, newZ, loc.getYaw(), loc.getPitch());
             player.teleport(safeLoc);
             playBarrierFeedback(player);
         }
     }
 
-    /**
-     * ✅ Zeruje velocity na danej osi w danym kierunku.
-     */
-    private void clampVelocityAxis(Player player, char axis, boolean positive) {
+    private void clampVel(Player player, char axis, boolean positive) {
         Vector vel = player.getVelocity();
         switch (axis) {
-            case 'x' -> { if (positive && vel.getX() > 0) vel.setX(0);
-                          else if (!positive && vel.getX() < 0) vel.setX(0); }
-            case 'y' -> { if (positive && vel.getY() > 0) vel.setY(0);
-                          else if (!positive && vel.getY() < 0) vel.setY(0); }
-            case 'z' -> { if (positive && vel.getZ() > 0) vel.setZ(0);
-                          else if (!positive && vel.getZ() < 0) vel.setZ(0); }
+            case 'x' -> {
+                if (positive && vel.getX() > 0) vel.setX(0);
+                else if (!positive && vel.getX() < 0) vel.setX(0);
+            }
+            case 'y' -> {
+                if (positive && vel.getY() > 0) vel.setY(0);
+                else if (!positive && vel.getY() < 0) vel.setY(0);
+            }
+            case 'z' -> {
+                if (positive && vel.getZ() > 0) vel.setZ(0);
+                else if (!positive && vel.getZ() < 0) vel.setZ(0);
+            }
         }
         player.setVelocity(vel);
     }
@@ -283,8 +371,6 @@ public class HydroKlatkaMovementListener implements Listener {
             return;
         }
 
-        Location center = klatka.getCenter();
-
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
 
@@ -293,85 +379,88 @@ public class HydroKlatkaMovementListener implements Listener {
             return;
         }
 
-        // ✅ Sprawdź czy TO koliduje z blokami shella — jeśli tak, cofnij do FROM
-        double toX = to.getX();
-        double toY = to.getY();
-        double toZ = to.getZ();
-
-        boolean blocked = false;
-
-        // Sprawdź stopy, kolana, głowę
-        for (double checkY : new double[]{toY, toY + 0.9, toY + PLAYER_HEIGHT}) {
-            int by = (int) Math.floor(checkY);
-
-            for (int checkX = (int) Math.floor(toX - PLAYER_WIDTH_HALF);
-                 checkX <= (int) Math.floor(toX + PLAYER_WIDTH_HALF); checkX++) {
-                for (int checkZ = (int) Math.floor(toZ - PLAYER_WIDTH_HALF);
-                     checkZ <= (int) Math.floor(toZ + PLAYER_WIDTH_HALF); checkZ++) {
-
-                    if (isShellBlock(checkX, by, checkZ, klatka, manager)) {
-                        blocked = true;
-                        break;
-                    }
-                }
-                if (blocked) break;
-            }
-            if (blocked) break;
-        }
-
-        // ✅ Sprawdź też blok bezpośrednio pod stopami (spadanie)
-        if (!blocked) {
-            int belowY = (int) Math.floor(toY - 0.01);
-            for (int checkX = (int) Math.floor(toX - PLAYER_WIDTH_HALF);
-                 checkX <= (int) Math.floor(toX + PLAYER_WIDTH_HALF); checkX++) {
-                for (int checkZ = (int) Math.floor(toZ - PLAYER_WIDTH_HALF);
-                     checkZ <= (int) Math.floor(toZ + PLAYER_WIDTH_HALF); checkZ++) {
-
-                    if (isShellBlock(checkX, belowY, checkZ, klatka, manager)) {
-                        blocked = true;
-                        break;
-                    }
-                }
-                if (blocked) break;
-            }
-        }
-
-        if (blocked) {
-            // ✅ Ruch zablokowany — cofnij
-            // Sprawdź czy FROM jest bezpieczne
-            boolean fromSafe = true;
-            double fromX = from.getX();
-            double fromY = from.getY();
-            double fromZ = from.getZ();
-
-            outerLoop:
-            for (double checkY : new double[]{fromY, fromY + 0.9, fromY + PLAYER_HEIGHT}) {
-                int by = (int) Math.floor(checkY);
-                for (int checkXi = (int) Math.floor(fromX - PLAYER_WIDTH_HALF);
-                     checkXi <= (int) Math.floor(fromX + PLAYER_WIDTH_HALF); checkXi++) {
-                    for (int checkZi = (int) Math.floor(fromZ - PLAYER_WIDTH_HALF);
-                         checkZi <= (int) Math.floor(fromZ + PLAYER_WIDTH_HALF); checkZi++) {
-                        if (isShellBlock(checkXi, by, checkZi, klatka, manager)) {
-                            fromSafe = false;
-                            break outerLoop;
-                        }
-                    }
-                }
-            }
-
-            if (fromSafe) {
+        // ✅ Sprawdź czy TO wchodzi za głęboko w jakikolwiek blok shella
+        if (wouldPenetrateShell(to, klatka, manager)) {
+            // Cofnij do FROM jeśli FROM jest bezpieczne
+            if (!wouldPenetrateShell(from, klatka, manager)) {
                 Location stuckLoc = from.clone();
                 stuckLoc.setYaw(to.getYaw());
                 stuckLoc.setPitch(to.getPitch());
                 event.setTo(stuckLoc);
-            } else {
-                // FROM też nie jest bezpieczne — clampTask zajmie się pozycją
-                // Nie ruszaj event.setTo żeby uniknąć teleportu na środek
-                event.setTo(from.clone().setDirection(to.getDirection()));
             }
-
+            // Jeśli FROM też penetruje — clampTask zajmie się tym
             playBarrierFeedback(player);
         }
+    }
+
+    /**
+     * ✅ Sprawdza czy pozycja gracza penetruje barierę w jakimkolwiek bloku shella.
+     * Bariera = połowa bloku (SHELL_BARRIER_DEPTH = 0.5).
+     * Gracz MOŻE wchodzić w pierwszą połowę bloku shella (od strony wnętrza).
+     * NIE MOŻE przekroczyć połowy.
+     */
+    private boolean wouldPenetrateShell(Location loc, ActiveHydroKlatka klatka,
+                                         HydroKlatkaManager manager) {
+        double px = loc.getX();
+        double py = loc.getY();
+        double pz = loc.getZ();
+
+        // Sprawdź wszystkie bloki z którymi koliduje hitbox gracza
+        int minBX = (int) Math.floor(px - PLAYER_WIDTH_HALF);
+        int maxBX = (int) Math.floor(px + PLAYER_WIDTH_HALF);
+        int minBY = (int) Math.floor(py) - 1; // -1 dla bloku pod stopami
+        int maxBY = (int) Math.floor(py + PLAYER_HEIGHT);
+        int minBZ = (int) Math.floor(pz - PLAYER_WIDTH_HALF);
+        int maxBZ = (int) Math.floor(pz + PLAYER_WIDTH_HALF);
+
+        for (int bx = minBX; bx <= maxBX; bx++) {
+            for (int by = minBY; by <= maxBY; by++) {
+                for (int bz = minBZ; bz <= maxBZ; bz++) {
+                    if (!isShell(bx, by, bz, klatka, manager)) continue;
+
+                    // Ten blok jest shellem — sprawdź penetrację na każdej osi
+
+                    // X: sprawdź od której strony gracz wchodzi
+                    double rightEdge = px + PLAYER_WIDTH_HALF;
+                    double leftEdge = px - PLAYER_WIDTH_HALF;
+
+                    if (rightEdge > bx && rightEdge < bx + 1.0) {
+                        double pen = rightEdge - bx;
+                        if (pen > SHELL_BARRIER_DEPTH) return true;
+                    }
+                    if (leftEdge > bx && leftEdge < bx + 1.0) {
+                        double pen = (bx + 1.0) - leftEdge;
+                        if (pen > SHELL_BARRIER_DEPTH) return true;
+                    }
+
+                    // Y: stopy i głowa
+                    if (py > by && py < by + 1.0) {
+                        double pen = py - by;
+                        if (pen < 1.0 - SHELL_BARRIER_DEPTH) return true; // wchodzi od góry za głęboko
+                    }
+                    double headY = py + PLAYER_HEIGHT;
+                    if (headY > by && headY < by + 1.0) {
+                        double pen = headY - by;
+                        if (pen > SHELL_BARRIER_DEPTH) return true;
+                    }
+
+                    // Z
+                    double frontEdge = pz + PLAYER_WIDTH_HALF;
+                    double backEdge = pz - PLAYER_WIDTH_HALF;
+
+                    if (frontEdge > bz && frontEdge < bz + 1.0) {
+                        double pen = frontEdge - bz;
+                        if (pen > SHELL_BARRIER_DEPTH) return true;
+                    }
+                    if (backEdge > bz && backEdge < bz + 1.0) {
+                        double pen = (bz + 1.0) - backEdge;
+                        if (pen > SHELL_BARRIER_DEPTH) return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     // ==================== TELEPORT ====================
@@ -390,7 +479,6 @@ public class HydroKlatkaMovementListener implements Listener {
         Location center = klatka.getCenter();
         double radius = klatka.getRadius();
 
-        // Teleport pluginowy wewnątrz klatki — pozwól
         if (event.getCause() == PlayerTeleportEvent.TeleportCause.PLUGIN) {
             if (to.distance(center) < radius - 1.5) return;
         }
@@ -403,29 +491,7 @@ public class HydroKlatkaMovementListener implements Listener {
             return;
         }
 
-        // Sprawdź czy cel teleportu koliduje z shellem
-        boolean blocked = false;
-        double toX = to.getX();
-        double toY = to.getY();
-        double toZ = to.getZ();
-
-        for (double checkY : new double[]{toY, toY + PLAYER_HEIGHT}) {
-            int by = (int) Math.floor(checkY);
-            for (int cx = (int) Math.floor(toX - PLAYER_WIDTH_HALF);
-                 cx <= (int) Math.floor(toX + PLAYER_WIDTH_HALF); cx++) {
-                for (int cz = (int) Math.floor(toZ - PLAYER_WIDTH_HALF);
-                     cz <= (int) Math.floor(toZ + PLAYER_WIDTH_HALF); cz++) {
-                    if (isShellBlock(cx, by, cz, klatka, manager)) {
-                        blocked = true;
-                        break;
-                    }
-                }
-                if (blocked) break;
-            }
-            if (blocked) break;
-        }
-
-        if (blocked || to.distance(center) > radius) {
+        if (wouldPenetrateShell(to, klatka, manager) || to.distance(center) > radius) {
             event.setCancelled(true);
             manager.sendMessage(player,
                     plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
