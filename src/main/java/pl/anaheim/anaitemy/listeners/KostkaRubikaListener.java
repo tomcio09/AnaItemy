@@ -57,7 +57,7 @@ public class KostkaRubikaListener implements Listener {
         // ✅ Nałóż ochronę
         plugin.getItemProtectionManager().applyProtection(victim, "kostka-rubika");
 
-        // ✅ Combat tag
+        // ✅ POPRAWKA: Combat tag dla obu graczy
         if (plugin.getCombatIntegrationManager().isEnabled()) {
             plugin.getCombatIntegrationManager().tagPlayer(victim, attacker);
             plugin.getCombatIntegrationManager().tagPlayer(attacker, victim);
