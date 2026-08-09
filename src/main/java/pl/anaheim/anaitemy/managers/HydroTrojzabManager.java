@@ -119,6 +119,11 @@ public class HydroTrojzabManager {
         shotCooldowns.remove(player.getUniqueId());
         launchCooldowns.remove(player.getUniqueId());
     }
+    public void setPostResetCooldowns(Player player, int seconds) {
+        long end = System.currentTimeMillis() + (seconds * 1000L);
+        shotCooldowns.put(player.getUniqueId(), end);
+        launchCooldowns.put(player.getUniqueId(), end);
+    }
 
     // ==================== GHOST ARROW ====================
 
