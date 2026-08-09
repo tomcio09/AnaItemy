@@ -43,10 +43,11 @@ public class LukKupidynaItem {
         meta.lore(loreComponents);
 
         meta.setCustomModelData(CUSTOM_MODEL_DATA);
-        meta.addEnchant(Enchantment.ARROW_DAMAGE, 6, true);
-        meta.addEnchant(Enchantment.ARROW_FIRE, 1, true);
-        meta.addEnchant(Enchantment.DURABILITY, 3, true);
-        meta.addEnchant(Enchantment.ARROW_INFINITE, 1, true);
+        // ✅ 1.21.4 - nowe nazwy enchantów
+        meta.addEnchant(Enchantment.POWER, 6, true);
+        meta.addEnchant(Enchantment.FLAME, 1, true);
+        meta.addEnchant(Enchantment.UNBREAKING, 3, true);
+        meta.addEnchant(Enchantment.INFINITY, 1, true);
 
         item.setItemMeta(meta);
         return item;
