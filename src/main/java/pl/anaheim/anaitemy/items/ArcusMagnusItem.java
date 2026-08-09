@@ -49,7 +49,8 @@ public class ArcusMagnusItem {
         meta.lore(loreComponents);
 
         meta.setCustomModelData(CUSTOM_MODEL_DATA);
-        meta.addEnchant(Enchantment.DURABILITY, 10, true);
+        // ✅ 1.21.4 - nowa nazwa enchanta
+        meta.addEnchant(Enchantment.UNBREAKING, 10, true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
 
         item.setItemMeta(meta);
