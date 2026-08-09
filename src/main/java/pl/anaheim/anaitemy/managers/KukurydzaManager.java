@@ -56,6 +56,9 @@ public class KukurydzaManager {
     public void resetCooldown(Player player) {
         cooldowns.remove(player.getUniqueId());
     }
+    public void setPostResetCooldown(Player player, int seconds) {
+        cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
+    }
 
     public void shoot(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
