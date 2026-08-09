@@ -50,7 +50,6 @@ public class CudownaLatarniaManager {
                         continue;
                     }
 
-                    // Sprawdź czy beacon nadal istnieje
                     Block block = latarnia.getLocation().getBlock();
                     if (block.getType() != Material.BEACON) {
                         removeLatarnia(latarnia, true);
@@ -79,7 +78,8 @@ public class CudownaLatarniaManager {
     public void setCooldown(Player player) {
         ItemsConfig config = plugin.getItemsConfig();
         long cooldownSeconds = config.getCudownaLatarniaCooldown();
-        playerCooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (cooldownSeconds * 1000));
+        playerCooldowns.put(player.getUniqueId(),
+                System.currentTimeMillis() + (cooldownSeconds * 1000));
         player.setCooldown(Material.BEACON, (int) (cooldownSeconds * 20));
     }
 
@@ -92,7 +92,6 @@ public class CudownaLatarniaManager {
 
     public boolean isChunkBlocked(Location location) {
         long now = System.currentTimeMillis();
-
         int cx = location.getBlockX() >> 4;
         int cz = location.getBlockZ() >> 4;
         String worldName = location.getWorld().getName();
@@ -101,9 +100,7 @@ public class CudownaLatarniaManager {
             for (int dz = -1; dz <= 1; dz++) {
                 String key = worldName + ":" + (cx + dx) + ":" + (cz + dz);
                 Long end = chunkCooldowns.get(key);
-                if (end != null && now < end) {
-                    return true;
-                }
+                if (end != null && now < end) return true;
             }
         }
         return false;
@@ -140,29 +137,28 @@ public class CudownaLatarniaManager {
         ItemsConfig config = plugin.getItemsConfig();
         int beaconDuration = config.getCudownaLatarniaDuration();
 
-        // ✅ 1. Postaw beacon na mapie
         Block block = blockLocation.getBlock();
         Material originalType = block.getType();
         block.setType(Material.BEACON);
 
-        // ✅ 2. Cooldowny
         setCooldown(player);
         setChunkCooldown(blockLocation);
 
-        // ✅ 3. Dźwięki dla wszystkich w pobliżu
         World world = blockLocation.getWorld();
         for (Player nearby : world.getPlayers()) {
             if (nearby.getLocation().distance(blockLocation) <= 50) {
-                nearby.playSound(blockLocation, Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.PLAYERS, 1.0f, 1.5f);
-                nearby.playSound(blockLocation, Sound.BLOCK_BEACON_ACTIVATE, SoundCategory.BLOCKS, 1.5f, 1.0f);
+                nearby.playSound(blockLocation, Sound.ENTITY_PLAYER_LEVELUP,
+                        SoundCategory.PLAYERS, 1.0f, 1.5f);
+                nearby.playSound(blockLocation, Sound.BLOCK_BEACON_ACTIVATE,
+                        SoundCategory.BLOCKS, 1.5f, 1.0f);
             }
         }
 
-        // ✅ 4. Particle
-        world.spawnParticle(Particle.END_ROD, blockLocation.clone().add(0.5, 1, 0.5), 60, 0.5, 2, 0.5, 0.05);
-        world.spawnParticle(Particle.SPELL_WITCH, blockLocation.clone().add(0.5, 1, 0.5), 40, 1, 1, 1, 0.05);
+        world.spawnParticle(Particle.END_ROD,
+                blockLocation.clone().add(0.5, 1, 0.5), 60, 0.5, 2, 0.5, 0.05);
+        world.spawnParticle(Particle.WITCH,
+                blockLocation.clone().add(0.5, 1, 0.5), 40, 1, 1, 1, 0.05);
 
-        // ✅ 5. Subtitle dla gracza
         String subtitle = config.getCudownaLatarniaActivatedSubtitle();
         player.showTitle(Title.title(
                 Component.empty(),
@@ -174,10 +170,8 @@ public class CudownaLatarniaManager {
                 )
         ));
 
-        // ✅ 6. Efekty - jednorazowe, nadpisywalne
         applyEffects(player, config);
 
-        // ✅ 7. Zapisz aktywną latarnię
         long expirationTime = System.currentTimeMillis() + (beaconDuration * 1000L);
         ActiveLatarnia latarnia = new ActiveLatarnia(
                 UUID.randomUUID(),
@@ -189,10 +183,8 @@ public class CudownaLatarniaManager {
         );
         activeLatarnie.put(latarnia.getId(), latarnia);
 
-        // ✅ 8. BossBar
         createBossBar(player, latarnia);
 
-        // ✅ 9. Zaplanuj automatyczne usunięcie
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -216,37 +208,32 @@ public class CudownaLatarniaManager {
         PotionEffect currentRegen = player.getPotionEffect(PotionEffectType.REGENERATION);
         if (currentRegen == null || currentRegen.getAmplifier() <= regenLevel) {
             player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.REGENERATION, regenDuration, regenLevel, false, true, true
-            ));
+                    PotionEffectType.REGENERATION, regenDuration, regenLevel,
+                    false, true, true));
         }
 
         PotionEffect currentAbsorption = player.getPotionEffect(PotionEffectType.ABSORPTION);
         if (currentAbsorption == null || currentAbsorption.getAmplifier() <= absorptionLevel) {
             player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.ABSORPTION, absorptionDuration, absorptionLevel, false, true, true
-            ));
+                    PotionEffectType.ABSORPTION, absorptionDuration, absorptionLevel,
+                    false, true, true));
         }
 
-        // ✅ 1.21.4 - nowa nazwa PotionEffectType
+        // ✅ 1.21.4 - STRENGTH zamiast INCREASE_DAMAGE
         PotionEffect currentStrength = player.getPotionEffect(PotionEffectType.STRENGTH);
         if (currentStrength == null || currentStrength.getAmplifier() <= strengthLevel) {
             player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.STRENGTH, strengthDuration, strengthLevel, false, true, true
-            ));
+                    PotionEffectType.STRENGTH, strengthDuration, strengthLevel,
+                    false, true, true));
         }
     }
 
+    // ✅ POPRAWKA: Usunięta duplikacja - tylko jedna metoda removeEffects
     private void removeEffects(Player player) {
         player.removePotionEffect(PotionEffectType.REGENERATION);
         player.removePotionEffect(PotionEffectType.ABSORPTION);
-        // ✅ 1.21.4 - nowa nazwa PotionEffectType
+        // ✅ 1.21.4 - STRENGTH zamiast INCREASE_DAMAGE
         player.removePotionEffect(PotionEffectType.STRENGTH);
-    }
-
-    private void removeEffects(Player player) {
-        player.removePotionEffect(PotionEffectType.REGENERATION);
-        player.removePotionEffect(PotionEffectType.ABSORPTION);
-        player.removePotionEffect(PotionEffectType.INCREASE_DAMAGE);
     }
 
     // ==================== USUWANIE ====================
@@ -255,7 +242,6 @@ public class CudownaLatarniaManager {
         if (!activeLatarnie.containsKey(latarnia.getId())) return;
         activeLatarnie.remove(latarnia.getId());
 
-        // ✅ Przywróć blok
         Block block = latarnia.getLocation().getBlock();
         if (block.getType() == Material.BEACON) {
             block.setType(latarnia.getOriginalType());
@@ -266,7 +252,6 @@ public class CudownaLatarniaManager {
         ItemsConfig config = plugin.getItemsConfig();
 
         if (destroyed) {
-            // ✅ Ktoś zniszczył beacon
             if (owner != null && owner.isOnline()) {
                 removeEffects(owner);
 
@@ -282,7 +267,6 @@ public class CudownaLatarniaManager {
                 ));
             }
 
-            // Dźwięk deaktywacji dla wszystkich w pobliżu
             for (Player nearby : world.getPlayers()) {
                 if (nearby.getLocation().distance(latarnia.getLocation()) <= 50) {
                     nearby.playSound(latarnia.getLocation(),
@@ -291,11 +275,10 @@ public class CudownaLatarniaManager {
             }
         }
 
-        // ✅ Particle
         world.spawnParticle(Particle.CLOUD,
-                latarnia.getLocation().clone().add(0.5, 0.5, 0.5), 30, 0.3, 0.3, 0.3, 0.05);
+                latarnia.getLocation().clone().add(0.5, 0.5, 0.5),
+                30, 0.3, 0.3, 0.3, 0.05);
 
-        // ✅ Ukryj bossbar
         BossBar bossBar = latarnia.getBossBar();
         if (bossBar != null && owner != null && owner.isOnline()) {
             owner.hideBossBar(bossBar);
