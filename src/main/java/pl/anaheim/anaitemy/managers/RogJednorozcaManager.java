@@ -128,6 +128,9 @@ public class RogJednorozcaManager {
         cooldowns.remove(player.getUniqueId());
         player.setCooldown(Material.GOAT_HORN, 0);
     }
+    public void setPostResetCooldown(Player player, int seconds) {
+        cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
+    }
 
     // ==================== SPAWN ====================
 
