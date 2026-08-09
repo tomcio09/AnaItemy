@@ -58,6 +58,13 @@ public class RozdzkailuzjonistyManager {
     public void resetFangsCooldown(Player player) {
         fangsCooldowns.remove(player.getUniqueId());
     }
+    public void setFangsPostResetCooldown(Player player, int seconds) {
+        fangsCooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
+    }
+
+    public void setVanishPostResetCooldown(Player player, int seconds) {
+        vanishCooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
+    }
 
     // ==================== VANISH COOLDOWN ====================
 
