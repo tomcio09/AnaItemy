@@ -58,6 +58,9 @@ public class BoskiToporManager {
         cooldowns.remove(player.getUniqueId());
         player.setCooldown(Material.IRON_AXE, 0);
     }
+    public void setPostResetCooldown(Player player, int seconds) {
+        cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
+    }
 
     // ==================== INVINCIBILITY ====================
 
