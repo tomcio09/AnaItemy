@@ -41,6 +41,9 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
             "anakilof", "anamiecz", "analuk"
     );
 
+    // ✅ Czas dodatkowego cooldownu po resecie (sekundy)
+    private static final int POST_RESET_COOLDOWN = 5;
+
     public ItemyEventoweCommand(AnaItemy plugin) { this.plugin = plugin; }
 
     @Override
@@ -257,37 +260,82 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(color(plugin.getItemsConfig().getExcaliburMessageKillsSet().replace("{kills}", String.valueOf(kills))));
     }
 
+    /**
+     * ✅ POPRAWKA: Reset cooldownów z opóźnieniem.
+     * Efekty aktywne dokończą się normalnie, potem +5s cooldownu.
+     */
     private void handleCooldownReset(CommandSender sender, String targetName) {
         Player target = Bukkit.getPlayer(targetName);
         if (target == null) { sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!")); return; }
 
-        plugin.getHydroKlatkaManager().resetCooldown(target);
-        target.setCooldown(org.bukkit.Material.BLAZE_ROD, 0);
-        plugin.getHydroKlatkaManager().stopCooldownDisplay(target);
-        plugin.getRozdzkailuzjonistyManager().resetFangsCooldown(target);
-        plugin.getRozdzkailuzjonistyManager().resetVanishCooldown(target);
-        plugin.getWedkaNielotaManager().resetCooldown(target);
-        plugin.getBlokWidmoManager().resetCooldown(target);
-        plugin.getSiekieraGrinchaManager().resetCooldown(target);
-        plugin.getHydroTrojzabManager().resetCooldowns(target);
-        plugin.getCudownaLatarniaManager().resetCooldown(target);
-        plugin.getRogJednorozcaManager().resetCooldown(target);
-        plugin.getBoskiToporManager().resetCooldown(target);
-        plugin.getSuperMarchewkaManager().resetCooldown(target);
-        plugin.getLopataGrinchaManager().resetCooldown(target);
-        plugin.getKroliczyMieczManager().resetCooldown(target);
-        plugin.getSmoczyMieczManager().resetCooldown(target);
-        plugin.getOslepienieManager().resetKosaCooldown(target);
-        plugin.getOslepienieManager().resetLukCooldown(target);
-        plugin.getMarchewkowyMieczManager().resetCooldown(target);
-        plugin.getMarchewkowaKuszaManager().resetCooldown(target);
-        plugin.getWedkaSurferkaManager().resetCooldown(target);
-        plugin.getZatrutyOlowekManager().resetCooldown(target);
-        plugin.getKukurydzaManager().resetCooldown(target);
-        plugin.getOlafManager().resetCooldowns(target);
+        // ✅ Ustaw cooldown na POST_RESET_COOLDOWN (5s) zamiast zerować
+        long resetCooldownMs = POST_RESET_COOLDOWN * 1000L;
+        int resetCooldownTicks = POST_RESET_COOLDOWN * 20;
 
-        sender.sendMessage(color("&aZresetowano cooldowny gracza &f" + target.getName() + "&a!"));
-        target.sendMessage(color("&aTwoje cooldowny zostaly zresetowane przez &f" + sender.getName() + "&a!"));
+        // HydroKlatka
+        plugin.getHydroKlatkaManager().setExternalCooldown(target, POST_RESET_COOLDOWN);
+
+        // Różdżka - fangs
+        plugin.getRozdzkailuzjonistyManager().setFangsPostResetCooldown(target, POST_RESET_COOLDOWN);
+        // Różdżka - vanish
+        plugin.getRozdzkailuzjonistyManager().setVanishPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Wędka nielota
+        plugin.getWedkaNielotaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Blok widmo
+        plugin.getBlokWidmoManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Siekiera grincha
+        plugin.getSiekieraGrinchaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Hydro trójząb
+        plugin.getHydroTrojzabManager().setPostResetCooldowns(target, POST_RESET_COOLDOWN);
+
+        // Cudowna latarnia
+        plugin.getCudownaLatarniaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Róg jednorożca
+        plugin.getRogJednorozcaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Boski topór
+        plugin.getBoskiToporManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Super marchewka
+        plugin.getSuperMarchewkaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Łopata grincha
+        plugin.getLopataGrinchaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Króliczy miecz
+        plugin.getKroliczyMieczManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Smoczy miecz
+        plugin.getSmoczyMieczManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Oślepienie (kosa + łuk)
+        plugin.getOslepienieManager().setPostResetCooldowns(target, POST_RESET_COOLDOWN);
+
+        // Marchewkowy miecz
+        plugin.getMarchewkowyMieczManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Marchewkowa kusza
+        plugin.getMarchewkowaKuszaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Wędka surferka
+        plugin.getWedkaSurferkaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Zatruty ołówek
+        plugin.getZatrutyOlowekManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Kukurydza
+        plugin.getKukurydzaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+
+        // Olaf
+        plugin.getOlafManager().setPostResetCooldowns(target, POST_RESET_COOLDOWN);
+
+        sender.sendMessage(color("&aCooldowny gracza &f" + target.getName() + " &azostana zresetowane po zakonczeniu aktywnych efektow &7(+" + POST_RESET_COOLDOWN + "s)&a!"));
+        target.sendMessage(color("&aTwoje cooldowny zostana zresetowane po zakonczeniu efektow &7(+" + POST_RESET_COOLDOWN + "s)&a!"));
     }
 
     private void handleKlatwaCommand(CommandSender sender, String action, String targetName) {
@@ -336,7 +384,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(color("&7/itemyeventowe reload &8- &freladuje konfiguracje"));
         sender.sendMessage(color("&7/itemyeventowe give <id> <nick> <ilosc> &8- &fdaje item"));
         sender.sendMessage(color("&7/itemyeventowe kills <liczba> &8- &fustawia kille Excalibura"));
-        sender.sendMessage(color("&7/itemyeventowe cooldown reset <nick> &8- &fresetuje cooldowny"));
+        sender.sendMessage(color("&7/itemyeventowe cooldown reset <nick> &8- &fresetuje cooldowny (+5s)"));
         sender.sendMessage(color("&7/itemyeventowe klatwa naloz <nick> &8- &fnaklada klatwe"));
         sender.sendMessage(color("&7/itemyeventowe klatwa zdejmij <nick> &8- &fzdejmuje klatwe"));
         sender.sendMessage(color("&7/itemyeventowe widmo naloz <nick> &8- &fnaklada efekt widmo"));
