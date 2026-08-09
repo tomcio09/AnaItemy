@@ -33,7 +33,7 @@ public class LeweJajkoListener implements Listener {
         ItemStack mainHand = shooter.getInventory().getItemInMainHand();
         if (!LeweJajkoItem.isLeweJajko(mainHand)) return;
 
-        egg.setMetadata(META_LEWE, new FixedMetadataValue(plugin, true));
+        egg.setMetadata(META_LEWE, new FixedMetadataValue(plugin, shooter.getUniqueId().toString()));
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -42,7 +42,26 @@ public class LeweJajkoListener implements Listener {
         if (!egg.hasMetadata(META_LEWE)) return;
         if (!(event.getHitEntity() instanceof Player victim)) return;
 
-        // ✅ Wyrzuć gracza 50 bloków w górę
+        // ✅ Pobierz strzelca
+        Player shooter = null;
+        try {
+            String uuid = egg.getMetadata(META_LEWE).get(0).asString();
+            shooter = plugin.getServer().getPlayer(java.util.UUID.fromString(uuid));
+        } catch (Exception ignored) {}
+
+        // ✅ 4s protection
+        if (plugin.getItemProtectionManager().isProtected(victim, "lewe-jajko")) {
+            if (shooter != null) {
+                int sl = plugin.getItemProtectionManager().getRemainingSeconds(victim, "lewe-jajko");
+                plugin.getItemProtectionManager().notifyAttacker(shooter, "lewe-jajko", sl);
+            }
+            egg.remove();
+            return;
+        }
+
+        // ✅ Nałóż ochronę
+        plugin.getItemProtectionManager().applyProtection(victim, "lewe-jajko");
+
         victim.setVelocity(new Vector(0, 10.0, 0));
 
         victim.showTitle(Title.title(
