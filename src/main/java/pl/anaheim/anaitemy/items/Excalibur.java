@@ -8,7 +8,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -18,13 +18,19 @@ import pl.anaheim.anaitemy.AnaItemy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 
 public class Excalibur {
 
     public static final String ITEM_NAME_STRIPPED = "Excalibur";
 
-    private static final NamespacedKey KILLS_KEY = new NamespacedKey(AnaItemy.getInstance(), "excalibur_kills");
+    private static final NamespacedKey KILLS_KEY =
+            new NamespacedKey(AnaItemy.getInstance(), "excalibur_kills");
+
+    // ✅ 1.21.4 - NamespacedKey dla AttributeModifier
+    private static final NamespacedKey ATTACK_SPEED_KEY =
+            new NamespacedKey(AnaItemy.getInstance(), "excalibur_attack_speed");
+    private static final NamespacedKey ATTACK_DAMAGE_KEY =
+            new NamespacedKey(AnaItemy.getInstance(), "excalibur_attack_damage");
 
     public static final double BASE_DAMAGE = 11.5;
     public static final double MAX_DAMAGE = 12.0;
@@ -76,28 +82,25 @@ public class Excalibur {
 
         meta.setCustomModelData(5);
 
-        // ✅ 1.21.4 - nowe nazwy enchantów
         meta.addEnchant(Enchantment.SHARPNESS, 6, true);
         meta.addEnchant(Enchantment.FIRE_ASPECT, 2, true);
         meta.addEnchant(Enchantment.UNBREAKING, 3, true);
 
-        // ✅ 1.21.4 - nowe nazwy atrybutów
+        // ✅ 1.21.4 - AttributeModifier z NamespacedKey + EquipmentSlotGroup
         meta.addAttributeModifier(Attribute.ATTACK_SPEED,
                 new AttributeModifier(
-                        UUID.fromString("FA233E1C-4180-4865-B01B-BCCE9785ACA3"),
-                        "generic.attack_speed",
+                        ATTACK_SPEED_KEY,
                         -2.0,
                         AttributeModifier.Operation.ADD_NUMBER,
-                        EquipmentSlot.HAND
+                        EquipmentSlotGroup.MAINHAND
                 ));
 
         meta.addAttributeModifier(Attribute.ATTACK_DAMAGE,
                 new AttributeModifier(
-                        UUID.fromString("CB3F55D3-645C-4F38-A497-9C13A33DB5CF"),
-                        "generic.attack_damage",
+                        ATTACK_DAMAGE_KEY,
                         attackDamage - 1.0,
                         AttributeModifier.Operation.ADD_NUMBER,
-                        EquipmentSlot.HAND
+                        EquipmentSlotGroup.MAINHAND
                 ));
 
         meta.getPersistentDataContainer().set(KILLS_KEY, PersistentDataType.INTEGER, kills);
@@ -142,15 +145,14 @@ public class Excalibur {
 
         meta.lore(lore);
 
-        // ✅ 1.21.4 - nowa nazwa atrybutu
+        // ✅ 1.21.4 - usuń i dodaj z nowym API
         meta.removeAttributeModifier(Attribute.ATTACK_DAMAGE);
         meta.addAttributeModifier(Attribute.ATTACK_DAMAGE,
                 new AttributeModifier(
-                        UUID.fromString("CB3F55D3-645C-4F38-A497-9C13A33DB5CF"),
-                        "generic.attack_damage",
+                        ATTACK_DAMAGE_KEY,
                         attackDamage - 1.0,
                         AttributeModifier.Operation.ADD_NUMBER,
-                        EquipmentSlot.HAND
+                        EquipmentSlotGroup.MAINHAND
                 ));
 
         item.setItemMeta(meta);
@@ -196,7 +198,8 @@ public class Excalibur {
     public static int getKillsFromItem(ItemStack item) {
         if (!isExcalibur(item)) return 0;
         ItemMeta meta = item.getItemMeta();
-        Integer kills = meta.getPersistentDataContainer().get(KILLS_KEY, PersistentDataType.INTEGER);
+        Integer kills = meta.getPersistentDataContainer()
+                .get(KILLS_KEY, PersistentDataType.INTEGER);
         return kills != null ? kills : 0;
     }
 
