@@ -24,15 +24,10 @@ public class Excalibur {
 
     public static final String ITEM_NAME_STRIPPED = "Excalibur";
 
-    // NBT key do przechowywania killi
     private static final NamespacedKey KILLS_KEY = new NamespacedKey(AnaItemy.getInstance(), "excalibur_kills");
 
-    // Bazowy damage przy 0 killach
     public static final double BASE_DAMAGE = 11.5;
-    // Maksymalny damage
     public static final double MAX_DAMAGE = 12.0;
-
-    // Długość paska
     public static final int BAR_LENGTH = 20;
 
     public static ItemStack create(int maxKills) {
@@ -65,13 +60,11 @@ public class Excalibur {
         ItemStack item = new ItemStack(Material.NETHERITE_SWORD);
         ItemMeta meta = item.getItemMeta();
 
-        // Nazwa
         Component nameComponent = LegacyComponentSerializer.legacyAmpersand()
                 .deserialize("&e&lExcalibur")
                 .decoration(TextDecoration.ITALIC, false);
         meta.displayName(nameComponent);
 
-        // Lore
         List<Component> loreComponents = new ArrayList<>();
         for (String line : lore) {
             Component lineComp = LegacyComponentSerializer.legacyAmpersand()
@@ -81,16 +74,15 @@ public class Excalibur {
         }
         meta.lore(loreComponents);
 
-        // Custom model data
         meta.setCustomModelData(5);
 
-        // Enchanty
-        meta.addEnchant(Enchantment.DAMAGE_ALL, 6, true);
+        // ✅ 1.21.4 - nowe nazwy enchantów
+        meta.addEnchant(Enchantment.SHARPNESS, 6, true);
         meta.addEnchant(Enchantment.FIRE_ASPECT, 2, true);
-        meta.addEnchant(Enchantment.DURABILITY, 3, true);
+        meta.addEnchant(Enchantment.UNBREAKING, 3, true);
 
-        // Attack speed modifier
-        meta.addAttributeModifier(Attribute.GENERIC_ATTACK_SPEED,
+        // ✅ 1.21.4 - nowe nazwy atrybutów
+        meta.addAttributeModifier(Attribute.ATTACK_SPEED,
                 new AttributeModifier(
                         UUID.fromString("FA233E1C-4180-4865-B01B-BCCE9785ACA3"),
                         "generic.attack_speed",
@@ -99,8 +91,7 @@ public class Excalibur {
                         EquipmentSlot.HAND
                 ));
 
-        // Attack damage modifier
-        meta.addAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE,
+        meta.addAttributeModifier(Attribute.ATTACK_DAMAGE,
                 new AttributeModifier(
                         UUID.fromString("CB3F55D3-645C-4F38-A497-9C13A33DB5CF"),
                         "generic.attack_damage",
@@ -109,10 +100,8 @@ public class Excalibur {
                         EquipmentSlot.HAND
                 ));
 
-        // ✅ ZAPISZ KILLE W NBT
         meta.getPersistentDataContainer().set(KILLS_KEY, PersistentDataType.INTEGER, kills);
 
-        // Ukryj flagi
         meta.addItemFlags(
                 ItemFlag.HIDE_ATTRIBUTES,
                 ItemFlag.HIDE_ENCHANTS
@@ -122,19 +111,13 @@ public class Excalibur {
         return item;
     }
 
-    /**
-     * EDYTUJE item i zwiększa kille w NBT
-     */
     public static ItemStack updateKills(ItemStack item, int kills, int maxKills) {
         if (!isExcalibur(item)) return item;
         if (kills > maxKills) kills = maxKills;
 
         ItemMeta meta = item.getItemMeta();
-
-        // ✅ ZAPISZ KILLE W NBT
         meta.getPersistentDataContainer().set(KILLS_KEY, PersistentDataType.INTEGER, kills);
 
-        // Aktualizuj lore
         List<Component> lore = meta.lore();
         if (lore == null) lore = new ArrayList<>();
 
@@ -159,9 +142,9 @@ public class Excalibur {
 
         meta.lore(lore);
 
-        // Zaktualizuj attack damage
-        meta.removeAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE);
-        meta.addAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE,
+        // ✅ 1.21.4 - nowa nazwa atrybutu
+        meta.removeAttributeModifier(Attribute.ATTACK_DAMAGE);
+        meta.addAttributeModifier(Attribute.ATTACK_DAMAGE,
                 new AttributeModifier(
                         UUID.fromString("CB3F55D3-645C-4F38-A497-9C13A33DB5CF"),
                         "generic.attack_damage",
@@ -210,13 +193,9 @@ public class Excalibur {
         return plainName.equals(ITEM_NAME_STRIPPED);
     }
 
-    /**
-     * ✅ ODCZYT KILLI Z NBT (nie z lore!)
-     */
     public static int getKillsFromItem(ItemStack item) {
         if (!isExcalibur(item)) return 0;
         ItemMeta meta = item.getItemMeta();
-        
         Integer kills = meta.getPersistentDataContainer().get(KILLS_KEY, PersistentDataType.INTEGER);
         return kills != null ? kills : 0;
     }
