@@ -37,8 +37,8 @@ public class HydroKlatkaMovementListener implements Listener {
     private static final double HALF_W = 0.30;
     private static final double HEIGHT = 1.80;
 
-    // Cofnięcie w kierunku środka
-    private static final double PUSHBACK_UP = 0.75;
+    // ✅ Jednolite cofnięcie 0.75 bloku w kierunku środka dla wszystkich kierunków
+    private static final double PUSHBACK = 0.75;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
     private BukkitTask clampTask;
@@ -99,12 +99,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
     // ==================== SPRAWDŹ I COFNIJ OD BARIERY ====================
 
-    /**
-     * Sprawdza czy gracz dotyka bariery planned shell.
-     * Jeśli tak - zwraca bezpieczną lokalizację cofniętą w kierunku środka.
-     * Jeśli nie - zwraca null.
-     */
-    private Location checkAndPushFromBarrier(Location loc, 
+    private Location checkAndPushFromBarrier(Location loc,
                                              ActiveHydroKlatka klatka,
                                              HydroKlatkaManager manager,
                                              Location center) {
@@ -128,14 +123,12 @@ public class HydroKlatkaMovementListener implements Listener {
                         Location blockLoc = new Location(center.getWorld(), checkX, checkY, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
-                        // Bariera w połowie bloku
                         double barrierY = checkY + 0.5;
 
-                        // Dotyka/przenika?
                         if (py < barrierY + 0.1) {
                             touched = true;
-                            // Teleport w górę (w kierunku środka klatki)
-                            newY = Math.max(newY, barrierY + PUSHBACK_UP);
+                            // Teleport 0.75 w górę (w kierunku środka)
+                            newY = Math.max(newY, barrierY + PUSHBACK);
                         }
                         break;
                     }
@@ -160,7 +153,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         if (playerTop > barrierY - 0.1) {
                             touched = true;
-                            // Cofnij w dół (w kierunku środka)
+                            // Teleport 0.75 w dół (w kierunku środka)
                             newY = Math.min(newY, barrierY - HEIGHT - PUSHBACK);
                         }
                         break;
@@ -190,7 +183,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         if (playerRight > barrierX - 0.1) {
                             touched = true;
-                            // Cofnij w lewo (w kierunku środka)
+                            // Teleport 0.75 w lewo (w kierunku środka)
                             newX = Math.min(newX, barrierX - HALF_W - PUSHBACK);
                         }
                         break;
@@ -220,7 +213,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         if (playerLeft < barrierX + 0.1) {
                             touched = true;
-                            // Cofnij w prawo (w kierunku środka)
+                            // Teleport 0.75 w prawo (w kierunku środka)
                             newX = Math.max(newX, barrierX + HALF_W + PUSHBACK);
                         }
                         break;
@@ -250,7 +243,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         if (playerFront > barrierZ - 0.1) {
                             touched = true;
-                            // Cofnij do tyłu (w kierunku środka)
+                            // Teleport 0.75 do tyłu (w kierunku środka)
                             newZ = Math.min(newZ, barrierZ - HALF_W - PUSHBACK);
                         }
                         break;
@@ -280,7 +273,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         if (playerBack < barrierZ + 0.1) {
                             touched = true;
-                            // Cofnij do przodu (w kierunku środka)
+                            // Teleport 0.75 do przodu (w kierunku środka)
                             newZ = Math.max(newZ, barrierZ + HALF_W + PUSHBACK);
                         }
                         break;
@@ -289,7 +282,6 @@ public class HydroKlatkaMovementListener implements Listener {
             }
         }
 
-        // Zwróć bezpieczną lokalizację tylko jeśli dotknął bariery
         if (!touched) return null;
 
         return new Location(
