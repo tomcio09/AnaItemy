@@ -17,11 +17,13 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
+import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.models.ActiveHydroKlatka;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,11 +36,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
     private static final double PLAYER_HALF_WIDTH = 0.30;
     private static final double PLAYER_HEIGHT = 1.80;
-
-    // ✅ Bariera jest w połowie bloku shella
     private static final double SHELL_BARRIER_PLANE = 0.50;
-
-    // ✅ O ile cofamy gracza za barierę
     private static final double PUSHBACK = 0.10;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
@@ -51,15 +49,6 @@ public class HydroKlatkaMovementListener implements Listener {
 
     // ==================== CLAMP TASK ====================
 
-    /**
-     * ✅ Co tick sprawdza TYLKO uwięzionych graczy i cofa ich,
-     * jeśli próbują wyjść przez planned shell / aktywny shell.
-     *
-     * Gracz spoza trappedPlayers:
-     * - może wejść
-     * - może wyjść
-     * - nie dostaje blokady
-     */
     private void startClampTask() {
         clampTask = new BukkitRunnable() {
             @Override
@@ -76,7 +65,6 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         if (!loc.getWorld().equals(center.getWorld())) continue;
 
-                        // ✅ Twardy exploit check - tylko wtedy środek
                         if (loc.distance(center) > klatka.getRadius() + 5.0) {
                             Location tp = center.clone();
                             tp.setYaw(loc.getYaw());
@@ -93,9 +81,10 @@ public class HydroKlatkaMovementListener implements Listener {
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    // ==================== GŁÓWNA LOGIKA BARIERY ====================
+    // ==================== SOFT BARRIER ====================
 
-    private void applySoftBarrier(Player player, ActiveHydroKlatka klatka, HydroKlatkaManager manager) {
+    private void applySoftBarrier(Player player, ActiveHydroKlatka klatka,
+                                   HydroKlatkaManager manager) {
         Location loc = player.getLocation();
         Location center = klatka.getCenter();
 
@@ -110,152 +99,114 @@ public class HydroKlatkaMovementListener implements Listener {
         boolean clamped = false;
 
         Vector velocity = player.getVelocity();
-        boolean movingOutXPos = velocity.getX() > 0;
-        boolean movingOutXNeg = velocity.getX() < 0;
-        boolean movingOutYPos = velocity.getY() > 0;
-        boolean movingOutYNeg = velocity.getY() < 0;
-        boolean movingOutZPos = velocity.getZ() > 0;
-        boolean movingOutZNeg = velocity.getZ() < 0;
+        boolean movingXPos = velocity.getX() > 0.001;
+        boolean movingXNeg = velocity.getX() < -0.001;
+        boolean movingYPos = velocity.getY() > 0.001;
+        boolean movingYNeg = velocity.getY() < -0.001;
+        boolean movingZPos = velocity.getZ() > 0.001;
+        boolean movingZNeg = velocity.getZ() < -0.001;
 
-        int minBX = (int) Math.floor(px - PLAYER_HALF_WIDTH - 0.01);
-        int maxBX = (int) Math.floor(px + PLAYER_HALF_WIDTH + 0.01);
-        int minBY = (int) Math.floor(py - 0.01);
-        int maxBY = (int) Math.floor(py + PLAYER_HEIGHT + 0.01);
-        int minBZ = (int) Math.floor(pz - PLAYER_HALF_WIDTH - 0.01);
-        int maxBZ = (int) Math.floor(pz + PLAYER_HALF_WIDTH + 0.01);
+        int minBX = (int) Math.floor(px - PLAYER_HALF_WIDTH - 0.02);
+        int maxBX = (int) Math.floor(px + PLAYER_HALF_WIDTH + 0.02);
+        int minBY = (int) Math.floor(py - 0.02);
+        int maxBY = (int) Math.floor(py + PLAYER_HEIGHT + 0.02);
+        int minBZ = (int) Math.floor(pz - PLAYER_HALF_WIDTH - 0.02);
+        int maxBZ = (int) Math.floor(pz + PLAYER_HALF_WIDTH + 0.02);
 
         for (int bx = minBX; bx <= maxBX; bx++) {
             for (int by = minBY; by <= maxBY; by++) {
                 for (int bz = minBZ; bz <= maxBZ; bz++) {
                     if (!isShell(bx, by, bz, klatka, manager)) continue;
 
-                    double blockCenterX = bx + 0.5;
-                    double blockCenterY = by + 0.5;
-                    double blockCenterZ = bz + 0.5;
+                    double dirX = (bx + 0.5) - center.getX();
+                    double dirY = (by + 0.5) - center.getY();
+                    double dirZ = (bz + 0.5) - center.getZ();
 
-                    double dirX = blockCenterX - center.getX();
-                    double dirY = blockCenterY - center.getY();
-                    double dirZ = blockCenterZ - center.getZ();
-
-                    // ==================== DÓŁ ====================
-                    // Shell jest pod środkiem klatki -> blokuj spadanie poniżej połowy bloku
-                    if (dirY < 0 && movingOutYNeg) {
-                        boolean overlapXZ =
-                                (px + PLAYER_HALF_WIDTH > bx && px - PLAYER_HALF_WIDTH < bx + 1.0)
-                                        && (pz + PLAYER_HALF_WIDTH > bz && pz - PLAYER_HALF_WIDTH < bz + 1.0);
-
-                        if (overlapXZ) {
-                            double barrierY = by + SHELL_BARRIER_PLANE; // połowa bloku
-                            if (py < barrierY) {
-                                newY = Math.max(newY, barrierY + PUSHBACK);
-                                clamped = true;
-                            }
+                    // DÓŁ
+                    if (dirY < 0 && movingYNeg) {
+                        boolean ok = (px + PLAYER_HALF_WIDTH > bx && px - PLAYER_HALF_WIDTH < bx + 1.0)
+                                && (pz + PLAYER_HALF_WIDTH > bz && pz - PLAYER_HALF_WIDTH < bz + 1.0);
+                        if (ok && py < by + SHELL_BARRIER_PLANE) {
+                            newY = Math.max(newY, by + SHELL_BARRIER_PLANE + PUSHBACK);
+                            clamped = true;
                         }
                     }
 
-                    // ==================== GÓRA ====================
-                    if (dirY > 0 && movingOutYPos) {
-                        boolean overlapXZ =
-                                (px + PLAYER_HALF_WIDTH > bx && px - PLAYER_HALF_WIDTH < bx + 1.0)
-                                        && (pz + PLAYER_HALF_WIDTH > bz && pz - PLAYER_HALF_WIDTH < bz + 1.0);
-
-                        if (overlapXZ) {
-                            double barrierY = by + SHELL_BARRIER_PLANE;
-                            double headY = py + PLAYER_HEIGHT;
-                            if (headY > barrierY) {
-                                newY = Math.min(newY, barrierY - PLAYER_HEIGHT - PUSHBACK);
-                                clamped = true;
-                            }
+                    // GÓRA
+                    if (dirY > 0 && movingYPos) {
+                        boolean ok = (px + PLAYER_HALF_WIDTH > bx && px - PLAYER_HALF_WIDTH < bx + 1.0)
+                                && (pz + PLAYER_HALF_WIDTH > bz && pz - PLAYER_HALF_WIDTH < bz + 1.0);
+                        if (ok && py + PLAYER_HEIGHT > by + SHELL_BARRIER_PLANE) {
+                            newY = Math.min(newY, by + SHELL_BARRIER_PLANE - PLAYER_HEIGHT - PUSHBACK);
+                            clamped = true;
                         }
                     }
 
-                    // ==================== PRAWO (+X) ====================
-                    if (dirX > 0 && movingOutXPos) {
-                        boolean overlapYZ =
-                                (py < by + 1.0 && py + PLAYER_HEIGHT > by)
-                                        && (pz + PLAYER_HALF_WIDTH > bz && pz - PLAYER_HALF_WIDTH < bz + 1.0);
-
-                        if (overlapYZ) {
-                            double barrierX = bx + SHELL_BARRIER_PLANE;
-                            double rightEdge = px + PLAYER_HALF_WIDTH;
-                            if (rightEdge > barrierX) {
-                                newX = Math.min(newX, barrierX - PLAYER_HALF_WIDTH - PUSHBACK);
-                                clamped = true;
-                            }
+                    // PRAWO +X
+                    if (dirX > 0 && movingXPos) {
+                        boolean ok = (py < by + 1.0 && py + PLAYER_HEIGHT > by)
+                                && (pz + PLAYER_HALF_WIDTH > bz && pz - PLAYER_HALF_WIDTH < bz + 1.0);
+                        if (ok && px + PLAYER_HALF_WIDTH > bx + SHELL_BARRIER_PLANE) {
+                            newX = Math.min(newX, bx + SHELL_BARRIER_PLANE - PLAYER_HALF_WIDTH - PUSHBACK);
+                            clamped = true;
                         }
                     }
 
-                    // ==================== LEWO (-X) ====================
-                    if (dirX < 0 && movingOutXNeg) {
-                        boolean overlapYZ =
-                                (py < by + 1.0 && py + PLAYER_HEIGHT > by)
-                                        && (pz + PLAYER_HALF_WIDTH > bz && pz - PLAYER_HALF_WIDTH < bz + 1.0);
-
-                        if (overlapYZ) {
-                            double barrierX = bx + SHELL_BARRIER_PLANE;
-                            double leftEdge = px - PLAYER_HALF_WIDTH;
-                            if (leftEdge < barrierX) {
-                                newX = Math.max(newX, barrierX + PLAYER_HALF_WIDTH + PUSHBACK);
-                                clamped = true;
-                            }
+                    // LEWO -X
+                    if (dirX < 0 && movingXNeg) {
+                        boolean ok = (py < by + 1.0 && py + PLAYER_HEIGHT > by)
+                                && (pz + PLAYER_HALF_WIDTH > bz && pz - PLAYER_HALF_WIDTH < bz + 1.0);
+                        if (ok && px - PLAYER_HALF_WIDTH < bx + SHELL_BARRIER_PLANE) {
+                            newX = Math.max(newX, bx + SHELL_BARRIER_PLANE + PLAYER_HALF_WIDTH + PUSHBACK);
+                            clamped = true;
                         }
                     }
 
-                    // ==================== PRZÓD (+Z) ====================
-                    if (dirZ > 0 && movingOutZPos) {
-                        boolean overlapXY =
-                                (py < by + 1.0 && py + PLAYER_HEIGHT > by)
-                                        && (px + PLAYER_HALF_WIDTH > bx && px - PLAYER_HALF_WIDTH < bx + 1.0);
-
-                        if (overlapXY) {
-                            double barrierZ = bz + SHELL_BARRIER_PLANE;
-                            double frontEdge = pz + PLAYER_HALF_WIDTH;
-                            if (frontEdge > barrierZ) {
-                                newZ = Math.min(newZ, barrierZ - PLAYER_HALF_WIDTH - PUSHBACK);
-                                clamped = true;
-                            }
+                    // PRZÓD +Z
+                    if (dirZ > 0 && movingZPos) {
+                        boolean ok = (py < by + 1.0 && py + PLAYER_HEIGHT > by)
+                                && (px + PLAYER_HALF_WIDTH > bx && px - PLAYER_HALF_WIDTH < bx + 1.0);
+                        if (ok && pz + PLAYER_HALF_WIDTH > bz + SHELL_BARRIER_PLANE) {
+                            newZ = Math.min(newZ, bz + SHELL_BARRIER_PLANE - PLAYER_HALF_WIDTH - PUSHBACK);
+                            clamped = true;
                         }
                     }
 
-                    // ==================== TYŁ (-Z) ====================
-                    if (dirZ < 0 && movingOutZNeg) {
-                        boolean overlapXY =
-                                (py < by + 1.0 && py + PLAYER_HEIGHT > by)
-                                        && (px + PLAYER_HALF_WIDTH > bx && px - PLAYER_HALF_WIDTH < bx + 1.0);
-
-                        if (overlapXY) {
-                            double barrierZ = bz + SHELL_BARRIER_PLANE;
-                            double backEdge = pz - PLAYER_HALF_WIDTH;
-                            if (backEdge < barrierZ) {
-                                newZ = Math.max(newZ, barrierZ + PLAYER_HALF_WIDTH + PUSHBACK);
-                                clamped = true;
-                            }
+                    // TYŁ -Z
+                    if (dirZ < 0 && movingZNeg) {
+                        boolean ok = (py < by + 1.0 && py + PLAYER_HEIGHT > by)
+                                && (px + PLAYER_HALF_WIDTH > bx && px - PLAYER_HALF_WIDTH < bx + 1.0);
+                        if (ok && pz - PLAYER_HALF_WIDTH < bz + SHELL_BARRIER_PLANE) {
+                            newZ = Math.max(newZ, bz + SHELL_BARRIER_PLANE + PLAYER_HALF_WIDTH + PUSHBACK);
+                            clamped = true;
                         }
                     }
                 }
             }
         }
 
-        if (!clamped) {
-            return;
-        }
+        if (!clamped) return;
 
-        // ✅ Wyzeruj velocity tylko na osiach które pchały gracza na zewnątrz
+        // ✅ Zeruj velocity przed teleportem
         Vector corrected = velocity.clone();
-
         if (newX != px) corrected.setX(0);
         if (newY != py) corrected.setY(0);
         if (newZ != pz) corrected.setZ(0);
-
         player.setVelocity(corrected);
 
-        Location safe = new Location(loc.getWorld(), newX, newY, newZ, loc.getYaw(), loc.getPitch());
+        // ✅ Teleportuj
+        Location safe = new Location(loc.getWorld(), newX, newY, newZ,
+                loc.getYaw(), loc.getPitch());
         player.teleport(safe);
 
+        // ✅ Zeruj velocity po teleporcie
         corrected = player.getVelocity().clone();
-        if (newX != px && ((newX < px && corrected.getX() > 0) || (newX > px && corrected.getX() < 0))) corrected.setX(0);
-        if (newY != py && ((newY < py && corrected.getY() > 0) || (newY > py && corrected.getY() < 0))) corrected.setY(0);
-        if (newZ != pz && ((newZ < pz && corrected.getZ() > 0) || (newZ > pz && corrected.getZ() < 0))) corrected.setZ(0);
+        if (newY < py && corrected.getY() < 0) corrected.setY(0);
+        if (newY > py && corrected.getY() > 0) corrected.setY(0);
+        if (newX < px && corrected.getX() > 0) corrected.setX(0);
+        if (newX > px && corrected.getX() < 0) corrected.setX(0);
+        if (newZ < pz && corrected.getZ() > 0) corrected.setZ(0);
+        if (newZ > pz && corrected.getZ() < 0) corrected.setZ(0);
         player.setVelocity(corrected);
 
         playBarrierFeedback(player);
@@ -263,14 +214,9 @@ public class HydroKlatkaMovementListener implements Listener {
 
     // ==================== SHELL CHECK ====================
 
-    /**
-     * ✅ Tylko prawdziwy shell lub planned shell.
-     * Żadnych fake blocków, żadnych inner blocków.
-     */
     private boolean isShell(int bx, int by, int bz,
                             ActiveHydroKlatka klatka, HydroKlatkaManager manager) {
         Location blockLoc = new Location(klatka.getCenter().getWorld(), bx, by, bz);
-
         if (manager.isShellBlock(blockLoc)) return true;
         return !klatka.isAnimationComplete() && klatka.isPlannedShellLocation(blockLoc);
     }
@@ -303,9 +249,6 @@ public class HydroKlatkaMovementListener implements Listener {
             return;
         }
 
-        // ✅ Nie rób pełnego feedbacku tutaj.
-        // ClampTask co tick i tak utrzyma gracza w środku.
-        // Event służy tylko do lekkiego cofnięcia gdy FROM jest bezpieczne a TO nie.
         if (wouldExit(from, to, klatka, manager)) {
             Location stuck = from.clone();
             stuck.setYaw(to.getYaw());
@@ -326,12 +269,12 @@ public class HydroKlatkaMovementListener implements Listener {
         double py = to.getY();
         double pz = to.getZ();
 
-        int minBX = (int) Math.floor(px - PLAYER_HALF_WIDTH - 0.01);
-        int maxBX = (int) Math.floor(px + PLAYER_HALF_WIDTH + 0.01);
-        int minBY = (int) Math.floor(py - 0.01);
-        int maxBY = (int) Math.floor(py + PLAYER_HEIGHT + 0.01);
-        int minBZ = (int) Math.floor(pz - PLAYER_HALF_WIDTH - 0.01);
-        int maxBZ = (int) Math.floor(pz + PLAYER_HALF_WIDTH + 0.01);
+        int minBX = (int) Math.floor(px - PLAYER_HALF_WIDTH - 0.02);
+        int maxBX = (int) Math.floor(px + PLAYER_HALF_WIDTH + 0.02);
+        int minBY = (int) Math.floor(py - 0.02);
+        int maxBY = (int) Math.floor(py + PLAYER_HEIGHT + 0.02);
+        int minBZ = (int) Math.floor(pz - PLAYER_HALF_WIDTH - 0.02);
+        int maxBZ = (int) Math.floor(pz + PLAYER_HALF_WIDTH + 0.02);
 
         for (int bx = minBX; bx <= maxBX; bx++) {
             for (int by = minBY; by <= maxBY; by++) {
@@ -342,12 +285,18 @@ public class HydroKlatkaMovementListener implements Listener {
                     double dirY = (by + 0.5) - center.getY();
                     double dirZ = (bz + 0.5) - center.getZ();
 
-                    if (dirX > 0 && move.getX() > 0 && px + PLAYER_HALF_WIDTH > bx + SHELL_BARRIER_PLANE) return true;
-                    if (dirX < 0 && move.getX() < 0 && px - PLAYER_HALF_WIDTH < bx + SHELL_BARRIER_PLANE) return true;
-                    if (dirY > 0 && move.getY() > 0 && py + PLAYER_HEIGHT > by + SHELL_BARRIER_PLANE) return true;
-                    if (dirY < 0 && move.getY() < 0 && py < by + SHELL_BARRIER_PLANE) return true;
-                    if (dirZ > 0 && move.getZ() > 0 && pz + PLAYER_HALF_WIDTH > bz + SHELL_BARRIER_PLANE) return true;
-                    if (dirZ < 0 && move.getZ() < 0 && pz - PLAYER_HALF_WIDTH < bz + SHELL_BARRIER_PLANE) return true;
+                    if (dirX > 0 && move.getX() > 0
+                            && px + PLAYER_HALF_WIDTH > bx + SHELL_BARRIER_PLANE) return true;
+                    if (dirX < 0 && move.getX() < 0
+                            && px - PLAYER_HALF_WIDTH < bx + SHELL_BARRIER_PLANE) return true;
+                    if (dirY > 0 && move.getY() > 0
+                            && py + PLAYER_HEIGHT > by + SHELL_BARRIER_PLANE) return true;
+                    if (dirY < 0 && move.getY() < 0
+                            && py < by + SHELL_BARRIER_PLANE) return true;
+                    if (dirZ > 0 && move.getZ() > 0
+                            && pz + PLAYER_HALF_WIDTH > bz + SHELL_BARRIER_PLANE) return true;
+                    if (dirZ < 0 && move.getZ() < 0
+                            && pz - PLAYER_HALF_WIDTH < bz + SHELL_BARRIER_PLANE) return true;
                 }
             }
         }
@@ -386,9 +335,7 @@ public class HydroKlatkaMovementListener implements Listener {
         UUID uuid = player.getUniqueId();
 
         Long last = lastFeedback.get(uuid);
-        if (last != null && now - last < FEEDBACK_COOLDOWN_MS) {
-            return;
-        }
+        if (last != null && now - last < FEEDBACK_COOLDOWN_MS) return;
 
         lastFeedback.put(uuid, now);
 
