@@ -38,9 +38,9 @@ public class HydroKlatkaMovementListener implements Listener {
     private static final double HEIGHT = 1.80;
 
     // Bariera: ile bloków przed shellem zatrzymujemy gracza
-    private static final double BARRIER_OFFSET_HORIZONTAL = 0.5;  // zmniejszone z 1.0 - bliżej shella
-    private static final double BARRIER_OFFSET_HORIZONTAL_ELYTRA = 1.5; // dla elytra - dalej
-    private static final double BARRIER_OFFSET_DOWN = 1.2;  // zmniejszone z 1.5 - mniej w górę
+    private static final double BARRIER_OFFSET_HORIZONTAL = 0.5;
+    private static final double BARRIER_OFFSET_HORIZONTAL_ELYTRA = 1.5;
+    private static final double BARRIER_OFFSET_DOWN = 0.8;  // zmniejszone z 1.2 - jeszcze mniej w górę
     private static final double BARRIER_OFFSET_UP = 0.1;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
@@ -75,11 +75,12 @@ public class HydroKlatkaMovementListener implements Listener {
                             continue;
                         }
 
+                        // ✅ Po zakończeniu animacji - tylko sprawdzaj czy gracz nie wszedł w built shell
                         if (klatka.isAnimationComplete()) {
                             if (isInsideBuiltShell(loc, manager)) {
                                 teleportToCenter(player, center, true);
                             }
-                            continue;
+                            continue; // ✅ NIE BLOKUJ ruchu po zakończeniu animacji
                         }
 
                         // ✅ Wykryj czy gracz na elytrze z dużą prędkością
@@ -119,21 +120,21 @@ public class HydroKlatkaMovementListener implements Listener {
                         );
                         player.teleport(safe);
 
-                        // ✅ Zmniejszone impulsy odrzutu
+                        // ✅ Jeszcze bardziej zmniejszone impulsy odrzutu
                         Vector bounce = new Vector(0, 0, 0);
                         if (result.blockX) {
                             double dir = center.getX() - result.newX;
-                            bounce.setX(Math.signum(dir) * 0.03); // zmniejszone z 0.05
+                            bounce.setX(Math.signum(dir) * 0.02); // zmniejszone z 0.03
                         }
                         if (result.blockZ) {
                             double dir = center.getZ() - result.newZ;
-                            bounce.setZ(Math.signum(dir) * 0.03); // zmniejszone z 0.05
+                            bounce.setZ(Math.signum(dir) * 0.02); // zmniejszone z 0.03
                         }
                         if (result.blockY) {
                             if (vel.getY() < 0) {
-                                bounce.setY(0.05); // zmniejszone z 0.08 - mniej w górę
+                                bounce.setY(0.03); // zmniejszone z 0.05 - minimalny impuls
                             } else if (vel.getY() > 0) {
-                                bounce.setY(-0.05); // zmniejszone z -0.1
+                                bounce.setY(-0.03); // zmniejszone z -0.05
                             }
                         }
                         player.setVelocity(bounce);
@@ -175,8 +176,8 @@ public class HydroKlatkaMovementListener implements Listener {
                         double shellTop  = checkY + 1.0;
                         double barrierY  = shellTop + BARRIER_OFFSET_DOWN;
 
-                        // ✅ Zmniejszony margin detekcji
-                        if (py <= barrierY + 0.3) { // było 0.5
+                        // ✅ Jeszcze mniejszy margin detekcji
+                        if (py <= barrierY + 0.2) { // było 0.3
                             result.clamped = true;
                             result.blockY  = true;
                             result.newY    = Math.max(result.newY, barrierY);
@@ -375,6 +376,7 @@ public class HydroKlatkaMovementListener implements Listener {
     private boolean isPlannedShellOnly(Location blockLoc,
                                        ActiveHydroKlatka klatka,
                                        HydroKlatkaManager manager) {
+        // ✅ KLUCZOWA ZMIANA: Sprawdzaj tylko planned shell (NIE built shell)
         if (manager.isShellBlock(blockLoc)) return false;
         if (klatka.isAnimationComplete()) return false;
         return klatka.isPlannedShellLocation(blockLoc);
@@ -449,6 +451,7 @@ public class HydroKlatkaMovementListener implements Listener {
             return;
         }
 
+        // ✅ Sprawdzaj tylko podczas animacji (planned shell)
         if (!klatka.isAnimationComplete()
                 && wouldHitPlannedShell(to, klatka, manager)
                 && !wouldHitPlannedShell(from, klatka, manager)) {
