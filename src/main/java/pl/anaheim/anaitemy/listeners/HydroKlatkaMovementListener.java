@@ -40,7 +40,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
     // Bariera: ile bloków przed shellem zatrzymujemy gracza
     // 0.0 = dokładnie przy shellu, 1.0 = 1 blok wcześniej itd.
-    private static final double BARRIER_OFFSET_HORIZONTAL = 2.0;
+    private static final double BARRIER_OFFSET_HORIZONTAL = 1.0;
     private static final double BARRIER_OFFSET_DOWN       = 1.4;
     private static final double BARRIER_OFFSET_UP         = 0.1;
 
@@ -117,11 +117,11 @@ public class HydroKlatkaMovementListener implements Listener {
                         Vector bounce = new Vector(0, 0, 0);
                         if (result.blockX) {
                             double dir = center.getX() - result.newX;
-                            bounce.setX(Math.signum(dir) * 0.15);
+                            bounce.setX(Math.signum(dir) * 0.05);
                         }
                         if (result.blockZ) {
                             double dir = center.getZ() - result.newZ;
-                            bounce.setZ(Math.signum(dir) * 0.15);
+                            bounce.setZ(Math.signum(dir) * 0.05);
                         }
                         if (result.blockY) {
                             if (vel.getY() < 0) {
@@ -444,7 +444,12 @@ public class HydroKlatkaMovementListener implements Listener {
         Player player = event.getPlayer();
 
         // ✅ Elytra - nie blokuj ruchu w MoveEvent, obsługujemy tylko w tasku
-        if (player.isGliding()) return;
+        if (player.isGliding()) {
+            // Elytra z dużą prędkością - pomiń barierę
+            Vector vel = player.getVelocity();
+            double horizontalSpeed = Math.sqrt(vel.getX() * vel.getX() + vel.getZ() * vel.getZ());
+            if (horizontalSpeed > 0.3) continue; // pomiń sprawdzanie kolizji
+        }
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
