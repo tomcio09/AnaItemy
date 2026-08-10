@@ -41,7 +41,7 @@ public class HydroKlatkaMovementListener implements Listener {
     // Bariera: ile bloków przed shellem zatrzymujemy gracza
     // 0.0 = dokładnie przy shellu, 1.0 = 1 blok wcześniej itd.
     private static final double BARRIER_OFFSET_HORIZONTAL = 2.0;
-    private static final double BARRIER_OFFSET_DOWN       = 1.2;
+    private static final double BARRIER_OFFSET_DOWN       = 1.4;
     private static final double BARRIER_OFFSET_UP         = 0.1;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
