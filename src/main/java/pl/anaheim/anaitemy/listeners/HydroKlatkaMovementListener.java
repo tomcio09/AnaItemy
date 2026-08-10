@@ -13,7 +13,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
-import org.bukkit.inventory.meta.trim.TrimMaterial;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
@@ -36,13 +35,12 @@ public class HydroKlatkaMovementListener implements Listener {
     private static final long FEEDBACK_COOLDOWN_MS = 500L;
 
     private static final double HALF_W = 0.30;
-    private static final double HEIGHT  = 1.80;
+    private static final double HEIGHT = 1.80;
 
     // Bariera: ile bloków przed shellem zatrzymujemy gracza
-    // 0.0 = dokładnie przy shellu, 1.0 = 1 blok wcześniej itd.
-    private static final double BARRIER_OFFSET_HORIZONTAL = 1.0;
-    private static final double BARRIER_OFFSET_DOWN       = 1.4;
-    private static final double BARRIER_OFFSET_UP         = 0.1;
+    private static final double BARRIER_OFFSET_HORIZONTAL = 1.0; // boki - zmniejszone z 2.0
+    private static final double BARRIER_OFFSET_DOWN       = 1.5; // dół - zwiększone z 1.2
+    private static final double BARRIER_OFFSET_UP         = 0.1; // góra
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
     private BukkitTask clampTask;
@@ -67,8 +65,15 @@ public class HydroKlatkaMovementListener implements Listener {
                         Player player = plugin.getServer().getPlayer(uuid);
                         if (player == null || !player.isOnline()) continue;
 
-                        // ✅ Elytra - nie blokuj, tylko sprawdź exploit
-                        if (player.isGliding()) continue;
+                        // ✅ Elytra z dużą prędkością poziomą - pomiń kolizję boczną
+                        boolean skipHorizontalCollision = false;
+                        if (player.isGliding()) {
+                            Vector vel = player.getVelocity();
+                            double horizontalSpeed = Math.sqrt(vel.getX() * vel.getX() + vel.getZ() * vel.getZ());
+                            if (horizontalSpeed > 0.3) {
+                                skipHorizontalCollision = true;
+                            }
+                        }
 
                         Location loc = player.getLocation();
                         if (!loc.getWorld().equals(center.getWorld())) continue;
@@ -86,7 +91,7 @@ public class HydroKlatkaMovementListener implements Listener {
                             continue;
                         }
 
-                        CollisionResult result = checkPlannedShellCollision(loc, klatka, manager, center);
+                        CollisionResult result = checkPlannedShellCollision(loc, klatka, manager, center, skipHorizontalCollision);
 
                         if (result.teleportCenter) {
                             teleportToCenter(player, center, true);
@@ -117,17 +122,17 @@ public class HydroKlatkaMovementListener implements Listener {
                         Vector bounce = new Vector(0, 0, 0);
                         if (result.blockX) {
                             double dir = center.getX() - result.newX;
-                            bounce.setX(Math.signum(dir) * 0.05);
+                            bounce.setX(Math.signum(dir) * 0.05); // zmniejszone z 0.15
                         }
                         if (result.blockZ) {
                             double dir = center.getZ() - result.newZ;
-                            bounce.setZ(Math.signum(dir) * 0.05);
+                            bounce.setZ(Math.signum(dir) * 0.05); // zmniejszone z 0.15
                         }
                         if (result.blockY) {
                             if (vel.getY() < 0) {
-                                bounce.setY(0.2); // Gracz spadał - impuls w górę
+                                bounce.setY(0.08); // zmniejszone z 0.5
                             } else if (vel.getY() > 0) {
-                                bounce.setY(-0.1); // Uderzył w sufit
+                                bounce.setY(-0.1);
                             }
                         }
                         player.setVelocity(bounce);
@@ -144,7 +149,8 @@ public class HydroKlatkaMovementListener implements Listener {
     private CollisionResult checkPlannedShellCollision(Location loc,
                                                        ActiveHydroKlatka klatka,
                                                        HydroKlatkaManager manager,
-                                                       Location center) {
+                                                       Location center,
+                                                       boolean skipHorizontalCollision) {
         double px = loc.getX();
         double py = loc.getY();
         double pz = loc.getZ();
@@ -152,8 +158,6 @@ public class HydroKlatkaMovementListener implements Listener {
         CollisionResult result = new CollisionResult(px, py, pz);
 
         // ==================== OŚ Y: DÓŁ ====================
-        // Szukamy pierwszego shella PONIŻEJ stóp gracza, skanując w dół.
-        // Bariera = shellTop + BARRIER_OFFSET_DOWN
         {
             int[] footXBlocks = getFootBlocksX(px);
             int[] footZBlocks = getFootBlocksZ(pz);
@@ -179,8 +183,6 @@ public class HydroKlatkaMovementListener implements Listener {
         }
 
         // ==================== OŚ Y: GÓRA ====================
-        // Szukamy pierwszego shella POWYŻEJ głowy gracza, skanując w górę.
-        // Bariera = shellBottom - HEIGHT - BARRIER_OFFSET_UP
         {
             int[] footXBlocks = getFootBlocksX(px);
             int[] footZBlocks = getFootBlocksZ(pz);
@@ -207,9 +209,16 @@ public class HydroKlatkaMovementListener implements Listener {
             }
         }
 
+        // ✅ Pomiń kolizje poziome dla elytra z dużą prędkością
+        if (skipHorizontalCollision) {
+            // Sprawdź tylko exploit
+            if (loc.distance(center) > klatka.getRadius() + 0.5) {
+                result.teleportCenter = true;
+            }
+            return result;
+        }
+
         // ==================== OŚ X: PRAWO (+X) ====================
-        // ✅ POPRAWKA: skanujemy od prawej krawędzi gracza (px + HALF_W) w prawo.
-        // Dzięki temu zawsze trafiamy w pierwszy shell na prawo od gracza.
         {
             int minBY = (int) Math.floor(py);
             int maxBY = (int) Math.floor(py + HEIGHT - 0.01);
@@ -219,29 +228,22 @@ public class HydroKlatkaMovementListener implements Listener {
 
                 int[] zBlocks = getFootBlocksZ(pz);
                 for (int checkZ : zBlocks) {
-
-                    // ✅ Startuj od bloku gdzie jest prawa krawędź gracza
                     int startX = (int) Math.floor(px + HALF_W);
-                    boolean found = false;
 
                     for (int scanX = startX; scanX <= startX + 8; scanX++) {
                         Location blockLoc = new Location(center.getWorld(), scanX, by, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
-                        // Znaleziono shell - lewa krawędź tego bloku to shellLeft
-                        double shellLeft = scanX; // np. scanX = 10 -> shell od X=10 do X=11
-                        // Bariera 2 bloki przed shellem (od strony gracza, czyli w lewo)
+                        double shellLeft = scanX;
                         double barrierX  = shellLeft - BARRIER_OFFSET_HORIZONTAL;
 
                         double playerRight = px + HALF_W;
                         if (playerRight >= barrierX) {
                             result.clamped = true;
                             result.blockX  = true;
-                            // Postaw gracza tak żeby jego prawa krawędź była przy barierze
                             double safeX = barrierX - HALF_W;
                             result.newX  = Math.min(result.newX, safeX);
                         }
-                        found = true;
                         break;
                     }
                 }
@@ -249,7 +251,6 @@ public class HydroKlatkaMovementListener implements Listener {
         }
 
         // ==================== OŚ X: LEWO (-X) ====================
-        // ✅ POPRAWKA: skanujemy od lewej krawędzi gracza (px - HALF_W) w lewo.
         {
             int minBY = (int) Math.floor(py);
             int maxBY = (int) Math.floor(py + HEIGHT - 0.01);
@@ -259,18 +260,13 @@ public class HydroKlatkaMovementListener implements Listener {
 
                 int[] zBlocks = getFootBlocksZ(pz);
                 for (int checkZ : zBlocks) {
-
-                    // ✅ Startuj od bloku gdzie jest lewa krawędź gracza
                     int startX = (int) Math.floor(px - HALF_W);
-                    boolean found = false;
 
                     for (int scanX = startX; scanX >= startX - 8; scanX--) {
                         Location blockLoc = new Location(center.getWorld(), scanX, by, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
-                        // Prawa krawędź tego bloku = scanX + 1.0
                         double shellRight = scanX + 1.0;
-                        // Bariera 2 bloki przed shellem (od strony gracza, czyli w prawo)
                         double barrierX  = shellRight + BARRIER_OFFSET_HORIZONTAL;
 
                         double playerLeft = px - HALF_W;
@@ -280,7 +276,6 @@ public class HydroKlatkaMovementListener implements Listener {
                             double safeX = barrierX + HALF_W;
                             result.newX  = Math.max(result.newX, safeX);
                         }
-                        found = true;
                         break;
                     }
                 }
@@ -288,7 +283,6 @@ public class HydroKlatkaMovementListener implements Listener {
         }
 
         // ==================== OŚ Z: PRZÓD (+Z) ====================
-        // ✅ POPRAWKA: skanujemy od przedniej krawędzi gracza (pz + HALF_W) do przodu.
         {
             int minBY = (int) Math.floor(py);
             int maxBY = (int) Math.floor(py + HEIGHT - 0.01);
@@ -298,9 +292,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
                 int[] xBlocks = getFootBlocksX(px);
                 for (int checkX : xBlocks) {
-
                     int startZ = (int) Math.floor(pz + HALF_W);
-                    boolean found = false;
 
                     for (int scanZ = startZ; scanZ <= startZ + 8; scanZ++) {
                         Location blockLoc = new Location(center.getWorld(), checkX, by, scanZ);
@@ -316,7 +308,6 @@ public class HydroKlatkaMovementListener implements Listener {
                             double safeZ = barrierZ - HALF_W;
                             result.newZ  = Math.min(result.newZ, safeZ);
                         }
-                        found = true;
                         break;
                     }
                 }
@@ -324,7 +315,6 @@ public class HydroKlatkaMovementListener implements Listener {
         }
 
         // ==================== OŚ Z: TYŁ (-Z) ====================
-        // ✅ POPRAWKA: skanujemy od tylnej krawędzi gracza (pz - HALF_W) do tyłu.
         {
             int minBY = (int) Math.floor(py);
             int maxBY = (int) Math.floor(py + HEIGHT - 0.01);
@@ -334,9 +324,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
                 int[] xBlocks = getFootBlocksX(px);
                 for (int checkX : xBlocks) {
-
                     int startZ = (int) Math.floor(pz - HALF_W);
-                    boolean found = false;
 
                     for (int scanZ = startZ; scanZ >= startZ - 8; scanZ--) {
                         Location blockLoc = new Location(center.getWorld(), checkX, by, scanZ);
@@ -352,7 +340,6 @@ public class HydroKlatkaMovementListener implements Listener {
                             double safeZ = barrierZ + HALF_W;
                             result.newZ  = Math.max(result.newZ, safeZ);
                         }
-                        found = true;
                         break;
                     }
                 }
@@ -369,9 +356,6 @@ public class HydroKlatkaMovementListener implements Listener {
 
     // ==================== HELPERY ====================
 
-    /**
-     * Sprawdza czy wiersz bloków Y nakłada się na hitbox gracza.
-     */
     private boolean rowOverlapsPlayer(double py, int by) {
         return (py + HEIGHT > by) && (py < by + 1.0);
     }
@@ -443,13 +427,8 @@ public class HydroKlatkaMovementListener implements Listener {
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
 
-        // ✅ Elytra - nie blokuj ruchu w MoveEvent, obsługujemy tylko w tasku
-        if (player.isGliding()) {
-            // Elytra z dużą prędkością - pomiń barierę
-            Vector vel = player.getVelocity();
-            double horizontalSpeed = Math.sqrt(vel.getX() * vel.getX() + vel.getZ() * vel.getZ());
-            if (horizontalSpeed > 0.3) continue; // pomiń sprawdzanie kolizji
-        }
+        // ✅ Elytra - nie blokuj w MoveEvent, obsługujemy w tasku
+        if (player.isGliding()) return;
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
@@ -488,7 +467,7 @@ public class HydroKlatkaMovementListener implements Listener {
     private boolean wouldHitPlannedShell(Location loc,
                                          ActiveHydroKlatka klatka,
                                          HydroKlatkaManager manager) {
-        CollisionResult result = checkPlannedShellCollision(loc, klatka, manager, klatka.getCenter());
+        CollisionResult result = checkPlannedShellCollision(loc, klatka, manager, klatka.getCenter(), false);
         return result.clamped || result.teleportCenter;
     }
 
@@ -556,10 +535,10 @@ public class HydroKlatkaMovementListener implements Listener {
     // ==================== RESULT ====================
 
     private static class CollisionResult {
-        boolean clamped      = false;
-        boolean blockX       = false;
-        boolean blockY       = false;
-        boolean blockZ       = false;
+        boolean clamped = false;
+        boolean blockX  = false;
+        boolean blockY  = false;
+        boolean blockZ  = false;
         boolean teleportCenter = false;
 
         double newX;
