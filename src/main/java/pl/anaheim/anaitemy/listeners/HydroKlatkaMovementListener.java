@@ -145,178 +145,205 @@ public class HydroKlatkaMovementListener implements Listener {
 
         CollisionResult result = new CollisionResult(px, py, pz);
 
-        int minBX = (int) Math.floor(px - HALF_W) - 1;
-        int maxBX = (int) Math.floor(px + HALF_W) + 1;
-        int minBY = (int) Math.floor(py) - 2;
-        int maxBY = (int) Math.floor(py + HEIGHT) + 1;
-        int minBZ = (int) Math.floor(pz - HALF_W) - 1;
-        int maxBZ = (int) Math.floor(pz + HALF_W) + 1;
+        // ==================== OŚ Y: DÓŁ (spadanie) ====================
+        // ✅ Szukaj bloków shella PONIŻEJ gracza — skanuj kolumnę w dół
+        // Sprawdź wszystkie kolumny pod hitboxem gracza (gracz może stać na 4 blokach)
+        {
+            int[] footXBlocks = getFootBlocksX(px);
+            int[] footZBlocks = getFootBlocksZ(pz);
 
-        for (int bx = minBX; bx <= maxBX; bx++) {
-            for (int by = minBY; by <= maxBY; by++) {
-                for (int bz = minBZ; bz <= maxBZ; bz++) {
-                    Location blockLoc = new Location(center.getWorld(), bx, by, bz);
-                    if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
+            for (int checkX : footXBlocks) {
+                for (int checkZ : footZBlocks) {
+                    // Skanuj od pozycji stóp gracza w dół (max 5 bloków)
+                    for (int checkY = (int) Math.floor(py); checkY >= (int) Math.floor(py) - 5; checkY--) {
+                        Location blockLoc = new Location(center.getWorld(), checkX, checkY, checkZ);
+                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
-                    // ✅ Hitbox gracza: [px-0.3, px+0.3] x [py, py+1.8] x [pz-0.3, pz+0.3]
-                    // Blok: [bx, bx+1] x [by, by+1] x [bz, bz+1]
+                        // ✅ Znaleziono shell pod graczem!
+                        double shellTop = checkY + 1.0;
 
-                    boolean overlapX = (px + HALF_W > bx) && (px - HALF_W < bx + 1.0);
-                    boolean overlapZ = (pz + HALF_W > bz) && (pz - HALF_W < bz + 1.0);
-
-                    // ==================== DÓŁ ====================
-                    // Stopy gracza (py) spadają w blok shella
-                    // Bariera na górnej krawędzi bloku (by + 1.0) minus offset
-                    if (overlapX && overlapZ) {
-                        double blockTop = by + 1.0;
-                        // Gracz jest NAD blokiem lub wchodzi w niego od góry
-                        if (py < blockTop && py > by - 0.5) {
-                            // Stopy gracza weszły poniżej górnej krawędzi bloku
-                            double penetrationFromTop = blockTop - py;
-
-                            if (penetrationFromTop > 0 && penetrationFromTop < 1.5) {
-                                if (penetrationFromTop > 0.6) {
-                                    // Głęboko — teleport na środek
-                                    result.teleportCenter = true;
-                                    return result;
-                                }
-                                // ✅ Cofnij na górę bloku + pushback
-                                result.clamped = true;
-                                result.blockY = true;
-                                double safeY = blockTop + PUSHBACK;
-                                result.newY = Math.max(result.newY, safeY);
-                            }
+                        // Gracz jest poniżej górnej krawędzi shella?
+                        if (py < shellTop + 0.1) {
+                            // ✅ Cofnij na górę bloku shella
+                            result.clamped = true;
+                            result.blockY = true;
+                            double safeY = shellTop + PUSHBACK;
+                            result.newY = Math.max(result.newY, safeY);
                         }
-                    }
 
-                    // ==================== GÓRA ====================
-                    // Głowa gracza (py + HEIGHT) uderza w blok shella od dołu
-                    if (overlapX && overlapZ) {
-                        double blockBottom = by;
+                        break; // Znaleziono pierwszy shell w tej kolumnie
+                    }
+                }
+            }
+        }
+
+        // ==================== OŚ Y: GÓRA (lot w górę) ====================
+        {
+            int[] footXBlocks = getFootBlocksX(px);
+            int[] footZBlocks = getFootBlocksZ(pz);
+
+            for (int checkX : footXBlocks) {
+                for (int checkZ : footZBlocks) {
+                    // Skanuj od głowy gracza w górę (max 3 bloki)
+                    int headBlockY = (int) Math.floor(py + HEIGHT);
+                    for (int checkY = headBlockY; checkY <= headBlockY + 3; checkY++) {
+                        Location blockLoc = new Location(center.getWorld(), checkX, checkY, checkZ);
+                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
+
+                        double shellBottom = checkY;
                         double playerTop = py + HEIGHT;
 
-                        if (playerTop > blockBottom && playerTop < by + 1.5) {
-                            double penetrationFromBottom = playerTop - blockBottom;
-
-                            if (penetrationFromBottom > 0 && penetrationFromBottom < 1.5) {
-                                if (penetrationFromBottom > 0.6) {
-                                    result.teleportCenter = true;
-                                    return result;
-                                }
-                                result.clamped = true;
-                                result.blockY = true;
-                                double safeY = blockBottom - HEIGHT - PUSHBACK;
-                                result.newY = Math.min(result.newY, safeY);
-                            }
+                        if (playerTop > shellBottom - 0.1) {
+                            result.clamped = true;
+                            result.blockY = true;
+                            double safeY = shellBottom - HEIGHT - PUSHBACK;
+                            result.newY = Math.min(result.newY, safeY);
                         }
+
+                        break;
                     }
+                }
+            }
+        }
 
-                    boolean overlapY = (py + HEIGHT > by) && (py < by + 1.0);
+        // ==================== OŚ X i Z: BOKI ====================
+        {
+            int minBY = (int) Math.floor(py);
+            int maxBY = (int) Math.floor(py + HEIGHT);
 
-                    // ==================== PRAWO (+X) ====================
-                    // Prawa krawędź hitboxa wchodzi w blok shella od lewej strony
-                    if (overlapY && overlapZ) {
+            for (int by = minBY; by <= maxBY; by++) {
+                boolean overlapY = (py + HEIGHT > by) && (py < by + 1.0);
+                if (!overlapY) continue;
+
+                // +X: sprawdź bloki po prawej stronie gracza
+                {
+                    int checkX = (int) Math.floor(px + HALF_W + 0.1);
+                    int[] zBlocks = getFootBlocksZ(pz);
+                    for (int checkZ : zBlocks) {
+                        Location blockLoc = new Location(center.getWorld(), checkX, by, checkZ);
+                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
+
+                        double dx = (checkX + 0.5) - center.getX();
+                        if (dx <= 0) continue; // bariera blokuje tylko wyjście
+
                         double playerRight = px + HALF_W;
-                        double blockLeft = bx;
-
-                        if (playerRight > blockLeft && playerRight < bx + 1.0) {
-                            double penetration = playerRight - blockLeft;
-
-                            if (penetration > 0 && penetration < 1.0) {
-                                // Sprawdź czy gracz idzie OD ŚRODKA (na zewnątrz)
-                                double dx = (bx + 0.5) - center.getX();
-                                if (dx > 0) {
-                                    if (penetration > 0.6) {
-                                        result.teleportCenter = true;
-                                        return result;
-                                    }
-                                    result.clamped = true;
-                                    result.blockX = true;
-                                    double safeX = blockLeft - HALF_W - PUSHBACK;
-                                    result.newX = Math.min(result.newX, safeX);
-                                }
+                        if (playerRight > checkX) {
+                            double penetration = playerRight - checkX;
+                            if (penetration > 0.6) {
+                                result.teleportCenter = true;
+                                return result;
                             }
+                            result.clamped = true;
+                            result.blockX = true;
+                            double safeX = checkX - HALF_W - PUSHBACK;
+                            result.newX = Math.min(result.newX, safeX);
                         }
                     }
+                }
 
-                    // ==================== LEWO (-X) ====================
-                    if (overlapY && overlapZ) {
+                // -X: sprawdź bloki po lewej stronie gracza
+                {
+                    int checkX = (int) Math.floor(px - HALF_W - 0.1);
+                    int[] zBlocks = getFootBlocksZ(pz);
+                    for (int checkZ : zBlocks) {
+                        Location blockLoc = new Location(center.getWorld(), checkX, by, checkZ);
+                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
+
+                        double dx = (checkX + 0.5) - center.getX();
+                        if (dx >= 0) continue;
+
                         double playerLeft = px - HALF_W;
-                        double blockRight = bx + 1.0;
-
-                        if (playerLeft < blockRight && playerLeft > bx) {
-                            double penetration = blockRight - playerLeft;
-
-                            if (penetration > 0 && penetration < 1.0) {
-                                double dx = (bx + 0.5) - center.getX();
-                                if (dx < 0) {
-                                    if (penetration > 0.6) {
-                                        result.teleportCenter = true;
-                                        return result;
-                                    }
-                                    result.clamped = true;
-                                    result.blockX = true;
-                                    double safeX = blockRight + HALF_W + PUSHBACK;
-                                    result.newX = Math.max(result.newX, safeX);
-                                }
+                        if (playerLeft < checkX + 1.0) {
+                            double penetration = (checkX + 1.0) - playerLeft;
+                            if (penetration > 0.6) {
+                                result.teleportCenter = true;
+                                return result;
                             }
+                            result.clamped = true;
+                            result.blockX = true;
+                            double safeX = checkX + 1.0 + HALF_W + PUSHBACK;
+                            result.newX = Math.max(result.newX, safeX);
                         }
                     }
+                }
 
-                    // ==================== PRZÓD (+Z) ====================
-                    if (overlapY && overlapX) {
+                // +Z: sprawdź bloki przed graczem
+                {
+                    int checkZ = (int) Math.floor(pz + HALF_W + 0.1);
+                    int[] xBlocks = getFootBlocksX(px);
+                    for (int checkX : xBlocks) {
+                        Location blockLoc = new Location(center.getWorld(), checkX, by, checkZ);
+                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
+
+                        double dz = (checkZ + 0.5) - center.getZ();
+                        if (dz <= 0) continue;
+
                         double playerFront = pz + HALF_W;
-                        double blockFront = bz;
-
-                        if (playerFront > blockFront && playerFront < bz + 1.0) {
-                            double penetration = playerFront - blockFront;
-
-                            if (penetration > 0 && penetration < 1.0) {
-                                double dz = (bz + 0.5) - center.getZ();
-                                if (dz > 0) {
-                                    if (penetration > 0.6) {
-                                        result.teleportCenter = true;
-                                        return result;
-                                    }
-                                    result.clamped = true;
-                                    result.blockZ = true;
-                                    double safeZ = blockFront - HALF_W - PUSHBACK;
-                                    result.newZ = Math.min(result.newZ, safeZ);
-                                }
+                        if (playerFront > checkZ) {
+                            double penetration = playerFront - checkZ;
+                            if (penetration > 0.6) {
+                                result.teleportCenter = true;
+                                return result;
                             }
+                            result.clamped = true;
+                            result.blockZ = true;
+                            double safeZ = checkZ - HALF_W - PUSHBACK;
+                            result.newZ = Math.min(result.newZ, safeZ);
                         }
                     }
+                }
 
-                    // ==================== TYŁ (-Z) ====================
-                    if (overlapY && overlapX) {
+                // -Z: sprawdź bloki za graczem
+                {
+                    int checkZ = (int) Math.floor(pz - HALF_W - 0.1);
+                    int[] xBlocks = getFootBlocksX(px);
+                    for (int checkX : xBlocks) {
+                        Location blockLoc = new Location(center.getWorld(), checkX, by, checkZ);
+                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
+
+                        double dz = (checkZ + 0.5) - center.getZ();
+                        if (dz >= 0) continue;
+
                         double playerBack = pz - HALF_W;
-                        double blockBack = bz + 1.0;
-
-                        if (playerBack < blockBack && playerBack > bz) {
-                            double penetration = blockBack - playerBack;
-
-                            if (penetration > 0 && penetration < 1.0) {
-                                double dz = (bz + 0.5) - center.getZ();
-                                if (dz < 0) {
-                                    if (penetration > 0.6) {
-                                        result.teleportCenter = true;
-                                        return result;
-                                    }
-                                    result.clamped = true;
-                                    result.blockZ = true;
-                                    double safeZ = blockBack + HALF_W + PUSHBACK;
-                                    result.newZ = Math.max(result.newZ, safeZ);
-                                }
+                        if (playerBack < checkZ + 1.0) {
+                            double penetration = (checkZ + 1.0) - playerBack;
+                            if (penetration > 0.6) {
+                                result.teleportCenter = true;
+                                return result;
                             }
+                            result.clamped = true;
+                            result.blockZ = true;
+                            double safeZ = checkZ + 1.0 + HALF_W + PUSHBACK;
+                            result.newZ = Math.max(result.newZ, safeZ);
                         }
                     }
                 }
             }
         }
 
+        // ==================== EXPLOIT: Gracz poza klatką ====================
+        if (loc.distance(center) > klatka.getRadius()) {
+            result.teleportCenter = true;
+        }
+
         return result;
     }
 
+    // ✅ Zwraca bloki X pod hitboxem gracza (gracz może stać na 2 blokach)
+    private int[] getFootBlocksX(double px) {
+        int left = (int) Math.floor(px - HALF_W);
+        int right = (int) Math.floor(px + HALF_W);
+        if (left == right) return new int[]{left};
+        return new int[]{left, right};
+    }
+
+    // ✅ Zwraca bloki Z pod hitboxem gracza
+    private int[] getFootBlocksZ(double pz) {
+        int back = (int) Math.floor(pz - HALF_W);
+        int front = (int) Math.floor(pz + HALF_W);
+        if (back == front) return new int[]{back};
+        return new int[]{back, front};
+    }
     // ==================== SHELL CHECKI ====================
 
     private boolean isPlannedShellOnly(Location blockLoc,
