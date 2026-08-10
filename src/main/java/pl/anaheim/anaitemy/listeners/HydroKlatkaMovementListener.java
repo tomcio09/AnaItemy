@@ -1,5 +1,8 @@
 package pl.anaheim.anaitemy.listeners;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
@@ -18,6 +21,7 @@ import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.models.ActiveHydroKlatka;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,27 +32,25 @@ public class HydroKlatkaMovementListener implements Listener {
 
     private final AnaItemy plugin;
 
-    // ✅ Anti-spam dźwięku / subtitle
     private static final long FEEDBACK_COOLDOWN_MS = 500L;
-    private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
 
-    // ✅ Hitbox gracza
     private static final double HALF_W = 0.30;
     private static final double HEIGHT = 1.80;
 
-    // ✅ Bariera na ZEWNĘTRZNEJ 1/4 bloku shella
-    // Dla strony "wewnętrznej" shell block:
-    // - plane = 0.75 dla stron dodatnich (+X,+Y,+Z)
-    // - plane = 0.25 dla stron ujemnych (-X,-Y,-Z)
-    private static final double OUTER_QUARTER_POSITIVE = 0.75;
-    private static final double OUTER_QUARTER_NEGATIVE = 0.25;
+    // ✅ Bariera na zewnętrznej 1/4 bloku shella
+    // Dla dodatniej strony bloku: 0.75 od wewnętrznej krawędzi
+    // Dla ujemnej strony bloku: 0.25 od lewej / dolnej / tylnej krawędzi
+    private static final double BARRIER_POSITIVE = 0.75;
+    private static final double BARRIER_NEGATIVE = 0.25;
 
-    // ✅ Minimalne cofnięcie do środka po kolizji
+    // ✅ Minicofnięcie
     private static final double PUSHBACK = 0.10;
 
-    // ✅ Gdy gracz jest już "za bardzo" poza shell plane → teleport na środek
-    private static final double TELEPORT_EXTRA_PENETRATION = 0.18;
+    // ✅ Jeśli gracz wszedł jeszcze głębiej niż bariera -> teleport na środek
+    private static final double TELEPORT_POSITIVE = 0.90;
+    private static final double TELEPORT_NEGATIVE = 0.10;
 
+    private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
     private BukkitTask clampTask;
 
     public HydroKlatkaMovementListener(AnaItemy plugin) {
@@ -58,12 +60,6 @@ public class HydroKlatkaMovementListener implements Listener {
 
     // ==================== TASK CO TICK ====================
 
-    /**
-     * ✅ Główna logika.
-     * Co tick sprawdza TYLKO trappedPlayers.
-     * Nie stawia żadnych bloków.
-     * Działa na planned shell i built shell.
-     */
     private void startClampTask() {
         clampTask = new BukkitRunnable() {
             @Override
@@ -72,7 +68,6 @@ public class HydroKlatkaMovementListener implements Listener {
 
                 for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
                     Location center = klatka.getCenter();
-                    double radius = klatka.getRadius();
 
                     for (UUID uuid : new ArrayList<>(klatka.getTrappedPlayers())) {
                         Player player = plugin.getServer().getPlayer(uuid);
@@ -81,13 +76,22 @@ public class HydroKlatkaMovementListener implements Listener {
                         Location loc = player.getLocation();
                         if (!loc.getWorld().equals(center.getWorld())) continue;
 
-                        // ✅ Twardy exploit / bug — daleko poza klatką
-                        if (loc.distance(center) > radius + 2.5) {
+                        // Twardy exploit
+                        if (loc.distance(center) > klatka.getRadius() + 2.5) {
                             teleportToCenter(player, center, true);
                             continue;
                         }
 
-                        CollisionResult result = checkVirtualBarrier(player, klatka, manager, center);
+                        // Jeśli shell już istnieje fizycznie, Minecraft go sam blokuje.
+                        // My tylko ratujemy gracza, jeśli utknął w shellu.
+                        if (klatka.isAnimationComplete()) {
+                            if (isInsideBuiltShell(loc, klatka, manager)) {
+                                teleportToCenter(player, center, true);
+                            }
+                            continue;
+                        }
+
+                        CollisionResult result = checkPlannedShellCollision(player, loc, klatka, manager, center);
 
                         if (result.teleportCenter) {
                             teleportToCenter(player, center, true);
@@ -96,8 +100,8 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         if (!result.clamped) continue;
 
-                        // ✅ Ustaw velocity PRZED teleportem
                         Vector vel = player.getVelocity().clone();
+
                         if (result.blockX && ((result.newX < loc.getX() && vel.getX() > 0) || (result.newX > loc.getX() && vel.getX() < 0))) {
                             vel.setX(0);
                         }
@@ -107,9 +111,9 @@ public class HydroKlatkaMovementListener implements Listener {
                         if (result.blockZ && ((result.newZ < loc.getZ() && vel.getZ() > 0) || (result.newZ > loc.getZ() && vel.getZ() < 0))) {
                             vel.setZ(0);
                         }
+
                         player.setVelocity(vel);
 
-                        // ✅ Miniteleportacja do środka / do góry / do tyłu
                         Location safe = new Location(
                                 loc.getWorld(),
                                 result.newX,
@@ -120,7 +124,6 @@ public class HydroKlatkaMovementListener implements Listener {
                         );
                         player.teleport(safe);
 
-                        // ✅ Ustaw velocity PO teleporcie jeszcze raz
                         vel = player.getVelocity().clone();
                         if (result.blockX && ((result.newX < loc.getX() && vel.getX() > 0) || (result.newX > loc.getX() && vel.getX() < 0))) {
                             vel.setX(0);
@@ -140,32 +143,20 @@ public class HydroKlatkaMovementListener implements Listener {
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    // ==================== VIRTUAL BARRIER ====================
+    // ==================== KOLIZJA Z PLANNED SHELL ====================
 
-    /**
-     * ✅ Serce mechaniki.
-     *
-     * Działa tak:
-     * - bierze hitbox gracza
-     * - sprawdza czy któryś punkt hitboxa wszedł w shell block
-     * - ale blokuje tylko jeśli wszedł GŁĘBIEJ niż "bariera" na zewnętrznej 1/4
-     * - jeśli bardzo głęboko wszedł → teleport na środek
-     *
-     * Bariera działa tylko dla trappedPlayers.
-     * Gracze spoza trappedPlayers nie są tu sprawdzani.
-     */
-    private CollisionResult checkVirtualBarrier(Player player,
-                                                ActiveHydroKlatka klatka,
-                                                HydroKlatkaManager manager,
-                                                Location center) {
-        Location loc = player.getLocation();
+    private CollisionResult checkPlannedShellCollision(Player player,
+                                                       Location loc,
+                                                       ActiveHydroKlatka klatka,
+                                                       HydroKlatkaManager manager,
+                                                       Location center) {
         double px = loc.getX();
         double py = loc.getY();
         double pz = loc.getZ();
 
         CollisionResult result = new CollisionResult(px, py, pz);
 
-        // Punkty hitboxa do sprawdzenia
+        // Punkty hitboxa
         double[] xs = {px, px + HALF_W, px - HALF_W};
         double[] ys = {py, py + HEIGHT * 0.5, py + HEIGHT};
         double[] zs = {pz, pz + HALF_W, pz - HALF_W};
@@ -178,9 +169,8 @@ public class HydroKlatkaMovementListener implements Listener {
                     int bz = (int) Math.floor(cz);
 
                     Location blockLoc = new Location(center.getWorld(), bx, by, bz);
-                    if (!isShellOrPlannedShell(blockLoc, klatka, manager)) continue;
+                    if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
-                    // ✅ Określ dominującą oś tego shell bloku względem centrum
                     double dx = (bx + 0.5) - center.getX();
                     double dy = (by + 0.5) - center.getY();
                     double dz = (bz + 0.5) - center.getZ();
@@ -189,117 +179,93 @@ public class HydroKlatkaMovementListener implements Listener {
                     double ady = Math.abs(dy);
                     double adz = Math.abs(dz);
 
-                    // ==================== OŚ X ====================
+                    // Dominująca oś danego bloku shella
                     if (adx >= ady && adx >= adz) {
+                        // ==================== OŚ X ====================
                         if (dx > 0) {
-                            // Shell po prawej stronie klatki
-                            // Wewnętrzna strona bloku = x=bx
-                            // Bariera = bx+0.75
-                            double rightEdge = cx;
-                            double penetration = rightEdge - bx;
+                            // shell po prawej od środka
+                            double penetration = cx - bx;
 
-                            if (penetration >= OUTER_QUARTER_POSITIVE + TELEPORT_EXTRA_PENETRATION) {
+                            if (penetration >= TELEPORT_POSITIVE) {
                                 result.teleportCenter = true;
                                 return result;
                             }
-
-                            if (penetration >= OUTER_QUARTER_POSITIVE) {
+                            if (penetration >= BARRIER_POSITIVE) {
                                 result.clamped = true;
                                 result.blockX = true;
-                                // cofnij do bx+0.75-0.10
-                                result.newX = Math.min(result.newX, bx + OUTER_QUARTER_POSITIVE - PUSHBACK);
+                                result.newX = Math.min(result.newX, bx + BARRIER_POSITIVE - HALF_W - PUSHBACK);
                             }
                         } else {
-                            // Shell po lewej stronie klatki
-                            // Wewnętrzna strona bloku = x=bx+1
-                            // Bariera = bx+0.25
-                            double leftEdge = cx;
-                            double penetration = (bx + 1.0) - leftEdge;
+                            // shell po lewej od środka
+                            double penetration = (bx + 1.0) - cx;
 
-                            if (penetration >= (1.0 - OUTER_QUARTER_NEGATIVE) + TELEPORT_EXTRA_PENETRATION) {
+                            if (penetration >= (1.0 - TELEPORT_NEGATIVE)) {
                                 result.teleportCenter = true;
                                 return result;
                             }
-
-                            if (penetration >= (1.0 - OUTER_QUARTER_NEGATIVE)) {
+                            if (penetration >= (1.0 - BARRIER_NEGATIVE)) {
                                 result.clamped = true;
                                 result.blockX = true;
-                                result.newX = Math.max(result.newX, bx + OUTER_QUARTER_NEGATIVE + PUSHBACK);
+                                result.newX = Math.max(result.newX, bx + BARRIER_NEGATIVE + HALF_W + PUSHBACK);
                             }
                         }
-                    }
-
-                    // ==================== OŚ Y ====================
-                    else if (ady >= adx && ady >= adz) {
+                    } else if (ady >= adx && ady >= adz) {
+                        // ==================== OŚ Y ====================
                         if (dy > 0) {
-                            // Shell nad środkiem klatki
-                            // Wewnętrzna strona bloku = y=by
-                            // Bariera = by+0.75
-                            double head = cy;
-                            double penetration = head - by;
+                            // shell nad środkiem
+                            double penetration = cy - by;
 
-                            if (penetration >= OUTER_QUARTER_POSITIVE + TELEPORT_EXTRA_PENETRATION) {
+                            if (penetration >= TELEPORT_POSITIVE) {
                                 result.teleportCenter = true;
                                 return result;
                             }
-
-                            if (penetration >= OUTER_QUARTER_POSITIVE) {
+                            if (penetration >= BARRIER_POSITIVE) {
                                 result.clamped = true;
                                 result.blockY = true;
-                                result.newY = Math.min(result.newY, by + OUTER_QUARTER_POSITIVE - HEIGHT - PUSHBACK);
+                                result.newY = Math.min(result.newY, by + BARRIER_POSITIVE - HEIGHT - PUSHBACK);
                             }
                         } else {
-                            // Shell pod środkiem klatki
-                            // Wewnętrzna strona bloku = y=by+1
-                            // Bariera = by+0.25
-                            double feet = cy;
-                            double penetration = (by + 1.0) - feet;
+                            // shell pod środkiem
+                            double penetration = (by + 1.0) - cy;
 
-                            if (penetration >= (1.0 - OUTER_QUARTER_NEGATIVE) + TELEPORT_EXTRA_PENETRATION) {
+                            if (penetration >= (1.0 - TELEPORT_NEGATIVE)) {
                                 result.teleportCenter = true;
                                 return result;
                             }
-
-                            if (penetration >= (1.0 - OUTER_QUARTER_NEGATIVE)) {
+                            if (penetration >= (1.0 - BARRIER_NEGATIVE)) {
                                 result.clamped = true;
                                 result.blockY = true;
-                                // ✅ Wypycha do góry nad shell
-                                result.newY = Math.max(result.newY, by + OUTER_QUARTER_NEGATIVE + PUSHBACK);
+                                // ✅ wyrzuć lekko do góry
+                                result.newY = Math.max(result.newY, by + BARRIER_NEGATIVE + PUSHBACK);
                             }
                         }
-                    }
-
-                    // ==================== OŚ Z ====================
-                    else {
+                    } else {
+                        // ==================== OŚ Z ====================
                         if (dz > 0) {
-                            // Shell z przodu
-                            double front = cz;
-                            double penetration = front - bz;
+                            // shell z przodu
+                            double penetration = cz - bz;
 
-                            if (penetration >= OUTER_QUARTER_POSITIVE + TELEPORT_EXTRA_PENETRATION) {
+                            if (penetration >= TELEPORT_POSITIVE) {
                                 result.teleportCenter = true;
                                 return result;
                             }
-
-                            if (penetration >= OUTER_QUARTER_POSITIVE) {
+                            if (penetration >= BARRIER_POSITIVE) {
                                 result.clamped = true;
                                 result.blockZ = true;
-                                result.newZ = Math.min(result.newZ, bz + OUTER_QUARTER_POSITIVE - PUSHBACK);
+                                result.newZ = Math.min(result.newZ, bz + BARRIER_POSITIVE - HALF_W - PUSHBACK);
                             }
                         } else {
-                            // Shell z tyłu
-                            double back = cz;
-                            double penetration = (bz + 1.0) - back;
+                            // shell z tyłu
+                            double penetration = (bz + 1.0) - cz;
 
-                            if (penetration >= (1.0 - OUTER_QUARTER_NEGATIVE) + TELEPORT_EXTRA_PENETRATION) {
+                            if (penetration >= (1.0 - TELEPORT_NEGATIVE)) {
                                 result.teleportCenter = true;
                                 return result;
                             }
-
-                            if (penetration >= (1.0 - OUTER_QUARTER_NEGATIVE)) {
+                            if (penetration >= (1.0 - BARRIER_NEGATIVE)) {
                                 result.clamped = true;
                                 result.blockZ = true;
-                                result.newZ = Math.max(result.newZ, bz + OUTER_QUARTER_NEGATIVE + PUSHBACK);
+                                result.newZ = Math.max(result.newZ, bz + BARRIER_NEGATIVE + HALF_W + PUSHBACK);
                             }
                         }
                     }
@@ -310,20 +276,41 @@ public class HydroKlatkaMovementListener implements Listener {
         return result;
     }
 
-    // ==================== SHELL CHECK ====================
+    // ==================== SHELL CHECKI ====================
 
-    /**
-     * ✅ Tylko:
-     * - zbudowany shell (BLUE_GLAZED_TERRACOTTA)
-     * - planned shell podczas animacji
-     *
-     * Żadnych fake barier, żadnych inner blocków.
-     */
-    private boolean isShellOrPlannedShell(Location blockLoc,
-                                          ActiveHydroKlatka klatka,
-                                          HydroKlatkaManager manager) {
-        if (manager.isShellBlock(blockLoc)) return true;
-        return !klatka.isAnimationComplete() && klatka.isPlannedShellLocation(blockLoc);
+    private boolean isPlannedShellOnly(Location blockLoc,
+                                       ActiveHydroKlatka klatka,
+                                       HydroKlatkaManager manager) {
+        if (manager.isShellBlock(blockLoc)) return false;
+        if (klatka.isAnimationComplete()) return false;
+        return klatka.isPlannedShellLocation(blockLoc);
+    }
+
+    private boolean isInsideBuiltShell(Location loc,
+                                       ActiveHydroKlatka klatka,
+                                       HydroKlatkaManager manager) {
+        double px = loc.getX();
+        double py = loc.getY();
+        double pz = loc.getZ();
+
+        double[] xs = {px, px + HALF_W, px - HALF_W};
+        double[] ys = {py, py + HEIGHT * 0.5, py + HEIGHT};
+        double[] zs = {pz, pz + HALF_W, pz - HALF_W};
+
+        for (double cx : xs) {
+            for (double cy : ys) {
+                for (double cz : zs) {
+                    int bx = (int) Math.floor(cx);
+                    int by = (int) Math.floor(cy);
+                    int bz = (int) Math.floor(cz);
+                    Location blockLoc = new Location(loc.getWorld(), bx, by, bz);
+                    if (manager.isShellBlock(blockLoc)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     // ==================== TELEPORT NA ŚRODEK ====================
@@ -355,7 +342,6 @@ public class HydroKlatkaMovementListener implements Listener {
         Location to = event.getTo();
         if (to == null) return;
 
-        // ignoruj sam obrót
         if (from.getBlockX() == to.getBlockX()
                 && from.getBlockY() == to.getBlockY()
                 && from.getBlockZ() == to.getBlockZ()) {
@@ -367,7 +353,70 @@ public class HydroKlatkaMovementListener implements Listener {
 
         if (plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions)) {
             manager.removePlayerFromKlatka(player);
+            return;
         }
+
+        if (!klatka.isAnimationComplete()
+                && wouldHitPlannedShell(to, klatka, manager)
+                && !wouldHitPlannedShell(from, klatka, manager)) {
+            Location stuck = from.clone();
+            stuck.setYaw(to.getYaw());
+            stuck.setPitch(to.getPitch());
+            event.setTo(stuck);
+            feedback(player);
+        }
+    }
+
+    private boolean wouldHitPlannedShell(Location loc,
+                                         ActiveHydroKlatka klatka,
+                                         HydroKlatkaManager manager) {
+        Location center = klatka.getCenter();
+
+        double px = loc.getX();
+        double py = loc.getY();
+        double pz = loc.getZ();
+
+        double[] xs = {px, px + HALF_W, px - HALF_W};
+        double[] ys = {py, py + HEIGHT * 0.5, py + HEIGHT};
+        double[] zs = {pz, pz + HALF_W, pz - HALF_W};
+
+        for (double cx : xs) {
+            for (double cy : ys) {
+                for (double cz : zs) {
+                    int bx = (int) Math.floor(cx);
+                    int by = (int) Math.floor(cy);
+                    int bz = (int) Math.floor(cz);
+
+                    Location blockLoc = new Location(center.getWorld(), bx, by, bz);
+                    if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
+
+                    double dx = (bx + 0.5) - center.getX();
+                    double dy = (by + 0.5) - center.getY();
+                    double dz = (bz + 0.5) - center.getZ();
+
+                    double adx = Math.abs(dx);
+                    double ady = Math.abs(dy);
+                    double adz = Math.abs(dz);
+
+                    double penetration;
+                    if (adx >= ady && adx >= adz) {
+                        penetration = dx > 0 ? cx - bx : (bx + 1.0) - cx;
+                        if (dx > 0 && penetration >= BARRIER_POSITIVE) return true;
+                        if (dx < 0 && penetration >= (1.0 - BARRIER_NEGATIVE)) return true;
+                    } else if (ady >= adx && ady >= adz) {
+                        penetration = dy > 0 ? cy - by : (by + 1.0) - cy;
+                        if (dy > 0 && penetration >= BARRIER_POSITIVE) return true;
+                        if (dy < 0 && penetration >= (1.0 - BARRIER_NEGATIVE)) return true;
+                    } else {
+                        penetration = dz > 0 ? cz - bz : (bz + 1.0) - cz;
+                        if (dz > 0 && penetration >= BARRIER_POSITIVE) return true;
+                        if (dz < 0 && penetration >= (1.0 - BARRIER_NEGATIVE)) return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     // ==================== TELEPORT EVENT ====================
@@ -397,7 +446,7 @@ public class HydroKlatkaMovementListener implements Listener {
     private void feedback(Player player) {
         long now = System.currentTimeMillis();
         Long last = lastFeedback.get(player.getUniqueId());
-        if (last != null && now - last < FEEDBACK_MS) return;
+        if (last != null && now - last < FEEDBACK_COOLDOWN_MS) return;
 
         lastFeedback.put(player.getUniqueId(), now);
 
@@ -424,9 +473,9 @@ public class HydroKlatkaMovementListener implements Listener {
     }
 
     public void stopTasks() {
-        if (task != null) {
-            task.cancel();
-            task = null;
+        if (clampTask != null) {
+            clampTask.cancel();
+            clampTask = null;
         }
         lastFeedback.clear();
     }
