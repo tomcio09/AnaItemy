@@ -135,7 +135,6 @@ public class HydroKlatkaMovementListener implements Listener {
     }
 
     // ==================== KOLIZJA Z PLANNED SHELL ====================
-
     private CollisionResult checkPlannedShellCollision(Location loc,
                                                        ActiveHydroKlatka klatka,
                                                        HydroKlatkaManager manager,
@@ -148,7 +147,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
         int minBX = (int) Math.floor(px - HALF_W) - 1;
         int maxBX = (int) Math.floor(px + HALF_W) + 1;
-        int minBY = (int) Math.floor(py) - 1;
+        int minBY = (int) Math.floor(py) - 2;
         int maxBY = (int) Math.floor(py + HEIGHT) + 1;
         int minBZ = (int) Math.floor(pz - HALF_W) - 1;
         int maxBZ = (int) Math.floor(pz + HALF_W) + 1;
@@ -159,126 +158,156 @@ public class HydroKlatkaMovementListener implements Listener {
                     Location blockLoc = new Location(center.getWorld(), bx, by, bz);
                     if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
+                    // ✅ Hitbox gracza: [px-0.3, px+0.3] x [py, py+1.8] x [pz-0.3, pz+0.3]
+                    // Blok: [bx, bx+1] x [by, by+1] x [bz, bz+1]
+
                     boolean overlapX = (px + HALF_W > bx) && (px - HALF_W < bx + 1.0);
-                    boolean overlapY = (py + HEIGHT > by) && (py < by + 1.0);
                     boolean overlapZ = (pz + HALF_W > bz) && (pz - HALF_W < bz + 1.0);
-                    if (!overlapX || !overlapY || !overlapZ) continue;
 
-                    double dx = (bx + 0.5) - center.getX();
-                    double dy = (by + 0.5) - center.getY();
-                    double dz = (bz + 0.5) - center.getZ();
+                    // ==================== DÓŁ ====================
+                    // Stopy gracza (py) spadają w blok shella
+                    // Bariera na górnej krawędzi bloku (by + 1.0) minus offset
+                    if (overlapX && overlapZ) {
+                        double blockTop = by + 1.0;
+                        // Gracz jest NAD blokiem lub wchodzi w niego od góry
+                        if (py < blockTop && py > by - 0.5) {
+                            // Stopy gracza weszły poniżej górnej krawędzi bloku
+                            double penetrationFromTop = blockTop - py;
 
-                    // ==================== OŚ Y ====================
+                            if (penetrationFromTop > 0 && penetrationFromTop < 1.5) {
+                                if (penetrationFromTop > 0.6) {
+                                    // Głęboko — teleport na środek
+                                    result.teleportCenter = true;
+                                    return result;
+                                }
+                                // ✅ Cofnij na górę bloku + pushback
+                                result.clamped = true;
+                                result.blockY = true;
+                                double safeY = blockTop + PUSHBACK;
+                                result.newY = Math.max(result.newY, safeY);
+                            }
+                        }
+                    }
 
-                    if (dy > 0) {
-                        // shell NAD środkiem
+                    // ==================== GÓRA ====================
+                    // Głowa gracza (py + HEIGHT) uderza w blok shella od dołu
+                    if (overlapX && overlapZ) {
+                        double blockBottom = by;
                         double playerTop = py + HEIGHT;
-                        double barrier = by + BARRIER_POSITIVE;
-                        double teleportLine = by + TELEPORT_POSITIVE;
 
-                        if (playerTop >= teleportLine) {
-                            result.teleportCenter = true;
-                            return result;
-                        }
-                        if (playerTop >= barrier) {
-                            result.clamped = true;
-                            result.blockY = true;
-                            double safeY = barrier - HEIGHT - PUSHBACK;
-                            result.newY = Math.min(result.newY, safeY);
-                        }
-                    }
+                        if (playerTop > blockBottom && playerTop < by + 1.5) {
+                            double penetrationFromBottom = playerTop - blockBottom;
 
-                    if (dy < 0) {
-                        // shell POD środkiem
-                        double playerBottom = py;
-                        double barrier = by + BARRIER_NEGATIVE;
-                        double teleportLine = by + TELEPORT_NEGATIVE;
-
-                        if (playerBottom <= teleportLine) {
-                            result.teleportCenter = true;
-                            return result;
-                        }
-                        if (playerBottom <= barrier) {
-                            result.clamped = true;
-                            result.blockY = true;
-                            double safeY = barrier + PUSHBACK;
-                            result.newY = Math.max(result.newY, safeY);
+                            if (penetrationFromBottom > 0 && penetrationFromBottom < 1.5) {
+                                if (penetrationFromBottom > 0.6) {
+                                    result.teleportCenter = true;
+                                    return result;
+                                }
+                                result.clamped = true;
+                                result.blockY = true;
+                                double safeY = blockBottom - HEIGHT - PUSHBACK;
+                                result.newY = Math.min(result.newY, safeY);
+                            }
                         }
                     }
 
-                    // ==================== OŚ X ====================
+                    boolean overlapY = (py + HEIGHT > by) && (py < by + 1.0);
 
-                    if (dx > 0) {
-                        // shell po PRAWEJ
+                    // ==================== PRAWO (+X) ====================
+                    // Prawa krawędź hitboxa wchodzi w blok shella od lewej strony
+                    if (overlapY && overlapZ) {
                         double playerRight = px + HALF_W;
-                        double barrier = bx + BARRIER_POSITIVE;
-                        double teleportLine = bx + TELEPORT_POSITIVE;
+                        double blockLeft = bx;
 
-                        if (playerRight >= teleportLine) {
-                            result.teleportCenter = true;
-                            return result;
-                        }
-                        if (playerRight >= barrier) {
-                            result.clamped = true;
-                            result.blockX = true;
-                            double safeX = barrier - HALF_W - PUSHBACK;
-                            result.newX = Math.min(result.newX, safeX);
+                        if (playerRight > blockLeft && playerRight < bx + 1.0) {
+                            double penetration = playerRight - blockLeft;
+
+                            if (penetration > 0 && penetration < 1.0) {
+                                // Sprawdź czy gracz idzie OD ŚRODKA (na zewnątrz)
+                                double dx = (bx + 0.5) - center.getX();
+                                if (dx > 0) {
+                                    if (penetration > 0.6) {
+                                        result.teleportCenter = true;
+                                        return result;
+                                    }
+                                    result.clamped = true;
+                                    result.blockX = true;
+                                    double safeX = blockLeft - HALF_W - PUSHBACK;
+                                    result.newX = Math.min(result.newX, safeX);
+                                }
+                            }
                         }
                     }
 
-                    if (dx < 0) {
-                        // shell po LEWEJ
+                    // ==================== LEWO (-X) ====================
+                    if (overlapY && overlapZ) {
                         double playerLeft = px - HALF_W;
-                        double barrier = bx + BARRIER_NEGATIVE;
-                        double teleportLine = bx + TELEPORT_NEGATIVE;
+                        double blockRight = bx + 1.0;
 
-                        if (playerLeft <= teleportLine) {
-                            result.teleportCenter = true;
-                            return result;
-                        }
-                        if (playerLeft <= barrier) {
-                            result.clamped = true;
-                            result.blockX = true;
-                            double safeX = barrier + HALF_W + PUSHBACK;
-                            result.newX = Math.max(result.newX, safeX);
+                        if (playerLeft < blockRight && playerLeft > bx) {
+                            double penetration = blockRight - playerLeft;
+
+                            if (penetration > 0 && penetration < 1.0) {
+                                double dx = (bx + 0.5) - center.getX();
+                                if (dx < 0) {
+                                    if (penetration > 0.6) {
+                                        result.teleportCenter = true;
+                                        return result;
+                                    }
+                                    result.clamped = true;
+                                    result.blockX = true;
+                                    double safeX = blockRight + HALF_W + PUSHBACK;
+                                    result.newX = Math.max(result.newX, safeX);
+                                }
+                            }
                         }
                     }
 
-                    // ==================== OŚ Z ====================
-
-                    if (dz > 0) {
-                        // shell z PRZODU
+                    // ==================== PRZÓD (+Z) ====================
+                    if (overlapY && overlapX) {
                         double playerFront = pz + HALF_W;
-                        double barrier = bz + BARRIER_POSITIVE;
-                        double teleportLine = bz + TELEPORT_POSITIVE;
+                        double blockFront = bz;
 
-                        if (playerFront >= teleportLine) {
-                            result.teleportCenter = true;
-                            return result;
-                        }
-                        if (playerFront >= barrier) {
-                            result.clamped = true;
-                            result.blockZ = true;
-                            double safeZ = barrier - HALF_W - PUSHBACK;
-                            result.newZ = Math.min(result.newZ, safeZ);
+                        if (playerFront > blockFront && playerFront < bz + 1.0) {
+                            double penetration = playerFront - blockFront;
+
+                            if (penetration > 0 && penetration < 1.0) {
+                                double dz = (bz + 0.5) - center.getZ();
+                                if (dz > 0) {
+                                    if (penetration > 0.6) {
+                                        result.teleportCenter = true;
+                                        return result;
+                                    }
+                                    result.clamped = true;
+                                    result.blockZ = true;
+                                    double safeZ = blockFront - HALF_W - PUSHBACK;
+                                    result.newZ = Math.min(result.newZ, safeZ);
+                                }
+                            }
                         }
                     }
 
-                    if (dz < 0) {
-                        // shell z TYŁU
+                    // ==================== TYŁ (-Z) ====================
+                    if (overlapY && overlapX) {
                         double playerBack = pz - HALF_W;
-                        double barrier = bz + BARRIER_NEGATIVE;
-                        double teleportLine = bz + TELEPORT_NEGATIVE;
+                        double blockBack = bz + 1.0;
 
-                        if (playerBack <= teleportLine) {
-                            result.teleportCenter = true;
-                            return result;
-                        }
-                        if (playerBack <= barrier) {
-                            result.clamped = true;
-                            result.blockZ = true;
-                            double safeZ = barrier + HALF_W + PUSHBACK;
-                            result.newZ = Math.max(result.newZ, safeZ);
+                        if (playerBack < blockBack && playerBack > bz) {
+                            double penetration = blockBack - playerBack;
+
+                            if (penetration > 0 && penetration < 1.0) {
+                                double dz = (bz + 0.5) - center.getZ();
+                                if (dz < 0) {
+                                    if (penetration > 0.6) {
+                                        result.teleportCenter = true;
+                                        return result;
+                                    }
+                                    result.clamped = true;
+                                    result.blockZ = true;
+                                    double safeZ = blockBack + HALF_W + PUSHBACK;
+                                    result.newZ = Math.max(result.newZ, safeZ);
+                                }
+                            }
                         }
                     }
                 }
