@@ -37,10 +37,14 @@ public class HydroKlatkaMovementListener implements Listener {
     private static final double HALF_W = 0.30;
     private static final double HEIGHT = 1.80;
 
-    // ✅ BARIERA 2 BLOKI PRZED SHELLEM
-    private static final int BARRIER_DISTANCE = 2; // Ile bloków przed shellem zatrzymać gracza
-    private static final double PUSHBACK_STRONG = 1.5; // Mocne cofnięcie
-    private static final double BOUNCE_VELOCITY = 0.25; // Mocniejszy impuls odrzutu
+    // Ile bloków przed shellem zatrzymujemy gracza
+    // ZMIEŃ TĘ WARTOŚĆ ABY TESTOWAĆ:
+    // 0.0 = dokładnie przy shellu
+    // 1.0 = 1 blok przed shellem
+    // 2.0 = 2 bloki przed shellem
+    private static final double BARRIER_OFFSET_HORIZONTAL = 2.0; // boki
+    private static final double BARRIER_OFFSET_DOWN       = 0.1; // dół (przy shellu)
+    private static final double BARRIER_OFFSET_UP         = 0.1; // góra (przy shellu)
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
     private BukkitTask clampTask;
@@ -68,13 +72,12 @@ public class HydroKlatkaMovementListener implements Listener {
                         Location loc = player.getLocation();
                         if (!loc.getWorld().equals(center.getWorld())) continue;
 
-                        // ✅ Twardy exploit
+                        // Twardy exploit check
                         if (loc.distance(center) > klatka.getRadius() + 2.5) {
                             teleportToCenter(player, center, true);
                             continue;
                         }
 
-                        // ✅ Po animacji MC blokuje shell, my tylko ratujemy gdy gracz utknie
                         if (klatka.isAnimationComplete()) {
                             if (isInsideBuiltShell(loc, manager)) {
                                 teleportToCenter(player, center, true);
@@ -91,14 +94,14 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         if (!result.clamped) continue;
 
-                        // ✅ AGRESYWNE ZATRZYMANIE
-                        Location old = player.getLocation();
+                        // Zapamiętaj velocity przed zerowaniem
                         Vector vel = player.getVelocity().clone();
 
-                        // Najpierw wyzeruj velocity
+                        // Zeruj velocity
                         player.setVelocity(new Vector(0, 0, 0));
 
                         // Teleportuj do bezpiecznej pozycji
+                        Location old = player.getLocation();
                         Location safe = new Location(
                                 old.getWorld(),
                                 result.newX,
@@ -109,30 +112,25 @@ public class HydroKlatkaMovementListener implements Listener {
                         );
                         player.teleport(safe);
 
-                        // ✅ Dodaj impuls ODRZUTU w kierunku centrum
+                        // Daj mały impuls odrzutu w kierunku centrum
                         Vector bounce = new Vector(0, 0, 0);
-                        
                         if (result.blockX) {
-                            double dirToCenter = center.getX() - result.newX;
-                            bounce.setX(Math.signum(dirToCenter) * BOUNCE_VELOCITY);
+                            double dir = center.getX() - result.newX;
+                            bounce.setX(Math.signum(dir) * 0.15);
                         }
-                        
+                        if (result.blockZ) {
+                            double dir = center.getZ() - result.newZ;
+                            bounce.setZ(Math.signum(dir) * 0.15);
+                        }
                         if (result.blockY) {
-                            // Jeśli gracz został zatrzymany podczas spadania - daj mocny impuls w górę
-                            if (vel.getY() < -0.1) {
-                                bounce.setY(BOUNCE_VELOCITY * 2.0); // Bardzo mocny impuls w górę
-                            } else if (result.newY < old.getY()) {
-                                bounce.setY(-BOUNCE_VELOCITY * 0.3);
-                            } else {
-                                bounce.setY(BOUNCE_VELOCITY * 0.5); // Delikatny impuls w górę
+                            // Jeśli gracz spadał - zatrzymaj i daj MOCNY impuls w górę
+                            if (vel.getY() < 0) {
+                                bounce.setY(0.3);
+                            } else if (vel.getY() > 0) {
+                                // Uderzył w sufit - lekko w dół
+                                bounce.setY(-0.1);
                             }
                         }
-                        
-                        if (result.blockZ) {
-                            double dirToCenter = center.getZ() - result.newZ;
-                            bounce.setZ(Math.signum(dirToCenter) * BOUNCE_VELOCITY);
-                        }
-
                         player.setVelocity(bounce);
 
                         feedback(player);
@@ -142,7 +140,8 @@ public class HydroKlatkaMovementListener implements Listener {
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    // ==================== KOLIZJA Z PLANNED SHELL (BARIERA 2 BLOKI PRZED) ====================
+    // ==================== KOLIZJA Z PLANNED SHELL ====================
+
     private CollisionResult checkPlannedShellCollision(Location loc,
                                                        ActiveHydroKlatka klatka,
                                                        HydroKlatkaManager manager,
@@ -153,39 +152,40 @@ public class HydroKlatkaMovementListener implements Listener {
 
         CollisionResult result = new CollisionResult(px, py, pz);
 
-        // ==================== OŚ Y: DÓŁ (spadanie) - BARIERA 2 BLOKI NAD SHELLEM ====================
+        // ==================== OŚ Y: DÓŁ ====================
+        // Logika: szukamy shella PONIŻEJ gracza skanując od stóp gracza w dół.
+        // Bariera = górna krawędź shella + BARRIER_OFFSET_DOWN
         {
             int[] footXBlocks = getFootBlocksX(px);
             int[] footZBlocks = getFootBlocksZ(pz);
 
             for (int checkX : footXBlocks) {
                 for (int checkZ : footZBlocks) {
-                    // ✅ Skanuj więcej bloków w dół
-                    for (int checkY = (int) Math.floor(py) + 2; checkY >= (int) Math.floor(py) - 8; checkY--) {
+                    // Skanuj od stóp gracza w dół - szukamy pierwszego shella
+                    for (int checkY = (int) Math.floor(py); checkY >= (int) Math.floor(py) - 8; checkY--) {
                         Location blockLoc = new Location(center.getWorld(), checkX, checkY, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
-                        // ✅ ZNALEZIONO SHELL - ZATRZYMAJ GRACZA 2 BLOKI WYŻEJ
+                        // Górna krawędź znalezionego shella
                         double shellTop = checkY + 1.0;
-                        double barrierY = shellTop + BARRIER_DISTANCE; // 2 bloki nad shellem
+                        // Bariera - tuż przy shellu
+                        double barrierY = shellTop + BARRIER_OFFSET_DOWN;
 
-                        // Zatrzymaj gracza jeśli jest poniżej bariery
-                        if (py < barrierY + 0.5) {
+                        // Gracz jest przy/poniżej bariery?
+                        if (py <= barrierY) {
                             result.clamped = true;
                             result.blockY = true;
-                            result.pushedUp = true;
-                            // ✅ Postaw gracza NA barierze (2 bloki nad shellem)
-                            double safeY = barrierY + PUSHBACK_STRONG;
-                            result.newY = Math.max(result.newY, safeY);
+                            result.newY = Math.max(result.newY, barrierY);
                         }
-
-                        break;
+                        break; // Bierzemy tylko pierwszy shell od dołu
                     }
                 }
             }
         }
 
-        // ==================== OŚ Y: GÓRA (lot w górę) - BARIERA 2 BLOKI POD SHELLEM ====================
+        // ==================== OŚ Y: GÓRA ====================
+        // Logika: szukamy shella POWYŻEJ głowy gracza skanując w górę.
+        // Bariera = dolna krawędź shella - HEIGHT - BARRIER_OFFSET_UP
         {
             int[] footXBlocks = getFootBlocksX(px);
             int[] footZBlocks = getFootBlocksZ(pz);
@@ -193,144 +193,153 @@ public class HydroKlatkaMovementListener implements Listener {
             for (int checkX : footXBlocks) {
                 for (int checkZ : footZBlocks) {
                     int headBlockY = (int) Math.floor(py + HEIGHT);
-                    for (int checkY = headBlockY - 2; checkY <= headBlockY + 5; checkY++) {
+                    for (int checkY = headBlockY; checkY <= headBlockY + 6; checkY++) {
                         Location blockLoc = new Location(center.getWorld(), checkX, checkY, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
+                        // Dolna krawędź znalezionego shella
                         double shellBottom = checkY;
-                        double barrierY = shellBottom - BARRIER_DISTANCE; // 2 bloki pod shellem
-                        double playerTop = py + HEIGHT;
+                        // Bariera - tuż przy shellu
+                        double barrierMaxY = shellBottom - HEIGHT - BARRIER_OFFSET_UP;
 
-                        if (playerTop > barrierY - 0.5) {
+                        double playerTop = py + HEIGHT;
+                        if (playerTop >= shellBottom - BARRIER_OFFSET_UP) {
                             result.clamped = true;
                             result.blockY = true;
-                            double safeY = barrierY - HEIGHT - PUSHBACK_STRONG;
-                            result.newY = Math.min(result.newY, safeY);
+                            result.newY = Math.min(result.newY, barrierMaxY);
                         }
-
                         break;
                     }
                 }
             }
         }
 
-        // ==================== OŚ X: BOKI - BARIERA 2 BLOKI PRZED SHELLEM ====================
+        // ==================== OŚ X: PRAWO (+X) ====================
+        // Logika: Szukamy shella na PRAWO od gracza.
+        // Skanujemy od pozycji gracza w prawo, bierzemy PIERWSZY shell.
+        // Bariera = lewa krawędź shella - BARRIER_OFFSET_HORIZONTAL
         {
             int minBY = (int) Math.floor(py);
-            int maxBY = (int) Math.floor(py + HEIGHT);
+            int maxBY = (int) Math.floor(py + HEIGHT - 0.01);
 
             for (int by = minBY; by <= maxBY; by++) {
-                boolean overlapY = (py + HEIGHT > by) && (py < by + 1.0);
-                if (!overlapY) continue;
+                int[] zBlocks = getFootBlocksZ(pz);
+                for (int checkZ : zBlocks) {
+                    // Skanuj w prawo od gracza
+                    int startX = (int) Math.floor(px);
+                    for (int scanX = startX; scanX <= startX + 8; scanX++) {
+                        Location blockLoc = new Location(center.getWorld(), scanX, by, checkZ);
+                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
-                // ✅ +X: sprawdź shell po prawej i zatrzymaj gracza 2 bloki PRZED nim
-                {
-                    int[] zBlocks = getFootBlocksZ(pz);
-                    for (int checkZ : zBlocks) {
-                        // Skanuj 5 bloków w prawo
-                        for (int scanX = (int) Math.floor(px); scanX <= (int) Math.floor(px) + 5; scanX++) {
-                            Location blockLoc = new Location(center.getWorld(), scanX, by, checkZ);
-                            if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
+                        // Lewa krawędź znalezionego shella
+                        double shellLeft = scanX;
+                        // Bariera 2 bloki PRZED shellem (od strony gracza)
+                        double barrierX = shellLeft - BARRIER_OFFSET_HORIZONTAL;
 
-                            // ✅ ZNALEZIONO SHELL - ustaw barierę 2 bloki przed nim
-                            double barrierX = scanX - BARRIER_DISTANCE;
-                            double playerRight = px + HALF_W;
-
-                            if (playerRight > barrierX - 0.3) {
-                                result.clamped = true;
-                                result.blockX = true;
-                                double safeX = barrierX - HALF_W - PUSHBACK_STRONG;
-                                result.newX = Math.min(result.newX, safeX);
-                            }
-                            break; // Znaleziono pierwszy shell w tym kierunku
+                        double playerRight = px + HALF_W;
+                        if (playerRight >= barrierX) {
+                            result.clamped = true;
+                            result.blockX = true;
+                            double safeX = barrierX - HALF_W;
+                            result.newX = Math.min(result.newX, safeX);
                         }
-                    }
-                }
-
-                // ✅ -X: sprawdź shell po lewej i zatrzymaj gracza 2 bloki PRZED nim
-                {
-                    int[] zBlocks = getFootBlocksZ(pz);
-                    for (int checkZ : zBlocks) {
-                        // Skanuj 5 bloków w lewo
-                        for (int scanX = (int) Math.floor(px); scanX >= (int) Math.floor(px) - 5; scanX--) {
-                            Location blockLoc = new Location(center.getWorld(), scanX, by, checkZ);
-                            if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
-
-                            // ✅ ZNALEZIONO SHELL - ustaw barierę 2 bloki przed nim
-                            double barrierX = scanX + 1.0 + BARRIER_DISTANCE;
-                            double playerLeft = px - HALF_W;
-
-                            if (playerLeft < barrierX + 0.3) {
-                                result.clamped = true;
-                                result.blockX = true;
-                                double safeX = barrierX + HALF_W + PUSHBACK_STRONG;
-                                result.newX = Math.max(result.newX, safeX);
-                            }
-                            break;
-                        }
+                        break; // Bierzemy tylko pierwszy shell
                     }
                 }
             }
         }
 
-        // ==================== OŚ Z: BOKI - BARIERA 2 BLOKI PRZED SHELLEM ====================
+        // ==================== OŚ X: LEWO (-X) ====================
         {
             int minBY = (int) Math.floor(py);
-            int maxBY = (int) Math.floor(py + HEIGHT);
+            int maxBY = (int) Math.floor(py + HEIGHT - 0.01);
 
             for (int by = minBY; by <= maxBY; by++) {
-                boolean overlapY = (py + HEIGHT > by) && (py < by + 1.0);
-                if (!overlapY) continue;
+                int[] zBlocks = getFootBlocksZ(pz);
+                for (int checkZ : zBlocks) {
+                    // Skanuj w lewo od gracza
+                    int startX = (int) Math.floor(px);
+                    for (int scanX = startX; scanX >= startX - 8; scanX--) {
+                        Location blockLoc = new Location(center.getWorld(), scanX, by, checkZ);
+                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
-                // ✅ +Z: sprawdź shell przed i zatrzymaj gracza 2 bloki PRZED nim
-                {
-                    int[] xBlocks = getFootBlocksX(px);
-                    for (int checkX : xBlocks) {
-                        // Skanuj 5 bloków do przodu
-                        for (int scanZ = (int) Math.floor(pz); scanZ <= (int) Math.floor(pz) + 5; scanZ++) {
-                            Location blockLoc = new Location(center.getWorld(), checkX, by, scanZ);
-                            if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
+                        // Prawa krawędź znalezionego shella
+                        double shellRight = scanX + 1.0;
+                        // Bariera 2 bloki PRZED shellem
+                        double barrierX = shellRight + BARRIER_OFFSET_HORIZONTAL;
 
-                            double barrierZ = scanZ - BARRIER_DISTANCE;
-                            double playerFront = pz + HALF_W;
-
-                            if (playerFront > barrierZ - 0.3) {
-                                result.clamped = true;
-                                result.blockZ = true;
-                                double safeZ = barrierZ - HALF_W - PUSHBACK_STRONG;
-                                result.newZ = Math.min(result.newZ, safeZ);
-                            }
-                            break;
+                        double playerLeft = px - HALF_W;
+                        if (playerLeft <= barrierX) {
+                            result.clamped = true;
+                            result.blockX = true;
+                            double safeX = barrierX + HALF_W;
+                            result.newX = Math.max(result.newX, safeX);
                         }
-                    }
-                }
-
-                // ✅ -Z: sprawdź shell za i zatrzymaj gracza 2 bloki PRZED nim
-                {
-                    int[] xBlocks = getFootBlocksX(px);
-                    for (int checkX : xBlocks) {
-                        // Skanuj 5 bloków do tyłu
-                        for (int scanZ = (int) Math.floor(pz); scanZ >= (int) Math.floor(pz) - 5; scanZ--) {
-                            Location blockLoc = new Location(center.getWorld(), checkX, by, scanZ);
-                            if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
-
-                            double barrierZ = scanZ + 1.0 + BARRIER_DISTANCE;
-                            double playerBack = pz - HALF_W;
-
-                            if (playerBack < barrierZ + 0.3) {
-                                result.clamped = true;
-                                result.blockZ = true;
-                                double safeZ = barrierZ + HALF_W + PUSHBACK_STRONG;
-                                result.newZ = Math.max(result.newZ, safeZ);
-                            }
-                            break;
-                        }
+                        break;
                     }
                 }
             }
         }
 
-        // ==================== EXPLOIT: Gracz poza klatką ====================
+        // ==================== OŚ Z: PRZÓD (+Z) ====================
+        {
+            int minBY = (int) Math.floor(py);
+            int maxBY = (int) Math.floor(py + HEIGHT - 0.01);
+
+            for (int by = minBY; by <= maxBY; by++) {
+                int[] xBlocks = getFootBlocksX(px);
+                for (int checkX : xBlocks) {
+                    int startZ = (int) Math.floor(pz);
+                    for (int scanZ = startZ; scanZ <= startZ + 8; scanZ++) {
+                        Location blockLoc = new Location(center.getWorld(), checkX, by, scanZ);
+                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
+
+                        double shellFront = scanZ;
+                        double barrierZ = shellFront - BARRIER_OFFSET_HORIZONTAL;
+
+                        double playerFront = pz + HALF_W;
+                        if (playerFront >= barrierZ) {
+                            result.clamped = true;
+                            result.blockZ = true;
+                            double safeZ = barrierZ - HALF_W;
+                            result.newZ = Math.min(result.newZ, safeZ);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        // ==================== OŚ Z: TYŁ (-Z) ====================
+        {
+            int minBY = (int) Math.floor(py);
+            int maxBY = (int) Math.floor(py + HEIGHT - 0.01);
+
+            for (int by = minBY; by <= maxBY; by++) {
+                int[] xBlocks = getFootBlocksX(px);
+                for (int checkX : xBlocks) {
+                    int startZ = (int) Math.floor(pz);
+                    for (int scanZ = startZ; scanZ >= startZ - 8; scanZ--) {
+                        Location blockLoc = new Location(center.getWorld(), checkX, by, scanZ);
+                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
+
+                        double shellBack = scanZ + 1.0;
+                        double barrierZ = shellBack + BARRIER_OFFSET_HORIZONTAL;
+
+                        double playerBack = pz - HALF_W;
+                        if (playerBack <= barrierZ) {
+                            result.clamped = true;
+                            result.blockZ = true;
+                            double safeZ = barrierZ + HALF_W;
+                            result.newZ = Math.max(result.newZ, safeZ);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        // ==================== EXPLOIT ====================
         if (loc.distance(center) > klatka.getRadius() + 0.5) {
             result.teleportCenter = true;
         }
@@ -338,7 +347,6 @@ public class HydroKlatkaMovementListener implements Listener {
         return result;
     }
 
-    // ✅ Zwraca bloki X pod hitboxem gracza
     private int[] getFootBlocksX(double px) {
         int left = (int) Math.floor(px - HALF_W);
         int right = (int) Math.floor(px + HALF_W);
@@ -346,7 +354,6 @@ public class HydroKlatkaMovementListener implements Listener {
         return new int[]{left, right};
     }
 
-    // ✅ Zwraca bloki Z pod hitboxem gracza
     private int[] getFootBlocksZ(double pz) {
         int back = (int) Math.floor(pz - HALF_W);
         int front = (int) Math.floor(pz + HALF_W);
@@ -398,7 +405,6 @@ public class HydroKlatkaMovementListener implements Listener {
         if (zeroVelocity) player.setVelocity(new Vector(0, 0, 0));
         player.teleport(tp);
         if (zeroVelocity) player.setVelocity(new Vector(0, 0, 0));
-
         feedback(player);
     }
 
