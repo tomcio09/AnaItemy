@@ -37,16 +37,13 @@ public class HydroKlatkaMovementListener implements Listener {
     private static final double HALF_W = 0.30;
     private static final double HEIGHT = 1.80;
 
-    // ✅ Bariera na zewnętrznej 1/4 bloku
-    private static final double BARRIER_POSITIVE = 0.60;
-    private static final double BARRIER_NEGATIVE = 0.40;
+    // ✅ Cofnięcia - osobne dla poziomych i pionowych
+    private static final double PUSHBACK_HORIZONTAL = 0.40;
+    private static final double PUSHBACK_VERTICAL_DOWN = 1.0;  // Mocniejsze dla spadania
+    private static final double PUSHBACK_VERTICAL_UP = 0.50;
 
-    // ✅ Głębiej niż to -> teleport na środek
-    private static final double TELEPORT_POSITIVE = 0.85;
-    private static final double TELEPORT_NEGATIVE = 0.15;
-
-    // ✅ Minicofnięcie
-    private static final double PUSHBACK = 0.35;
+    // ✅ Impuls odrzutu po kolizji
+    private static final double BOUNCE_VELOCITY = 0.15;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
     private BukkitTask clampTask;
@@ -97,20 +94,25 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         if (!result.clamped) continue;
 
+                        // ✅ POPRAWIONA OBSŁUGA VELOCITY
                         Location old = player.getLocation();
                         Vector vel = player.getVelocity().clone();
+                        boolean hadDownwardVelocity = vel.getY() < 0;
 
-                        if (result.blockX && ((result.newX < old.getX() && vel.getX() > 0) || (result.newX > old.getX() && vel.getX() < 0))) {
+                        // Anuluj velocity w zablokowanych osiach
+                        if (result.blockX) {
                             vel.setX(0);
                         }
-                        if (result.blockY && ((result.newY < old.getY() && vel.getY() > 0) || (result.newY > old.getY() && vel.getY() < 0))) {
+                        if (result.blockY) {
                             vel.setY(0);
                         }
-                        if (result.blockZ && ((result.newZ < old.getZ() && vel.getZ() > 0) || (result.newZ > old.getZ() && vel.getZ() < 0))) {
+                        if (result.blockZ) {
                             vel.setZ(0);
                         }
+
                         player.setVelocity(vel);
 
+                        // Teleportuj do bezpiecznej pozycji
                         Location safe = new Location(
                                 old.getWorld(),
                                 result.newX,
@@ -121,10 +123,30 @@ public class HydroKlatkaMovementListener implements Listener {
                         );
                         player.teleport(safe);
 
-                        vel = player.getVelocity().clone();
-                        if (result.blockX) vel.setX(0);
-                        if (result.blockY) vel.setY(0);
-                        if (result.blockZ) vel.setZ(0);
+                        // ✅ Dodaj impuls odrzutu + ponownie wyzeruj velocity
+                        vel = new Vector(0, 0, 0);
+                        
+                        if (result.blockX) {
+                            // Odbij w poziomie - w kierunku centrum
+                            double dirToCenter = center.getX() - result.newX;
+                            vel.setX(Math.signum(dirToCenter) * BOUNCE_VELOCITY);
+                        }
+                        
+                        if (result.blockY) {
+                            // Jeśli gracz spadał i został cofnięty w górę - dodaj impuls w górę
+                            if (hadDownwardVelocity && result.newY > old.getY()) {
+                                vel.setY(BOUNCE_VELOCITY * 1.5); // Mocniejszy impuls w górę
+                            } else if (result.newY < old.getY()) {
+                                // Gracz uderzył w sufit - lekki impuls w dół
+                                vel.setY(-BOUNCE_VELOCITY * 0.5);
+                            }
+                        }
+                        
+                        if (result.blockZ) {
+                            double dirToCenter = center.getZ() - result.newZ;
+                            vel.setZ(Math.signum(dirToCenter) * BOUNCE_VELOCITY);
+                        }
+
                         player.setVelocity(vel);
 
                         feedback(player);
@@ -146,32 +168,31 @@ public class HydroKlatkaMovementListener implements Listener {
         CollisionResult result = new CollisionResult(px, py, pz);
 
         // ==================== OŚ Y: DÓŁ (spadanie) ====================
-        // ✅ Szukaj bloków shella PONIŻEJ gracza — skanuj kolumnę w dół
-        // Sprawdź wszystkie kolumny pod hitboxem gracza (gracz może stać na 4 blokach)
         {
             int[] footXBlocks = getFootBlocksX(px);
             int[] footZBlocks = getFootBlocksZ(pz);
 
             for (int checkX : footXBlocks) {
                 for (int checkZ : footZBlocks) {
-                    // Skanuj od pozycji stóp gracza w dół (max 5 bloków)
-                    for (int checkY = (int) Math.floor(py); checkY >= (int) Math.floor(py) - 5; checkY--) {
+                    // Skanuj od pozycji stóp gracza w dół (max 6 bloków - zwiększone)
+                    for (int checkY = (int) Math.floor(py); checkY >= (int) Math.floor(py) - 6; checkY--) {
                         Location blockLoc = new Location(center.getWorld(), checkX, checkY, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
                         // ✅ Znaleziono shell pod graczem!
                         double shellTop = checkY + 1.0;
 
-                        // Gracz jest poniżej górnej krawędzi shella?
-                        if (py < shellTop + 0.1) {
-                            // ✅ Cofnij na górę bloku shella
+                        // ✅ POPRAWIONE: Szerszy margin detekcji + mocniejsze cofnięcie
+                        if (py < shellTop + 0.3) {
                             result.clamped = true;
                             result.blockY = true;
-                            double safeY = shellTop + PUSHBACK;
+                            result.pushedUp = true;
+                            // ✅ Mocniejsze cofnięcie w górę aby przeciwdziałać grawitacji
+                            double safeY = shellTop + PUSHBACK_VERTICAL_DOWN;
                             result.newY = Math.max(result.newY, safeY);
                         }
 
-                        break; // Znaleziono pierwszy shell w tej kolumnie
+                        break;
                     }
                 }
             }
@@ -184,7 +205,6 @@ public class HydroKlatkaMovementListener implements Listener {
 
             for (int checkX : footXBlocks) {
                 for (int checkZ : footZBlocks) {
-                    // Skanuj od głowy gracza w górę (max 3 bloki)
                     int headBlockY = (int) Math.floor(py + HEIGHT);
                     for (int checkY = headBlockY; checkY <= headBlockY + 3; checkY++) {
                         Location blockLoc = new Location(center.getWorld(), checkX, checkY, checkZ);
@@ -193,10 +213,10 @@ public class HydroKlatkaMovementListener implements Listener {
                         double shellBottom = checkY;
                         double playerTop = py + HEIGHT;
 
-                        if (playerTop > shellBottom - 0.1) {
+                        if (playerTop > shellBottom - 0.2) {
                             result.clamped = true;
                             result.blockY = true;
-                            double safeY = shellBottom - HEIGHT - PUSHBACK;
+                            double safeY = shellBottom - HEIGHT - PUSHBACK_VERTICAL_UP;
                             result.newY = Math.min(result.newY, safeY);
                         }
 
@@ -217,25 +237,24 @@ public class HydroKlatkaMovementListener implements Listener {
 
                 // +X: sprawdź bloki po prawej stronie gracza
                 {
-                    int checkX = (int) Math.floor(px + HALF_W + 0.1);
+                    int checkX = (int) Math.floor(px + HALF_W + 0.2);
                     int[] zBlocks = getFootBlocksZ(pz);
                     for (int checkZ : zBlocks) {
                         Location blockLoc = new Location(center.getWorld(), checkX, by, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
-                        double dx = (checkX + 0.5) - center.getX();
-                        if (dx <= 0) continue; // bariera blokuje tylko wyjście
-
+                        // ✅ Gracz jest po zewnętrznej stronie - cofinij do środka
                         double playerRight = px + HALF_W;
-                        if (playerRight > checkX) {
+                        if (playerRight > checkX - 0.1) {
                             double penetration = playerRight - checkX;
-                            if (penetration > 0.6) {
+                            if (penetration > 0.7) {
                                 result.teleportCenter = true;
                                 return result;
                             }
                             result.clamped = true;
                             result.blockX = true;
-                            double safeX = checkX - HALF_W - PUSHBACK;
+                            // ✅ Cofinij DO ŚRODKA klatki (po lewej stronie bloku shella)
+                            double safeX = checkX - HALF_W - PUSHBACK_HORIZONTAL;
                             result.newX = Math.min(result.newX, safeX);
                         }
                     }
@@ -243,25 +262,23 @@ public class HydroKlatkaMovementListener implements Listener {
 
                 // -X: sprawdź bloki po lewej stronie gracza
                 {
-                    int checkX = (int) Math.floor(px - HALF_W - 0.1);
+                    int checkX = (int) Math.floor(px - HALF_W - 0.2);
                     int[] zBlocks = getFootBlocksZ(pz);
                     for (int checkZ : zBlocks) {
                         Location blockLoc = new Location(center.getWorld(), checkX, by, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
-                        double dx = (checkX + 0.5) - center.getX();
-                        if (dx >= 0) continue;
-
                         double playerLeft = px - HALF_W;
-                        if (playerLeft < checkX + 1.0) {
+                        if (playerLeft < checkX + 1.0 + 0.1) {
                             double penetration = (checkX + 1.0) - playerLeft;
-                            if (penetration > 0.6) {
+                            if (penetration > 0.7) {
                                 result.teleportCenter = true;
                                 return result;
                             }
                             result.clamped = true;
                             result.blockX = true;
-                            double safeX = checkX + 1.0 + HALF_W + PUSHBACK;
+                            // ✅ Cofinij DO ŚRODKA klatki (po prawej stronie bloku shella)
+                            double safeX = checkX + 1.0 + HALF_W + PUSHBACK_HORIZONTAL;
                             result.newX = Math.max(result.newX, safeX);
                         }
                     }
@@ -269,25 +286,22 @@ public class HydroKlatkaMovementListener implements Listener {
 
                 // +Z: sprawdź bloki przed graczem
                 {
-                    int checkZ = (int) Math.floor(pz + HALF_W + 0.1);
+                    int checkZ = (int) Math.floor(pz + HALF_W + 0.2);
                     int[] xBlocks = getFootBlocksX(px);
                     for (int checkX : xBlocks) {
                         Location blockLoc = new Location(center.getWorld(), checkX, by, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
-                        double dz = (checkZ + 0.5) - center.getZ();
-                        if (dz <= 0) continue;
-
                         double playerFront = pz + HALF_W;
-                        if (playerFront > checkZ) {
+                        if (playerFront > checkZ - 0.1) {
                             double penetration = playerFront - checkZ;
-                            if (penetration > 0.6) {
+                            if (penetration > 0.7) {
                                 result.teleportCenter = true;
                                 return result;
                             }
                             result.clamped = true;
                             result.blockZ = true;
-                            double safeZ = checkZ - HALF_W - PUSHBACK;
+                            double safeZ = checkZ - HALF_W - PUSHBACK_HORIZONTAL;
                             result.newZ = Math.min(result.newZ, safeZ);
                         }
                     }
@@ -295,25 +309,22 @@ public class HydroKlatkaMovementListener implements Listener {
 
                 // -Z: sprawdź bloki za graczem
                 {
-                    int checkZ = (int) Math.floor(pz - HALF_W - 0.1);
+                    int checkZ = (int) Math.floor(pz - HALF_W - 0.2);
                     int[] xBlocks = getFootBlocksX(px);
                     for (int checkX : xBlocks) {
                         Location blockLoc = new Location(center.getWorld(), checkX, by, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
-                        double dz = (checkZ + 0.5) - center.getZ();
-                        if (dz >= 0) continue;
-
                         double playerBack = pz - HALF_W;
-                        if (playerBack < checkZ + 1.0) {
+                        if (playerBack < checkZ + 1.0 + 0.1) {
                             double penetration = (checkZ + 1.0) - playerBack;
-                            if (penetration > 0.6) {
+                            if (penetration > 0.7) {
                                 result.teleportCenter = true;
                                 return result;
                             }
                             result.clamped = true;
                             result.blockZ = true;
-                            double safeZ = checkZ + 1.0 + HALF_W + PUSHBACK;
+                            double safeZ = checkZ + 1.0 + HALF_W + PUSHBACK_HORIZONTAL;
                             result.newZ = Math.max(result.newZ, safeZ);
                         }
                     }
@@ -322,14 +333,14 @@ public class HydroKlatkaMovementListener implements Listener {
         }
 
         // ==================== EXPLOIT: Gracz poza klatką ====================
-        if (loc.distance(center) > klatka.getRadius()) {
+        if (loc.distance(center) > klatka.getRadius() + 0.5) {
             result.teleportCenter = true;
         }
 
         return result;
     }
 
-    // ✅ Zwraca bloki X pod hitboxem gracza (gracz może stać na 2 blokach)
+    // ✅ Zwraca bloki X pod hitboxem gracza
     private int[] getFootBlocksX(double px) {
         int left = (int) Math.floor(px - HALF_W);
         int right = (int) Math.floor(px + HALF_W);
@@ -344,6 +355,7 @@ public class HydroKlatkaMovementListener implements Listener {
         if (back == front) return new int[]{back};
         return new int[]{back, front};
     }
+
     // ==================== SHELL CHECKI ====================
 
     private boolean isPlannedShellOnly(Location blockLoc,
@@ -507,6 +519,7 @@ public class HydroKlatkaMovementListener implements Listener {
         boolean blockY = false;
         boolean blockZ = false;
         boolean teleportCenter = false;
+        boolean pushedUp = false; // ✅ Nowe: czy gracz został pchnięty w górę
 
         double newX;
         double newY;
