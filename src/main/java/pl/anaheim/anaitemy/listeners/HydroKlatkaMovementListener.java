@@ -40,15 +40,15 @@ public class HydroKlatkaMovementListener implements Listener {
     // ✅ Bariera na zewnętrznej 1/4 bloku shella
     // Dla dodatniej strony bloku: 0.75 od wewnętrznej krawędzi
     // Dla ujemnej strony bloku: 0.25 od lewej / dolnej / tylnej krawędzi
-    private static final double BARRIER_POSITIVE = 0.75;
-    private static final double BARRIER_NEGATIVE = 0.25;
+    private static final double BARRIER_POSITIVE = 0.60;
+    private static final double BARRIER_NEGATIVE = 0.40;
 
     // ✅ Minicofnięcie
-    private static final double PUSHBACK = 0.10;
+    private static final double PUSHBACK = 0.35;
 
     // ✅ Jeśli gracz wszedł jeszcze głębiej niż bariera -> teleport na środek
-    private static final double TELEPORT_POSITIVE = 0.90;
-    private static final double TELEPORT_NEGATIVE = 0.10;
+    private static final double TELEPORT_POSITIVE = 0.85;
+    private static final double TELEPORT_NEGATIVE = 0.15;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
     private BukkitTask clampTask;
