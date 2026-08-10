@@ -38,7 +38,6 @@ public class HydroKlatkaMovementListener implements Listener {
     private static final double HEIGHT = 1.80;
 
     // Cofnięcie w kierunku środka
-    private static final double PUSHBACK_HORIZONTAL = 0.1;
     private static final double PUSHBACK_UP = 0.75;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
@@ -162,7 +161,7 @@ public class HydroKlatkaMovementListener implements Listener {
                         if (playerTop > barrierY - 0.1) {
                             touched = true;
                             // Cofnij w dół (w kierunku środka)
-                            newY = Math.min(newY, barrierY - HEIGHT - PUSHBACK_HORIZONTAL);
+                            newY = Math.min(newY, barrierY - HEIGHT - PUSHBACK);
                         }
                         break;
                     }
@@ -192,7 +191,7 @@ public class HydroKlatkaMovementListener implements Listener {
                         if (playerRight > barrierX - 0.1) {
                             touched = true;
                             // Cofnij w lewo (w kierunku środka)
-                            newX = Math.min(newX, barrierX - HALF_W - PUSHBACK_HORIZONTAL);
+                            newX = Math.min(newX, barrierX - HALF_W - PUSHBACK);
                         }
                         break;
                     }
@@ -222,7 +221,7 @@ public class HydroKlatkaMovementListener implements Listener {
                         if (playerLeft < barrierX + 0.1) {
                             touched = true;
                             // Cofnij w prawo (w kierunku środka)
-                            newX = Math.max(newX, barrierX + HALF_W + PUSHBACK_HORIZONTAL);
+                            newX = Math.max(newX, barrierX + HALF_W + PUSHBACK);
                         }
                         break;
                     }
@@ -252,7 +251,7 @@ public class HydroKlatkaMovementListener implements Listener {
                         if (playerFront > barrierZ - 0.1) {
                             touched = true;
                             // Cofnij do tyłu (w kierunku środka)
-                            newZ = Math.min(newZ, barrierZ - HALF_W - PUSHBACK_HORIZONTAL);
+                            newZ = Math.min(newZ, barrierZ - HALF_W - PUSHBACK);
                         }
                         break;
                     }
@@ -282,7 +281,7 @@ public class HydroKlatkaMovementListener implements Listener {
                         if (playerBack < barrierZ + 0.1) {
                             touched = true;
                             // Cofnij do przodu (w kierunku środka)
-                            newZ = Math.max(newZ, barrierZ + HALF_W + PUSHBACK_HORIZONTAL);
+                            newZ = Math.max(newZ, barrierZ + HALF_W + PUSHBACK);
                         }
                         break;
                     }
