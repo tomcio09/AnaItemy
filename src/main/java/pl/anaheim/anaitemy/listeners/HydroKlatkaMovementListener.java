@@ -38,7 +38,7 @@ public class HydroKlatkaMovementListener implements Listener {
     private static final double HEIGHT = 1.80;
 
     private static final double BARRIER_OFFSET_HORIZONTAL = 0.5;
-    private static final double BARRIER_OFFSET_DOWN = 1.35;   // zwiększone - bliżej centrum
+    private static final double BARRIER_OFFSET_DOWN = 1.65;   // zwiększone - bliżej centrum
     private static final double BARRIER_OFFSET_UP = 0.1;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
