@@ -38,7 +38,7 @@ public class HydroKlatkaMovementListener implements Listener {
     private static final double HEIGHT = 1.80;
 
     private static final double BARRIER_OFFSET_HORIZONTAL = 0.5;
-    private static final double BARRIER_OFFSET_DOWN = 0.7;  // przybliżone do środka (było 0.4)
+    private static final double BARRIER_OFFSET_DOWN = 1.0;   // zwiększone - bliżej centrum
     private static final double BARRIER_OFFSET_UP = 0.1;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
@@ -83,12 +83,8 @@ public class HydroKlatkaMovementListener implements Listener {
                             continue;
                         }
 
-                        // Elytra z dużą prędkością - pomiń barierę
-                        if (player.isGliding()) {
-                            Vector vel = player.getVelocity();
-                            double speed = Math.sqrt(vel.getX() * vel.getX() + vel.getY() * vel.getY() + vel.getZ() * vel.getZ());
-                            if (speed > 0.3) continue;
-                        }
+                        // ✅ Elytra - pomiń KAŻDY lot elytrą (nie tylko szybki)
+                        if (player.isGliding()) continue;
 
                         CollisionResult result = checkPlannedShellCollision(loc, klatka, manager, center);
 
@@ -101,7 +97,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         Vector vel = player.getVelocity().clone();
 
-                        // ✅ Spadanie - TELEPORT na bezpieczną pozycję, zero velocity
+                        // ✅ Spadanie - TELEPORT + podwójne zerowanie velocity
                         if (result.blockY && vel.getY() <= 0) {
                             player.setVelocity(new Vector(0, 0, 0));
 
@@ -114,7 +110,7 @@ public class HydroKlatkaMovementListener implements Listener {
                                     loc.getPitch()
                             );
                             player.teleport(safe);
-                            player.setVelocity(new Vector(0, 0, 0)); // zeruj ponownie po TP
+                            player.setVelocity(new Vector(0, 0, 0));
 
                             feedback(player);
                             continue;
@@ -181,11 +177,10 @@ public class HydroKlatkaMovementListener implements Listener {
                         double shellTop = checkY + 1.0;
                         double barrierY = shellTop + BARRIER_OFFSET_DOWN;
 
-                        if (py <= barrierY + 0.1) {
+                        if (py <= barrierY) {
                             result.clamped = true;
                             result.blockY  = true;
-                            // ✅ Postaw gracza NA barierze - wystarczająco wysoko żeby nie bugował
-                            result.newY = Math.max(result.newY, barrierY + 0.01);
+                            result.newY    = Math.max(result.newY, barrierY);
                         }
                         break;
                     }
@@ -429,6 +424,7 @@ public class HydroKlatkaMovementListener implements Listener {
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
 
+        // ✅ Elytra - nie blokuj w MoveEvent
         if (player.isGliding()) return;
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
