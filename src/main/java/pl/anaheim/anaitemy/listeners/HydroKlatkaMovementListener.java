@@ -43,7 +43,7 @@ public class HydroKlatkaMovementListener implements Listener {
     // 1.0 = 1 blok przed shellem
     // 2.0 = 2 bloki przed shellem
     private static final double BARRIER_OFFSET_HORIZONTAL = 2.0; // boki
-    private static final double BARRIER_OFFSET_DOWN       = 0.1; // dół (przy shellu)
+    private static final double BARRIER_OFFSET_DOWN       = 1.2; // dół (przy shellu)
     private static final double BARRIER_OFFSET_UP         = 0.1; // góra (przy shellu)
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
@@ -125,7 +125,7 @@ public class HydroKlatkaMovementListener implements Listener {
                         if (result.blockY) {
                             // Jeśli gracz spadał - zatrzymaj i daj MOCNY impuls w górę
                             if (vel.getY() < 0) {
-                                bounce.setY(0.3);
+                                bounce.setY(0.5);
                             } else if (vel.getY() > 0) {
                                 // Uderzył w sufit - lekko w dół
                                 bounce.setY(-0.1);
@@ -172,7 +172,7 @@ public class HydroKlatkaMovementListener implements Listener {
                         double barrierY = shellTop + BARRIER_OFFSET_DOWN;
 
                         // Gracz jest przy/poniżej bariery?
-                        if (py <= barrierY) {
+                        if (py <= barrierY + 0.5) {
                             result.clamped = true;
                             result.blockY = true;
                             result.newY = Math.max(result.newY, barrierY);
