@@ -125,7 +125,7 @@ public class HydroKlatkaMovementListener implements Listener {
                         }
                         if (result.blockY) {
                             if (vel.getY() < 0) {
-                                bounce.setY(0.5); // Gracz spadał - impuls w górę
+                                bounce.setY(0.2); // Gracz spadał - impuls w górę
                             } else if (vel.getY() > 0) {
                                 bounce.setY(-0.1); // Uderzył w sufit
                             }
