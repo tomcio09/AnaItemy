@@ -1,522 +1,424 @@
-package pl.anaheim.anaitemy.managers;
+package pl.anaheim.anaitemy.listeners;
 
-import net.kyori.adventure.bossbar.BossBar;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.bukkit.*;
-import org.bukkit.block.Block;
+import net.kyori.adventure.title.Title;
+import org.bukkit.Location;
+import org.bukkit.Sound;
+import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
-import pl.anaheim.anaitemy.config.ItemsConfig;
+import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.models.ActiveHydroKlatka;
 
-import java.util.*;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class HydroKlatkaManager {
+public class HydroKlatkaMovementListener implements Listener {
 
     private final AnaItemy plugin;
-    private final Map<UUID, Long> playerCooldowns = new ConcurrentHashMap<>();
-    private final Map<String, Long> chunkCooldowns = new ConcurrentHashMap<>();
-    private final Map<UUID, ActiveHydroKlatka> activeKlatki = new ConcurrentHashMap<>();
-    private final Map<UUID, BukkitTask> cooldownTasks = new ConcurrentHashMap<>();
-    private final Map<UUID, BossBar> playerBossBars = new ConcurrentHashMap<>();
 
-    private static final Material SHELL = Material.BLUE_GLAZED_TERRACOTTA;
-    private static final Material INNER = Material.LIGHT_BLUE_CONCRETE;
-    private static final Material INNER_POWDER = Material.LIGHT_BLUE_CONCRETE_POWDER;
+    private static final long FEEDBACK_COOLDOWN_MS = 500L;
 
-    private static final Set<Material> PROTECTED_BLOCKS = Set.of(
-            Material.BEDROCK,
-            Material.BEACON
-    );
+    private static final double PLAYER_HALF_WIDTH = 0.30;
+    private static final double PLAYER_HEIGHT = 1.80;
 
-    public HydroKlatkaManager(AnaItemy plugin) {
+    // ✅ Bariera jest w połowie bloku shella
+    private static final double SHELL_BARRIER_PLANE = 0.50;
+
+    // ✅ O ile cofamy gracza za barierę
+    private static final double PUSHBACK = 0.10;
+
+    private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
+    private BukkitTask clampTask;
+
+    public HydroKlatkaMovementListener(AnaItemy plugin) {
         this.plugin = plugin;
-        startCleanupTask();
+        startClampTask();
     }
 
-    private void startCleanupTask() {
-        new BukkitRunnable() {
+    // ==================== CLAMP TASK ====================
+
+    /**
+     * ✅ Co tick sprawdza TYLKO uwięzionych graczy i cofa ich,
+     * jeśli próbują wyjść przez planned shell / aktywny shell.
+     *
+     * Gracz spoza trappedPlayers:
+     * - może wejść
+     * - może wyjść
+     * - nie dostaje blokady
+     */
+    private void startClampTask() {
+        clampTask = new BukkitRunnable() {
             @Override
             public void run() {
-                long now = System.currentTimeMillis();
-                playerCooldowns.entrySet().removeIf(entry -> now >= entry.getValue());
-                chunkCooldowns.entrySet().removeIf(entry -> now >= entry.getValue());
+                HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
-                for (ActiveHydroKlatka klatka : new ArrayList<>(activeKlatki.values())) {
-                    if (klatka.isExpired()) {
-                        removeKlatka(klatka);
-                    } else {
-                        updateBossBar(klatka);
-                        checkTrappedPlayers(klatka);
+                for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
+                    for (UUID uuid : new ArrayList<>(klatka.getTrappedPlayers())) {
+                        Player player = plugin.getServer().getPlayer(uuid);
+                        if (player == null || !player.isOnline()) continue;
+
+                        Location center = klatka.getCenter();
+                        Location loc = player.getLocation();
+
+                        if (!loc.getWorld().equals(center.getWorld())) continue;
+
+                        // ✅ Twardy exploit check - tylko wtedy środek
+                        if (loc.distance(center) > klatka.getRadius() + 5.0) {
+                            Location tp = center.clone();
+                            tp.setYaw(loc.getYaw());
+                            tp.setPitch(loc.getPitch());
+                            player.teleport(tp);
+                            player.setVelocity(new Vector(0, 0, 0));
+                            continue;
+                        }
+
+                        applySoftBarrier(player, klatka, manager);
                     }
                 }
             }
-        }.runTaskTimer(plugin, 0L, 20L);
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    // ==================== COOLDOWN ====================
+    // ==================== GŁÓWNA LOGIKA BARIERY ====================
 
-    public boolean isPlayerOnCooldown(Player player) {
-        Long cooldownEnd = playerCooldowns.get(player.getUniqueId());
-        return cooldownEnd != null && System.currentTimeMillis() < cooldownEnd;
-    }
+    private void applySoftBarrier(Player player, ActiveHydroKlatka klatka, HydroKlatkaManager manager) {
+        Location loc = player.getLocation();
+        Location center = klatka.getCenter();
 
-    public long getPlayerCooldownRemaining(Player player) {
-        Long cooldownEnd = playerCooldowns.get(player.getUniqueId());
-        if (cooldownEnd == null) return 0;
-        return Math.max(0, (cooldownEnd - System.currentTimeMillis()) / 1000);
-    }
+        double px = loc.getX();
+        double py = loc.getY();
+        double pz = loc.getZ();
 
-    public void setCooldown(Player player) {
-        ItemsConfig config = plugin.getItemsConfig();
-        long cooldownSeconds = config.getHydroKlatkaCooldown();
-        playerCooldowns.put(player.getUniqueId(), System.currentTimeMillis() + cooldownSeconds * 1000);
-        player.setCooldown(Material.BLAZE_ROD, (int) (cooldownSeconds * 20));
-        startCooldownDisplay(player);
-    }
+        double newX = px;
+        double newY = py;
+        double newZ = pz;
 
-    public void setExternalCooldown(Player player, long seconds) {
-        playerCooldowns.put(player.getUniqueId(), System.currentTimeMillis() + seconds * 1000);
-        player.setCooldown(Material.BLAZE_ROD, (int) (seconds * 20));
-        startCooldownDisplay(player);
-    }
+        boolean clamped = false;
 
-    public void resetCooldown(Player player) {
-        playerCooldowns.remove(player.getUniqueId());
-    }
+        Vector velocity = player.getVelocity();
+        boolean movingOutXPos = velocity.getX() > 0;
+        boolean movingOutXNeg = velocity.getX() < 0;
+        boolean movingOutYPos = velocity.getY() > 0;
+        boolean movingOutYNeg = velocity.getY() < 0;
+        boolean movingOutZPos = velocity.getZ() > 0;
+        boolean movingOutZNeg = velocity.getZ() < 0;
 
-    public boolean isChunkBlocked(Location location) {
-        String chunkKey = getChunkKey(location);
-        Long cooldownEnd = chunkCooldowns.get(chunkKey);
-        return cooldownEnd != null && System.currentTimeMillis() < cooldownEnd;
-    }
+        int minBX = (int) Math.floor(px - PLAYER_HALF_WIDTH - 0.01);
+        int maxBX = (int) Math.floor(px + PLAYER_HALF_WIDTH + 0.01);
+        int minBY = (int) Math.floor(py - 0.01);
+        int maxBY = (int) Math.floor(py + PLAYER_HEIGHT + 0.01);
+        int minBZ = (int) Math.floor(pz - PLAYER_HALF_WIDTH - 0.01);
+        int maxBZ = (int) Math.floor(pz + PLAYER_HALF_WIDTH + 0.01);
 
-    private void setChunkCooldown(Location center) {
-        ItemsConfig config = plugin.getItemsConfig();
-        int radius = config.getHydroKlatkaRadius();
-        long cooldownSeconds = config.getHydroKlatkaCooldown();
-        long cooldownEnd = System.currentTimeMillis() + cooldownSeconds * 1000;
+        for (int bx = minBX; bx <= maxBX; bx++) {
+            for (int by = minBY; by <= maxBY; by++) {
+                for (int bz = minBZ; bz <= maxBZ; bz++) {
+                    if (!isShell(bx, by, bz, klatka, manager)) continue;
 
-        int centerX = center.getBlockX() >> 4;
-        int centerZ = center.getBlockZ() >> 4;
-        int chunkRadius = (radius >> 4) + 1;
-        String worldName = center.getWorld().getName();
+                    double blockCenterX = bx + 0.5;
+                    double blockCenterY = by + 0.5;
+                    double blockCenterZ = bz + 0.5;
 
-        for (int x = centerX - chunkRadius; x <= centerX + chunkRadius; x++) {
-            for (int z = centerZ - chunkRadius; z <= centerZ + chunkRadius; z++) {
-                chunkCooldowns.put(worldName + ":" + x + ":" + z, cooldownEnd);
-            }
-        }
-    }
+                    double dirX = blockCenterX - center.getX();
+                    double dirY = blockCenterY - center.getY();
+                    double dirZ = blockCenterZ - center.getZ();
 
-    private String getChunkKey(Location location) {
-        return location.getWorld().getName() + ":"
-                + (location.getBlockX() >> 4) + ":"
-                + (location.getBlockZ() >> 4);
-    }
+                    // ==================== DÓŁ ====================
+                    // Shell jest pod środkiem klatki -> blokuj spadanie poniżej połowy bloku
+                    if (dirY < 0 && movingOutYNeg) {
+                        boolean overlapXZ =
+                                (px + PLAYER_HALF_WIDTH > bx && px - PLAYER_HALF_WIDTH < bx + 1.0)
+                                        && (pz + PLAYER_HALF_WIDTH > bz && pz - PLAYER_HALF_WIDTH < bz + 1.0);
 
-    private String formatTime(long totalSeconds) {
-        if (totalSeconds < 60) return totalSeconds + "s";
-        return totalSeconds / 60 + "m" + String.format("%02d", totalSeconds % 60) + "s";
-    }
+                        if (overlapXZ) {
+                            double barrierY = by + SHELL_BARRIER_PLANE; // połowa bloku
+                            if (py < barrierY) {
+                                newY = Math.max(newY, barrierY + PUSHBACK);
+                                clamped = true;
+                            }
+                        }
+                    }
 
-    // ==================== COOLDOWN DISPLAY ====================
+                    // ==================== GÓRA ====================
+                    if (dirY > 0 && movingOutYPos) {
+                        boolean overlapXZ =
+                                (px + PLAYER_HALF_WIDTH > bx && px - PLAYER_HALF_WIDTH < bx + 1.0)
+                                        && (pz + PLAYER_HALF_WIDTH > bz && pz - PLAYER_HALF_WIDTH < bz + 1.0);
 
-    public void startCooldownDisplay(Player player) {
-        stopCooldownDisplay(player);
+                        if (overlapXZ) {
+                            double barrierY = by + SHELL_BARRIER_PLANE;
+                            double headY = py + PLAYER_HEIGHT;
+                            if (headY > barrierY) {
+                                newY = Math.min(newY, barrierY - PLAYER_HEIGHT - PUSHBACK);
+                                clamped = true;
+                            }
+                        }
+                    }
 
-        BukkitTask task = new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!player.isOnline()) {
-                    cancel(); cooldownTasks.remove(player.getUniqueId());
-                    plugin.getActionBarManager().removeActionBar(player, "hydroklatka");
-                    return;
-                }
-                long remaining = getPlayerCooldownRemaining(player);
-                if (remaining <= 0) {
-                    cancel(); cooldownTasks.remove(player.getUniqueId());
-                    plugin.getActionBarManager().removeActionBar(player, "hydroklatka");
-                    return;
-                }
-                String message = plugin.getItemsConfig().getHydroKlatkaActionBarFormat()
-                        .replace("{time}", formatTime(remaining));
-                plugin.getActionBarManager().setActionBar(player, "hydroklatka", message);
-            }
-        }.runTaskTimer(plugin, 0L, 20L);
+                    // ==================== PRAWO (+X) ====================
+                    if (dirX > 0 && movingOutXPos) {
+                        boolean overlapYZ =
+                                (py < by + 1.0 && py + PLAYER_HEIGHT > by)
+                                        && (pz + PLAYER_HALF_WIDTH > bz && pz - PLAYER_HALF_WIDTH < bz + 1.0);
 
-        cooldownTasks.put(player.getUniqueId(), task);
-    }
+                        if (overlapYZ) {
+                            double barrierX = bx + SHELL_BARRIER_PLANE;
+                            double rightEdge = px + PLAYER_HALF_WIDTH;
+                            if (rightEdge > barrierX) {
+                                newX = Math.min(newX, barrierX - PLAYER_HALF_WIDTH - PUSHBACK);
+                                clamped = true;
+                            }
+                        }
+                    }
 
-    public void stopCooldownDisplay(Player player) {
-        BukkitTask task = cooldownTasks.remove(player.getUniqueId());
-        if (task != null) task.cancel();
-        plugin.getActionBarManager().removeActionBar(player, "hydroklatka");
-    }
+                    // ==================== LEWO (-X) ====================
+                    if (dirX < 0 && movingOutXNeg) {
+                        boolean overlapYZ =
+                                (py < by + 1.0 && py + PLAYER_HEIGHT > by)
+                                        && (pz + PLAYER_HALF_WIDTH > bz && pz - PLAYER_HALF_WIDTH < bz + 1.0);
 
-    // ==================== MESSAGES ====================
+                        if (overlapYZ) {
+                            double barrierX = bx + SHELL_BARRIER_PLANE;
+                            double leftEdge = px - PLAYER_HALF_WIDTH;
+                            if (leftEdge < barrierX) {
+                                newX = Math.max(newX, barrierX + PLAYER_HALF_WIDTH + PUSHBACK);
+                                clamped = true;
+                            }
+                        }
+                    }
 
-    public void sendMessage(Player player, String message) {
-        player.sendMessage(LegacyComponentSerializer.legacyAmpersand().deserialize(message));
-    }
+                    // ==================== PRZÓD (+Z) ====================
+                    if (dirZ > 0 && movingOutZPos) {
+                        boolean overlapXY =
+                                (py < by + 1.0 && py + PLAYER_HEIGHT > by)
+                                        && (px + PLAYER_HALF_WIDTH > bx && px - PLAYER_HALF_WIDTH < bx + 1.0);
 
-    // ==================== KLATKA CREATION ====================
+                        if (overlapXY) {
+                            double barrierZ = bz + SHELL_BARRIER_PLANE;
+                            double frontEdge = pz + PLAYER_HALF_WIDTH;
+                            if (frontEdge > barrierZ) {
+                                newZ = Math.min(newZ, barrierZ - PLAYER_HALF_WIDTH - PUSHBACK);
+                                clamped = true;
+                            }
+                        }
+                    }
 
-    public void createKlatka(Location center, Player creator) {
-        ItemsConfig config = plugin.getItemsConfig();
-        int radius = config.getHydroKlatkaRadius();
-        int duration = config.getHydroKlatkaDuration();
+                    // ==================== TYŁ (-Z) ====================
+                    if (dirZ < 0 && movingOutZNeg) {
+                        boolean overlapXY =
+                                (py < by + 1.0 && py + PLAYER_HEIGHT > by)
+                                        && (px + PLAYER_HALF_WIDTH > bx && px - PLAYER_HALF_WIDTH < bx + 1.0);
 
-        ActiveHydroKlatka klatka = new ActiveHydroKlatka(center, radius, duration, creator.getUniqueId());
-
-        Set<Location> shellPositions = calculateShellPositions(center, radius, center.getWorld());
-        klatka.setPlannedShellLocations(shellPositions);
-
-        activeKlatki.put(klatka.getId(), klatka);
-
-        setChunkCooldown(center);
-        trapPlayers(klatka);
-        createBossBar(klatka);
-        playCreationSounds(center);
-
-        // ✅ BEZ barrier bloków — listener softwarowo blokuje ruch
-        startBuildAnimation(klatka);
-        scheduleRemoval(klatka);
-    }
-
-    private Set<Location> calculateShellPositions(Location center, int radius, World world) {
-        Set<Location> positions = new HashSet<>();
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -radius; y <= radius; y++) {
-                for (int z = -radius; z <= radius; z++) {
-                    Location blockLoc = new Location(world,
-                            center.getBlockX() + x,
-                            center.getBlockY() + y,
-                            center.getBlockZ() + z);
-                    double distance = blockLoc.clone().add(0.5, 0.5, 0.5).distance(center);
-                    if (distance > radius - 1.0 && distance <= radius) {
-                        positions.add(blockLoc);
+                        if (overlapXY) {
+                            double barrierZ = bz + SHELL_BARRIER_PLANE;
+                            double backEdge = pz - PLAYER_HALF_WIDTH;
+                            if (backEdge < barrierZ) {
+                                newZ = Math.max(newZ, barrierZ + PLAYER_HALF_WIDTH + PUSHBACK);
+                                clamped = true;
+                            }
+                        }
                     }
                 }
             }
         }
-        return positions;
+
+        if (!clamped) {
+            return;
+        }
+
+        // ✅ Wyzeruj velocity tylko na osiach które pchały gracza na zewnątrz
+        Vector corrected = velocity.clone();
+
+        if (newX != px) corrected.setX(0);
+        if (newY != py) corrected.setY(0);
+        if (newZ != pz) corrected.setZ(0);
+
+        player.setVelocity(corrected);
+
+        Location safe = new Location(loc.getWorld(), newX, newY, newZ, loc.getYaw(), loc.getPitch());
+        player.teleport(safe);
+
+        corrected = player.getVelocity().clone();
+        if (newX != px && ((newX < px && corrected.getX() > 0) || (newX > px && corrected.getX() < 0))) corrected.setX(0);
+        if (newY != py && ((newY < py && corrected.getY() > 0) || (newY > py && corrected.getY() < 0))) corrected.setY(0);
+        if (newZ != pz && ((newZ < pz && corrected.getZ() > 0) || (newZ > pz && corrected.getZ() < 0))) corrected.setZ(0);
+        player.setVelocity(corrected);
+
+        playBarrierFeedback(player);
     }
 
-    private void trapPlayers(ActiveHydroKlatka klatka) {
-        Location center = klatka.getCenter();
-        World world = center.getWorld();
-        Player creator = Bukkit.getPlayer(klatka.getCreatorId());
+    // ==================== SHELL CHECK ====================
+
+    /**
+     * ✅ Tylko prawdziwy shell lub planned shell.
+     * Żadnych fake blocków, żadnych inner blocków.
+     */
+    private boolean isShell(int bx, int by, int bz,
+                            ActiveHydroKlatka klatka, HydroKlatkaManager manager) {
+        Location blockLoc = new Location(klatka.getCenter().getWorld(), bx, by, bz);
+
+        if (manager.isShellBlock(blockLoc)) return true;
+        return !klatka.isAnimationComplete() && klatka.isPlannedShellLocation(blockLoc);
+    }
+
+    // ==================== MOVE EVENT ====================
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+
+        ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
+        if (klatka == null) return;
+
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        if (to == null) return;
+
+        if (from.getBlockX() == to.getBlockX()
+                && from.getBlockY() == to.getBlockY()
+                && from.getBlockZ() == to.getBlockZ()) {
+            return;
+        }
+
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
 
-        for (Player player : world.getPlayers()) {
-            if (player.getLocation().distance(center) <= klatka.getRadius()) {
-                if (plugin.getWorldGuardManager().isInBlockedRegion(
-                        player.getLocation(), blockedRegions)) continue;
+        if (plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions)) {
+            manager.removePlayerFromKlatka(player);
+            return;
+        }
 
-                klatka.addTrappedPlayer(player.getUniqueId());
-
-                if (config.isHydroKlatkaTagPlayers()
-                        && plugin.getCombatIntegrationManager().isEnabled()
-                        && plugin.getCombatIntegrationManager().hasTagPlayerMethod()) {
-                    plugin.getCombatIntegrationManager().tagPlayer(player, creator);
-                }
-            }
+        // ✅ Nie rób pełnego feedbacku tutaj.
+        // ClampTask co tick i tak utrzyma gracza w środku.
+        // Event służy tylko do lekkiego cofnięcia gdy FROM jest bezpieczne a TO nie.
+        if (wouldExit(from, to, klatka, manager)) {
+            Location stuck = from.clone();
+            stuck.setYaw(to.getYaw());
+            stuck.setPitch(to.getPitch());
+            event.setTo(stuck);
+            playBarrierFeedback(player);
         }
     }
 
-    private void checkTrappedPlayers(ActiveHydroKlatka klatka) {
-        ItemsConfig config = plugin.getItemsConfig();
-        List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
-
-        for (UUID playerId : new ArrayList<>(klatka.getTrappedPlayers())) {
-            Player player = Bukkit.getPlayer(playerId);
-            if (player == null || !player.isOnline()) continue;
-
-            if (plugin.getWorldGuardManager().isInBlockedRegion(
-                    player.getLocation(), blockedRegions)) {
-                klatka.removeTrappedPlayer(playerId);
-                BossBar bossBar = playerBossBars.remove(playerId);
-                if (bossBar != null) player.hideBossBar(bossBar);
-            }
-        }
-    }
-
-    // ==================== BOSS BAR ====================
-
-    private void createBossBar(ActiveHydroKlatka klatka) {
-        for (UUID playerId : klatka.getTrappedPlayers()) {
-            Player player = Bukkit.getPlayer(playerId);
-            if (player == null || !player.isOnline()) continue;
-
-            BossBar bossBar = BossBar.bossBar(
-                    LegacyComponentSerializer.legacyAmpersand().deserialize("&bHydroklatka"),
-                    1.0f, BossBar.Color.BLUE, BossBar.Overlay.PROGRESS);
-
-            player.showBossBar(bossBar);
-            playerBossBars.put(playerId, bossBar);
-        }
-    }
-
-    private void updateBossBar(ActiveHydroKlatka klatka) {
-        int remaining = klatka.getRemainingSeconds();
-        int total = klatka.getOriginalDuration();
-        float progress = total > 0
-                ? Math.max(0.0f, Math.min(1.0f, (float) remaining / total)) : 0.0f;
-
-        for (UUID playerId : klatka.getTrappedPlayers()) {
-            BossBar bossBar = playerBossBars.get(playerId);
-            if (bossBar != null) bossBar.progress(progress);
-        }
-    }
-
-    // ==================== SOUNDS ====================
-
-    private void playCreationSounds(Location center) {
-        World world = center.getWorld();
-        ItemsConfig config = plugin.getItemsConfig();
-
-        try {
-            Sound s = Sound.valueOf(config.getHydroKlatkaExplodeSound());
-            world.playSound(center, s, SoundCategory.BLOCKS,
-                    config.getHydroKlatkaExplodeVolume(), config.getHydroKlatkaExplodePitch());
-        } catch (IllegalArgumentException ignored) {}
-
-        try {
-            Sound s = Sound.valueOf(config.getHydroKlatkaSplashSound());
-            world.playSound(center, s, SoundCategory.BLOCKS,
-                    config.getHydroKlatkaSplashVolume(), config.getHydroKlatkaSplashPitch());
-        } catch (IllegalArgumentException ignored) {}
-
-        int animDur = config.getHydroKlatkaAnimationDuration();
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            try {
-                Sound s = Sound.valueOf(config.getHydroKlatkaAmbientSound());
-                for (Player p : world.getPlayers()) {
-                    if (p.getLocation().distance(center) <= 50) {
-                        p.playSound(center, s, SoundCategory.BLOCKS,
-                                config.getHydroKlatkaAmbientVolume(),
-                                config.getHydroKlatkaAmbientPitch());
-                    }
-                }
-            } catch (IllegalArgumentException ignored) {}
-        }, animDur - 10L);
-    }
-
-    // ==================== BUILD ANIMATION ====================
-
-    private void startBuildAnimation(ActiveHydroKlatka klatka) {
-        ItemsConfig config = plugin.getItemsConfig();
+    private boolean wouldExit(Location from, Location to,
+                              ActiveHydroKlatka klatka, HydroKlatkaManager manager) {
         Location center = klatka.getCenter();
-        int radius = klatka.getRadius();
-        int animDur = config.getHydroKlatkaAnimationDuration();
 
-        int maxY = center.getBlockY() + radius;
-        int minY = center.getBlockY() - radius;
-        int totalLayers = maxY - minY + 1;
-        int ticksPerLayer = Math.max(1, animDur / totalLayers);
+        Vector move = to.toVector().subtract(from.toVector());
+        if (move.lengthSquared() < 0.0001) return false;
 
-        new BukkitRunnable() {
-            int currentY = maxY;
+        double px = to.getX();
+        double py = to.getY();
+        double pz = to.getZ();
 
-            @Override
-            public void run() {
-                if (!activeKlatki.containsKey(klatka.getId())) { cancel(); return; }
-                if (currentY < minY) { klatka.setAnimationComplete(true); cancel(); return; }
-                buildLayer(klatka, currentY);
-                currentY--;
-            }
-        }.runTaskTimer(plugin, 0L, ticksPerLayer);
-    }
+        int minBX = (int) Math.floor(px - PLAYER_HALF_WIDTH - 0.01);
+        int maxBX = (int) Math.floor(px + PLAYER_HALF_WIDTH + 0.01);
+        int minBY = (int) Math.floor(py - 0.01);
+        int maxBY = (int) Math.floor(py + PLAYER_HEIGHT + 0.01);
+        int minBZ = (int) Math.floor(pz - PLAYER_HALF_WIDTH - 0.01);
+        int maxBZ = (int) Math.floor(pz + PLAYER_HALF_WIDTH + 0.01);
 
-    private void buildLayer(ActiveHydroKlatka klatka, int y) {
-        Location center = klatka.getCenter();
-        int radius = klatka.getRadius();
-        World world = center.getWorld();
-        ItemsConfig config = plugin.getItemsConfig();
-        List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
+        for (int bx = minBX; bx <= maxBX; bx++) {
+            for (int by = minBY; by <= maxBY; by++) {
+                for (int bz = minBZ; bz <= maxBZ; bz++) {
+                    if (!isShell(bx, by, bz, klatka, manager)) continue;
 
-        for (int x = -radius; x <= radius; x++) {
-            for (int z = -radius; z <= radius; z++) {
-                Location blockLoc = new Location(world,
-                        center.getBlockX() + x, y, center.getBlockZ() + z);
+                    double dirX = (bx + 0.5) - center.getX();
+                    double dirY = (by + 0.5) - center.getY();
+                    double dirZ = (bz + 0.5) - center.getZ();
 
-                double distance = blockLoc.clone().add(0.5, 0.5, 0.5).distance(center);
-                if (distance > radius) continue;
-
-                if (plugin.getWorldGuardManager().isInBlockedRegion(blockLoc, blockedRegions))
-                    continue;
-
-                Block block = blockLoc.getBlock();
-                Material originalType = block.getType();
-                if (PROTECTED_BLOCKS.contains(originalType)) continue;
-
-                if (!klatka.hasOriginalBlock(blockLoc)) {
-                    klatka.addOriginalBlock(blockLoc, block.getBlockData());
-                }
-
-                if (distance > radius - 1.0) {
-                    block.setType(SHELL);
-                } else if (originalType != Material.AIR
-                        && originalType != Material.CAVE_AIR
-                        && originalType != Material.VOID_AIR) {
-                    block.setType(mapToWaterBlock(originalType));
+                    if (dirX > 0 && move.getX() > 0 && px + PLAYER_HALF_WIDTH > bx + SHELL_BARRIER_PLANE) return true;
+                    if (dirX < 0 && move.getX() < 0 && px - PLAYER_HALF_WIDTH < bx + SHELL_BARRIER_PLANE) return true;
+                    if (dirY > 0 && move.getY() > 0 && py + PLAYER_HEIGHT > by + SHELL_BARRIER_PLANE) return true;
+                    if (dirY < 0 && move.getY() < 0 && py < by + SHELL_BARRIER_PLANE) return true;
+                    if (dirZ > 0 && move.getZ() > 0 && pz + PLAYER_HALF_WIDTH > bz + SHELL_BARRIER_PLANE) return true;
+                    if (dirZ < 0 && move.getZ() < 0 && pz - PLAYER_HALF_WIDTH < bz + SHELL_BARRIER_PLANE) return true;
                 }
             }
         }
-    }
 
-    private Material mapToWaterBlock(Material original) {
-        String name = original.name();
-        if (original == Material.BEDROCK) return Material.BEDROCK;
-        if (original == Material.DIRT || original == Material.GRASS_BLOCK
-                || original == Material.COARSE_DIRT || original == Material.ROOTED_DIRT)
-            return Material.LIGHT_GRAY_TERRACOTTA;
-        if (original == Material.ANDESITE || original == Material.DIORITE
-                || original == Material.POLISHED_ANDESITE || original == Material.POLISHED_DIORITE)
-            return Material.SEA_LANTERN;
-        if (original == Material.STONE) return Material.PRISMARINE;
-        if (name.contains("BRICKS")) return Material.PRISMARINE_BRICKS;
-        if (original == Material.SPRUCE_LOG || original == Material.SPRUCE_WOOD
-                || original == Material.STRIPPED_SPRUCE_LOG)
-            return Material.BRAIN_CORAL_BLOCK;
-        if (name.contains("LEAVES")) return Material.PURPLE_TERRACOTTA;
-        if (original == Material.SAND || original == Material.RED_SAND
-                || original == Material.GRAVEL)
-            return INNER_POWDER;
-        return INNER;
-    }
-
-    // ==================== REMOVAL ====================
-
-    private void scheduleRemoval(ActiveHydroKlatka klatka) {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                removeKlatka(klatka);
-                Bukkit.getScheduler().runTaskLater(plugin, () -> chunkCooldowns.clear(), 100L);
-            }
-        }.runTaskLater(plugin, 20L * klatka.getOriginalDuration());
-    }
-
-    public void removeKlatka(ActiveHydroKlatka klatka) {
-        if (!activeKlatki.containsKey(klatka.getId())) return;
-
-        klatka.getOriginalBlocks().forEach((location, blockData) -> {
-            if (!klatka.wasBlockDestroyed(location)) {
-                location.getBlock().setBlockData(blockData);
-            }
-        });
-
-        for (UUID playerId : klatka.getTrappedPlayers()) {
-            BossBar bossBar = playerBossBars.remove(playerId);
-            if (bossBar != null) {
-                Player player = Bukkit.getPlayer(playerId);
-                if (player != null && player.isOnline()) player.hideBossBar(bossBar);
-            }
-        }
-        for (UUID playerId : klatka.getOfflinePlayers()) {
-            playerBossBars.remove(playerId);
-        }
-
-        Location center = klatka.getCenter();
-        World world = center.getWorld();
-        ItemsConfig config = plugin.getItemsConfig();
-
-        try {
-            Sound s = Sound.valueOf(config.getHydroKlatkaRemoveSound());
-            world.playSound(center, s, SoundCategory.BLOCKS,
-                    config.getHydroKlatkaRemoveVolume(), config.getHydroKlatkaRemovePitch());
-        } catch (IllegalArgumentException ignored) {}
-
-        world.spawnParticle(Particle.SPLASH, center, 150, 4, 4, 4, 0.5);
-        world.spawnParticle(Particle.CLOUD, center, 40, 3, 3, 3, 0.1);
-
-        activeKlatki.remove(klatka.getId());
-    }
-
-    // ==================== BLOCK PROTECTION ====================
-
-    public boolean isInBlockedRegion(Location location) {
-        return plugin.getWorldGuardManager().isInBlockedRegion(location,
-                plugin.getItemsConfig().getHydroKlatkaBlockedRegions());
-    }
-
-    public boolean isShellBlock(Location location) {
-        if (location.getBlock().getType() != SHELL) return false;
-        return activeKlatki.values().stream().anyMatch(k -> k.hasOriginalBlock(location));
-    }
-
-    public boolean isKlatkaBlock(Location location) {
-        return activeKlatki.values().stream().anyMatch(k -> k.hasOriginalBlock(location));
-    }
-
-    public boolean isProtectedByCage(Location blockLoc) {
-        if (isKlatkaBlock(blockLoc)) return true;
-        for (ActiveHydroKlatka klatka : activeKlatki.values()) {
-            if (klatka.isInsideCage(blockLoc)) return true;
-            if (!klatka.isAnimationComplete() && klatka.isPlannedShellLocation(blockLoc)) return true;
-        }
         return false;
     }
 
-    public boolean canUseItem(Player player, Material material) {
-        ItemsConfig config = plugin.getItemsConfig();
-        Set<Material> blocked = new HashSet<>();
-        for (String name : config.getHydroKlatkaBlockedItems()) {
-            try { blocked.add(Material.valueOf(name)); }
-            catch (IllegalArgumentException ignored) {}
+    // ==================== TELEPORT ====================
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlayerTeleport(PlayerTeleportEvent event) {
+        Player player = event.getPlayer();
+        HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
+
+        ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
+        if (klatka == null) return;
+
+        Location to = event.getTo();
+        if (to == null) return;
+
+        if (event.getCause() == PlayerTeleportEvent.TeleportCause.PLUGIN) {
+            return;
         }
-        for (ActiveHydroKlatka klatka : activeKlatki.values()) {
-            if (klatka.isPlayerTrapped(player.getUniqueId())) {
-                return !blocked.contains(material);
-            }
+
+        if (wouldExit(player.getLocation(), to, klatka, manager)) {
+            event.setCancelled(true);
+            manager.sendMessage(player,
+                    plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
         }
-        return true;
     }
 
-    public boolean canBreakBlock(Player player, Location location) {
-        return plugin.getWorldGuardManager().canBreakBlock(player, location);
-    }
+    // ==================== FEEDBACK ====================
 
-    public void markBlockAsDestroyed(Location location) {
-        activeKlatki.values().forEach(k -> k.markBlockDestroyed(location));
-    }
+    private void playBarrierFeedback(Player player) {
+        long now = System.currentTimeMillis();
+        UUID uuid = player.getUniqueId();
 
-    public Collection<ActiveHydroKlatka> getActiveKlatki() {
-        return new ArrayList<>(activeKlatki.values());
-    }
-
-    public ActiveHydroKlatka getKlatkaForPlayer(Player player) {
-        for (ActiveHydroKlatka klatka : activeKlatki.values()) {
-            if (klatka.isPlayerTrapped(player.getUniqueId())) return klatka;
+        Long last = lastFeedback.get(uuid);
+        if (last != null && now - last < FEEDBACK_COOLDOWN_MS) {
+            return;
         }
-        return null;
-    }
 
-    public void removePlayerFromKlatka(Player player) {
-        for (ActiveHydroKlatka klatka : activeKlatki.values()) {
-            if (klatka.isPlayerTrapped(player.getUniqueId())) {
-                klatka.removeTrappedPlayer(player.getUniqueId());
-                BossBar bossBar = playerBossBars.remove(player.getUniqueId());
-                if (bossBar != null) player.hideBossBar(bossBar);
-                return;
-            }
-        }
+        lastFeedback.put(uuid, now);
+
+        player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK,
+                SoundCategory.PLAYERS, 0.5f, 1.2f);
+
+        player.showTitle(Title.title(
+                Component.empty(),
+                LegacyComponentSerializer.legacyAmpersand()
+                        .deserialize("&cNie możesz opuszczać podwodnej klatki!"),
+                Title.Times.times(
+                        Duration.ofMillis(0),
+                        Duration.ofMillis(800),
+                        Duration.ofMillis(200)
+                )
+        ));
     }
 
     // ==================== CLEANUP ====================
 
-    public void cleanup() {
-        for (ActiveHydroKlatka klatka : new ArrayList<>(activeKlatki.values())) {
-            removeKlatka(klatka);
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        lastFeedback.remove(event.getPlayer().getUniqueId());
+    }
+
+    public void stopTasks() {
+        if (clampTask != null) {
+            clampTask.cancel();
+            clampTask = null;
         }
-        cooldownTasks.values().forEach(BukkitTask::cancel);
-        cooldownTasks.clear();
-        chunkCooldowns.clear();
+        lastFeedback.clear();
     }
 }
