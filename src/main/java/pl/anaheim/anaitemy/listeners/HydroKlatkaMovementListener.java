@@ -37,10 +37,8 @@ public class HydroKlatkaMovementListener implements Listener {
     private static final double HALF_W = 0.30;
     private static final double HEIGHT = 1.80;
 
-    // Bariera: ile bloków przed shellem zatrzymujemy gracza
     private static final double BARRIER_OFFSET_HORIZONTAL = 0.5;
-    private static final double BARRIER_OFFSET_HORIZONTAL_ELYTRA = 1.5;
-    private static final double BARRIER_OFFSET_DOWN = 0.4;  // zmniejszone z 0.8 - bliżej shella
+    private static final double BARRIER_OFFSET_DOWN = 0.7;  // przybliżone do środka (było 0.4)
     private static final double BARRIER_OFFSET_UP = 0.1;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
@@ -69,7 +67,6 @@ public class HydroKlatkaMovementListener implements Listener {
                         Location loc = player.getLocation();
                         if (!loc.getWorld().equals(center.getWorld())) continue;
 
-                        // ✅ Sprawdź czy gracz jest FAKTYCZNIE trapped (jest w liście)
                         if (!klatka.getTrappedPlayers().contains(player.getUniqueId())) continue;
 
                         // Twardy exploit check
@@ -78,25 +75,22 @@ public class HydroKlatkaMovementListener implements Listener {
                             continue;
                         }
 
-                        // ✅ Po zakończeniu animacji - MC blokuje fizycznie, my tylko exploit check
+                        // Po zakończeniu animacji - MC blokuje fizycznie
                         if (klatka.isAnimationComplete()) {
                             if (isInsideBuiltShell(loc, manager)) {
                                 teleportToCenter(player, center, true);
                             }
-                            continue; // ✅ NIE sprawdzaj bariery po animacji
+                            continue;
                         }
 
-                        // ✅ Wykryj elytra z dużą prędkością
-                        boolean isGlidingFast = false;
+                        // Elytra z dużą prędkością - pomiń barierę
                         if (player.isGliding()) {
                             Vector vel = player.getVelocity();
                             double speed = Math.sqrt(vel.getX() * vel.getX() + vel.getY() * vel.getY() + vel.getZ() * vel.getZ());
-                            if (speed > 0.3) {
-                                isGlidingFast = true;
-                            }
+                            if (speed > 0.3) continue;
                         }
 
-                        CollisionResult result = checkPlannedShellCollision(loc, klatka, manager, center, isGlidingFast);
+                        CollisionResult result = checkPlannedShellCollision(loc, klatka, manager, center);
 
                         if (result.teleportCenter) {
                             teleportToCenter(player, center, true);
@@ -105,13 +99,30 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         if (!result.clamped) continue;
 
-                        // Zapamiętaj velocity przed zerowaniem
                         Vector vel = player.getVelocity().clone();
 
-                        // Zeruj velocity
+                        // ✅ Spadanie - TELEPORT na bezpieczną pozycję, zero velocity
+                        if (result.blockY && vel.getY() <= 0) {
+                            player.setVelocity(new Vector(0, 0, 0));
+
+                            Location safe = new Location(
+                                    loc.getWorld(),
+                                    result.newX,
+                                    result.newY,
+                                    result.newZ,
+                                    loc.getYaw(),
+                                    loc.getPitch()
+                            );
+                            player.teleport(safe);
+                            player.setVelocity(new Vector(0, 0, 0)); // zeruj ponownie po TP
+
+                            feedback(player);
+                            continue;
+                        }
+
+                        // Reszta kolizji (boki, góra)
                         player.setVelocity(new Vector(0, 0, 0));
 
-                        // Teleportuj do bezpiecznej pozycji
                         Location old = player.getLocation();
                         Location safe = new Location(
                                 old.getWorld(),
@@ -123,7 +134,6 @@ public class HydroKlatkaMovementListener implements Listener {
                         );
                         player.teleport(safe);
 
-                        // ✅ Minimalne impulsy - tylko zapobiegają ponownemu wpadaniu
                         Vector bounce = new Vector(0, 0, 0);
                         if (result.blockX) {
                             double dir = center.getX() - result.newX;
@@ -133,13 +143,8 @@ public class HydroKlatkaMovementListener implements Listener {
                             double dir = center.getZ() - result.newZ;
                             bounce.setZ(Math.signum(dir) * 0.02);
                         }
-                        if (result.blockY) {
-                            // ✅ ZAWSZE w górę (w kierunku centrum, bo centrum jest POWYŻEJ shella dna)
-                            if (vel.getY() <= 0) {
-                                bounce.setY(0.02); // minimalny impuls W GÓRĘ, nigdy w dół
-                            } else {
-                                bounce.setY(-0.02); // uderzył w sufit
-                            }
+                        if (result.blockY && vel.getY() > 0) {
+                            bounce.setY(-0.02);
                         }
                         player.setVelocity(bounce);
 
@@ -155,23 +160,12 @@ public class HydroKlatkaMovementListener implements Listener {
     private CollisionResult checkPlannedShellCollision(Location loc,
                                                        ActiveHydroKlatka klatka,
                                                        HydroKlatkaManager manager,
-                                                       Location center,
-                                                       boolean isGlidingFast) {
+                                                       Location center) {
         double px = loc.getX();
         double py = loc.getY();
         double pz = loc.getZ();
 
         CollisionResult result = new CollisionResult(px, py, pz);
-
-        // ✅ Elytra - tylko sprawdź exploit (radius), nie blokuj barierą
-        if (isGlidingFast) {
-            if (loc.distance(center) > klatka.getRadius() + 0.5) {
-                result.teleportCenter = true;
-            }
-            return result;
-        }
-
-        double horizontalOffset = BARRIER_OFFSET_HORIZONTAL;
 
         // ==================== OŚ Y: DÓŁ ====================
         {
@@ -187,10 +181,11 @@ public class HydroKlatkaMovementListener implements Listener {
                         double shellTop = checkY + 1.0;
                         double barrierY = shellTop + BARRIER_OFFSET_DOWN;
 
-                        if (py <= barrierY + 0.15) {
+                        if (py <= barrierY + 0.1) {
                             result.clamped = true;
                             result.blockY  = true;
-                            result.newY    = Math.max(result.newY, barrierY);
+                            // ✅ Postaw gracza NA barierze - wystarczająco wysoko żeby nie bugował
+                            result.newY = Math.max(result.newY, barrierY + 0.01);
                         }
                         break;
                     }
@@ -242,7 +237,7 @@ public class HydroKlatkaMovementListener implements Listener {
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
                         double shellLeft = scanX;
-                        double barrierX  = shellLeft - horizontalOffset;
+                        double barrierX  = shellLeft - BARRIER_OFFSET_HORIZONTAL;
 
                         double playerRight = px + HALF_W;
                         if (playerRight >= barrierX) {
@@ -274,7 +269,7 @@ public class HydroKlatkaMovementListener implements Listener {
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
                         double shellRight = scanX + 1.0;
-                        double barrierX  = shellRight + horizontalOffset;
+                        double barrierX  = shellRight + BARRIER_OFFSET_HORIZONTAL;
 
                         double playerLeft = px - HALF_W;
                         if (playerLeft <= barrierX) {
@@ -306,7 +301,7 @@ public class HydroKlatkaMovementListener implements Listener {
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
                         double shellFront = scanZ;
-                        double barrierZ   = shellFront - horizontalOffset;
+                        double barrierZ   = shellFront - BARRIER_OFFSET_HORIZONTAL;
 
                         double playerFront = pz + HALF_W;
                         if (playerFront >= barrierZ) {
@@ -338,7 +333,7 @@ public class HydroKlatkaMovementListener implements Listener {
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
                         double shellBack = scanZ + 1.0;
-                        double barrierZ  = shellBack + horizontalOffset;
+                        double barrierZ  = shellBack + BARRIER_OFFSET_HORIZONTAL;
 
                         double playerBack = pz - HALF_W;
                         if (playerBack <= barrierZ) {
@@ -386,11 +381,8 @@ public class HydroKlatkaMovementListener implements Listener {
     private boolean isPlannedShellOnly(Location blockLoc,
                                        ActiveHydroKlatka klatka,
                                        HydroKlatkaManager manager) {
-        // ✅ Jeśli blok już jest postawiony - Minecraft blokuje fizycznie, nie sprawdzaj
         if (manager.isShellBlock(blockLoc)) return false;
-        // ✅ Jeśli animacja zakończona - wszystko zbudowane, nie sprawdzaj
         if (klatka.isAnimationComplete()) return false;
-        // ✅ Sprawdzaj tylko planned (jeszcze niepostawione)
         return klatka.isPlannedShellLocation(blockLoc);
     }
 
@@ -437,7 +429,6 @@ public class HydroKlatkaMovementListener implements Listener {
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
 
-        // ✅ Elytra - nie blokuj w MoveEvent
         if (player.isGliding()) return;
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
@@ -445,7 +436,6 @@ public class HydroKlatkaMovementListener implements Listener {
         ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
         if (klatka == null) return;
 
-        // ✅ Po animacji nie blokuj MoveEvent - MC robi to sam
         if (klatka.isAnimationComplete()) return;
 
         Location from = event.getFrom();
@@ -479,7 +469,7 @@ public class HydroKlatkaMovementListener implements Listener {
     private boolean wouldHitPlannedShell(Location loc,
                                          ActiveHydroKlatka klatka,
                                          HydroKlatkaManager manager) {
-        CollisionResult result = checkPlannedShellCollision(loc, klatka, manager, klatka.getCenter(), false);
+        CollisionResult result = checkPlannedShellCollision(loc, klatka, manager, klatka.getCenter());
         return result.clamped || result.teleportCenter;
     }
 
