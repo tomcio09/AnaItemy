@@ -33,8 +33,6 @@ public class HydroKlatkaMovementListener implements Listener {
 
     private final AnaItemy plugin;
 
-    private static final double HALF_W = 0.30;
-    private static final double HEIGHT = 1.80;
     private static final double TELEPORT_DISTANCE = 0.75;
     private static final long FEEDBACK_COOLDOWN_MS = 500L;
 
@@ -55,192 +53,49 @@ public class HydroKlatkaMovementListener implements Listener {
             public void run() {
                 HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
-                plugin.getLogger().info("[HK-DEBUG] Active klatki: " + manager.getActiveKlatki().size());
-
                 for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
                     Location center = klatka.getCenter();
-
-                    plugin.getLogger().info("[HK-DEBUG] Klatka trapped players: " + klatka.getTrappedPlayers().size());
-                    plugin.getLogger().info("[HK-DEBUG] Animation complete: " + klatka.isAnimationComplete());
+                    double radius = klatka.getRadius();
 
                     for (UUID uuid : new ArrayList<>(klatka.getTrappedPlayers())) {
                         Player player = plugin.getServer().getPlayer(uuid);
-
-                        plugin.getLogger().info("[HK-DEBUG] Player UUID: " + uuid + " online: " + (player != null && player.isOnline()));
-
                         if (player == null || !player.isOnline()) continue;
 
                         Location loc = player.getLocation();
                         if (!loc.getWorld().equals(center.getWorld())) continue;
 
-                        plugin.getLogger().info("[HK-DEBUG] Player " + player.getName() + " gliding: " + player.isGliding());
-
                         if (player.isGliding()) continue;
 
-                        // ✅ Po animacji - MC blokuje fizycznie
-                        if (klatka.isAnimationComplete()) {
-                            if (isInsideBuiltShell(loc, manager)) {
-                                plugin.getLogger().info("[HK-DEBUG] Player inside built shell - teleporting to center");
-                                teleportToCenter(player, center);
-                            }
-                            continue;
-                        }
+                        if (klatka.isAnimationComplete()) continue;
 
-                        // ✅ PODCZAS ANIMACJI - sprawdź kolizję z barierą
-                        plugin.getLogger().info("[HK-DEBUG] Checking collision for " + player.getName() + " at " + loc);
+                        // ✅ Oblicz odległość gracza od centrum klatki
+                        double distance = loc.distance(center);
 
-                        Vector dir = getTeleportTowardCenter(loc, klatka, manager, center);
+                        plugin.getLogger().info("[HK-DEBUG] Player: " + player.getName()
+                                + " distance: " + distance + " radius: " + radius);
 
-                        if (dir != null) {
-                            plugin.getLogger().info("[HK-DEBUG] TELEPORTING " + player.getName() + " by: " + dir);
-                            Location newLoc = loc.clone().add(dir);
+                        // ✅ Gracz zbliża się do granicy shella (bariera = radius - 0.5)
+                        double barrierRadius = radius - 0.5;
+
+                        if (distance >= barrierRadius) {
+                            plugin.getLogger().info("[HK-DEBUG] BARRIER HIT! distance=" + distance
+                                    + " barrierRadius=" + barrierRadius);
+
+                            // ✅ Teleport 0.75 bloku W STRONĘ ŚRODKA
+                            // Oblicz kierunek od gracza DO centrum
+                            Vector toCenter = center.toVector().subtract(loc.toVector()).normalize();
+                            Vector teleportVec = toCenter.multiply(TELEPORT_DISTANCE);
+
+                            plugin.getLogger().info("[HK-DEBUG] Teleporting by: " + teleportVec);
+
+                            Location newLoc = loc.clone().add(teleportVec);
                             doSafeTeleport(player, newLoc);
                             feedback(player);
-                        } else {
-                            plugin.getLogger().info("[HK-DEBUG] No collision detected for " + player.getName());
                         }
                     }
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
-    }
-
-    // ==================== TELEPORT W STRONĘ ŚRODKA ====================
-
-    private Vector getTeleportTowardCenter(Location loc,
-                                           ActiveHydroKlatka klatka,
-                                           HydroKlatkaManager manager,
-                                           Location center) {
-        double px = loc.getX();
-        double py = loc.getY();
-        double pz = loc.getZ();
-
-        double cx = center.getX();
-        double cy = center.getY();
-        double cz = center.getZ();
-
-        for (int dx = -3; dx <= 3; dx++) {
-            for (int dy = -3; dy <= 4; dy++) {
-                for (int dz = -3; dz <= 3; dz++) {
-                    Location checkLoc = new Location(
-                            loc.getWorld(),
-                            (int) Math.floor(px) + dx,
-                            (int) Math.floor(py) + dy,
-                            (int) Math.floor(pz) + dz
-                    );
-
-                    boolean isPlanned = klatka.isPlannedShellLocation(checkLoc);
-                    boolean isBuilt = manager.isShellBlock(checkLoc);
-
-                    if (isPlanned) {
-                        plugin.getLogger().info("[HK-DEBUG] Found PLANNED shell at: " + checkLoc);
-                    }
-                    if (isBuilt) {
-                        plugin.getLogger().info("[HK-DEBUG] Found BUILT shell at: " + checkLoc);
-                    }
-
-                    // ✅ Sprawdź ZARÓWNO planned JAK I zbudowane bloki shella
-                    if (!isPlanned && !isBuilt) continue;
-
-                    double bx = checkLoc.getX() + 0.5;
-                    double by = checkLoc.getY() + 0.5;
-                    double bz = checkLoc.getZ() + 0.5;
-
-                    plugin.getLogger().info("[HK-DEBUG] Checking barrier distance: dx=" +
-                            Math.abs(px - bx) + " dy=" + Math.abs(py - by) + " dz=" + Math.abs(pz - bz));
-
-                    if (isNearBarrier(px, py, pz, bx, by, bz)) {
-                        plugin.getLogger().info("[HK-DEBUG] BARRIER HIT at: " + checkLoc);
-
-                        double dirX = 0;
-                        double dirY = 0;
-                        double dirZ = 0;
-
-                        if (Math.abs(px - bx) > 0.15) {
-                            dirX = Math.signum(cx - px) * TELEPORT_DISTANCE;
-                        }
-                        if (Math.abs(py - by) > 0.15) {
-                            dirY = Math.signum(cy - py) * TELEPORT_DISTANCE;
-                        }
-                        if (Math.abs(pz - bz) > 0.15) {
-                            dirZ = Math.signum(cz - pz) * TELEPORT_DISTANCE;
-                        }
-
-                        if (dirX != 0 || dirY != 0 || dirZ != 0) {
-                            plugin.getLogger().info("[HK-DEBUG] Direction: " + dirX + ", " + dirY + ", " + dirZ);
-                            return new Vector(dirX, dirY, dirZ);
-                        }
-                    }
-                }
-            }
-        }
-
-        return null;
-    }
-
-    // ==================== SPRAWDZENIE BARIERY ====================
-    private boolean isNearBarrier(double px, double py, double pz,
-                              double bx, double by, double bz) {
-        double dx = Math.abs(px - bx);
-        double dy = Math.abs(py - by);
-        double dz = Math.abs(pz - bz);
-
-        // ✅ Sprawdź czy gracz jest blisko DOWOLNEJ ściany shella
-        // Shell jest kulą - gracz może dotykać go z każdej strony
-        // Wystarczy że jest blisko centrum bloku shella w dowolnej osi
-        boolean nearX = dx < HALF_W + 0.5;
-        boolean nearY = dy < HEIGHT + 0.5;
-        boolean nearZ = dz < HALF_W + 0.5;
-
-        // ✅ Dwie z trzech osi muszą być bliskie (gracz dotyka boku shella)
-        int nearCount = (nearX ? 1 : 0) + (nearY ? 1 : 0) + (nearZ ? 1 : 0);
-        return nearCount >= 2;
-    }
-
-    // ==================== SPRAWDZENIE BUILT SHELL ====================
-
-    private boolean isInsideBuiltShell(Location loc, HydroKlatkaManager manager) {
-        double px = loc.getX();
-        double py = loc.getY();
-        double pz = loc.getZ();
-
-        int minBX = (int) Math.floor(px - HALF_W);
-        int maxBX = (int) Math.floor(px + HALF_W);
-        int minBY = (int) Math.floor(py);
-        int maxBY = (int) Math.floor(py + HEIGHT);
-        int minBZ = (int) Math.floor(pz - HALF_W);
-        int maxBZ = (int) Math.floor(pz + HALF_W);
-
-        for (int bx = minBX; bx <= maxBX; bx++) {
-            for (int by = minBY; by <= maxBY; by++) {
-                for (int bz = minBZ; bz <= maxBZ; bz++) {
-                    Location blockLoc = new Location(loc.getWorld(), bx, by, bz);
-                    if (manager.isShellBlock(blockLoc)) return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    // ==================== TELEPORT NA ŚRODEK ====================
-
-    private void teleportToCenter(Player player, Location center) {
-        Location current = player.getLocation();
-        Location tp = center.clone();
-        tp.setYaw(current.getYaw());
-        tp.setPitch(current.getPitch());
-
-        ourTeleports.add(player.getUniqueId());
-        player.teleport(tp);
-
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                ourTeleports.remove(player.getUniqueId());
-            }
-        }.runTask(plugin);
-
-        feedback(player);
     }
 
     // ==================== BEZPIECZNY TELEPORT ====================
