@@ -38,6 +38,9 @@ public class ActiveHydroKlatka {
     // ==================== BLOCK KEY ====================
 
     public static String blockKey(Location loc) {
+        if (loc == null || loc.getWorld() == null) {
+            throw new IllegalArgumentException("Location or world cannot be null");
+        }
         return loc.getWorld().getName() + ":"
                 + loc.getBlockX() + ":"
                 + loc.getBlockY() + ":"
@@ -45,13 +48,21 @@ public class ActiveHydroKlatka {
     }
 
     public static Location keyToLocation(String key) {
-        String[] parts = key.split(":");
-        World world = Bukkit.getWorld(parts[0]);
-        if (world == null) return null;
-        return new Location(world,
-                Integer.parseInt(parts[1]),
-                Integer.parseInt(parts[2]),
-                Integer.parseInt(parts[3]));
+        if (key == null) return null;
+        try {
+            String[] parts = key.split(":");
+            if (parts.length != 4) return null;
+            
+            World world = Bukkit.getWorld(parts[0]);
+            if (world == null) return null;
+            
+            return new Location(world,
+                    Integer.parseInt(parts[1]),
+                    Integer.parseInt(parts[2]),
+                    Integer.parseInt(parts[3]));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     // ==================== GETTERY ====================
@@ -100,11 +111,14 @@ public class ActiveHydroKlatka {
     public void setPlannedShellLocations(Set<Location> locations) {
         this.plannedShellLocations.clear();
         for (Location loc : locations) {
-            this.plannedShellLocations.add(blockKey(loc));
+            if (loc != null && loc.getWorld() != null) {
+                this.plannedShellLocations.add(blockKey(loc));
+            }
         }
     }
 
     public boolean isPlannedShellLocation(Location location) {
+        if (location == null || location.getWorld() == null) return false;
         return plannedShellLocations.contains(blockKey(location));
     }
 
@@ -138,10 +152,12 @@ public class ActiveHydroKlatka {
     // ==================== BLOKI ====================
 
     public void addOriginalBlock(Location location, BlockData blockData) {
+        if (location == null || location.getWorld() == null || blockData == null) return;
         originalBlocks.put(blockKey(location), blockData);
     }
 
     public boolean hasOriginalBlock(Location location) {
+        if (location == null || location.getWorld() == null) return false;
         return originalBlocks.containsKey(blockKey(location));
     }
 
@@ -150,6 +166,7 @@ public class ActiveHydroKlatka {
     }
 
     public void markBlockDestroyed(Location location) {
+        if (location == null || location.getWorld() == null) return;
         destroyedBlocks.add(blockKey(location));
     }
 
@@ -158,6 +175,7 @@ public class ActiveHydroKlatka {
     }
 
     public boolean wasBlockDestroyedAt(Location location) {
+        if (location == null || location.getWorld() == null) return false;
         return destroyedBlocks.contains(blockKey(location));
     }
 
@@ -183,6 +201,7 @@ public class ActiveHydroKlatka {
      * Sprawdza czy lokacja jest wewnątrz klatki (całej sfery).
      */
     public boolean isInsideCage(Location location) {
+        if (location == null || location.getWorld() == null) return false;
         if (!location.getWorld().equals(center.getWorld())) return false;
         return location.distance(center) <= radius;
     }
@@ -191,6 +210,7 @@ public class ActiveHydroKlatka {
      * Sprawdza czy lokacja jest wewnątrz bariery.
      */
     public boolean isInsideBarrier(Location location) {
+        if (location == null || location.getWorld() == null) return false;
         if (!location.getWorld().equals(center.getWorld())) return false;
         return location.distance(center) < getBarrierRadius();
     }
@@ -199,6 +219,7 @@ public class ActiveHydroKlatka {
      * Sprawdza czy gracz dotyka lub przekracza barierę (od wewnątrz).
      */
     public boolean isTouchingBarrier(Location location) {
+        if (location == null || location.getWorld() == null) return false;
         if (!location.getWorld().equals(center.getWorld())) return false;
         return location.distance(center) >= getBarrierRadius();
     }
@@ -207,6 +228,7 @@ public class ActiveHydroKlatka {
      * Sprawdza czy gracz jest poza strefą bezpieczeństwa.
      */
     public boolean isBeyondSafety(Location location) {
+        if (location == null || location.getWorld() == null) return false;
         if (!location.getWorld().equals(center.getWorld())) return false;
         return location.distance(center) >= getSafetyRadius();
     }
