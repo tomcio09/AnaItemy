@@ -1,3 +1,4 @@
+// src/main/java/pl/anaheim/anaitemy/managers/HydroKlatkaManager.java
 package pl.anaheim.anaitemy.managers;
 
 import net.kyori.adventure.bossbar.BossBar;
@@ -36,6 +37,8 @@ public class HydroKlatkaManager {
         this.plugin = plugin;
         startCleanupTask();
     }
+
+    // ==================== CLEANUP TASK ====================
 
     private void startCleanupTask() {
         new BukkitRunnable() {
@@ -108,6 +111,19 @@ public class HydroKlatkaManager {
                 chunkCooldowns.put(world + ":" + x + ":" + z, end);
     }
 
+    private void clearChunkCooldownsForKlatka(ActiveHydroKlatka klatka) {
+        Location center = klatka.getCenter();
+        int radius = klatka.getRadius();
+        String world = center.getWorld().getName();
+        int cx = center.getBlockX() >> 4;
+        int cz = center.getBlockZ() >> 4;
+        int cr = (radius >> 4) + 1;
+
+        for (int x = cx - cr; x <= cx + cr; x++)
+            for (int z = cz - cr; z <= cz + cr; z++)
+                chunkCooldowns.remove(world + ":" + x + ":" + z);
+    }
+
     private String getChunkKey(Location loc) {
         return loc.getWorld().getName() + ":" + (loc.getBlockX() >> 4) + ":" + (loc.getBlockZ() >> 4);
     }
@@ -125,13 +141,15 @@ public class HydroKlatkaManager {
             @Override
             public void run() {
                 if (!player.isOnline()) {
-                    cancel(); cooldownTasks.remove(player.getUniqueId());
+                    cancel();
+                    cooldownTasks.remove(player.getUniqueId());
                     plugin.getActionBarManager().removeActionBar(player, "hydroklatka");
                     return;
                 }
                 long rem = getPlayerCooldownRemaining(player);
                 if (rem <= 0) {
-                    cancel(); cooldownTasks.remove(player.getUniqueId());
+                    cancel();
+                    cooldownTasks.remove(player.getUniqueId());
                     plugin.getActionBarManager().removeActionBar(player, "hydroklatka");
                     return;
                 }
@@ -164,6 +182,7 @@ public class HydroKlatkaManager {
 
         ActiveHydroKlatka klatka = new ActiveHydroKlatka(center, radius, duration, creator.getUniqueId());
 
+        // Oblicz pozycje shella PRZED dodaniem do mapy aktywnych
         Set<Location> shellPositions = calculateShellPositions(center, radius, center.getWorld());
         klatka.setPlannedShellLocations(shellPositions);
 
@@ -174,7 +193,6 @@ public class HydroKlatkaManager {
         createBossBar(klatka);
         playCreationSounds(center);
 
-        // ✅ BEZ barrier bloków — listener softwarowo blokuje ruch trapped graczy
         startBuildAnimation(klatka);
         scheduleRemoval(klatka);
     }
@@ -187,7 +205,9 @@ public class HydroKlatkaManager {
                     Location loc = new Location(world,
                             center.getBlockX() + x, center.getBlockY() + y, center.getBlockZ() + z);
                     double dist = loc.clone().add(0.5, 0.5, 0.5).distance(center);
-                    if (dist > radius - 1.0 && dist <= radius) positions.add(loc);
+                    if (dist > radius - 1.0 && dist <= radius) {
+                        positions.add(loc);
+                    }
                 }
         return positions;
     }
@@ -201,14 +221,16 @@ public class HydroKlatkaManager {
         List<String> blocked = config.getHydroKlatkaBlockedRegions();
 
         for (Player p : center.getWorld().getPlayers()) {
+            if (!p.getLocation().getWorld().equals(center.getWorld())) continue;
             if (p.getLocation().distance(center) <= klatka.getRadius()) {
                 if (plugin.getWorldGuardManager().isInBlockedRegion(p.getLocation(), blocked))
                     continue;
                 klatka.addTrappedPlayer(p.getUniqueId());
                 if (config.isHydroKlatkaTagPlayers()
                         && plugin.getCombatIntegrationManager().isEnabled()
-                        && plugin.getCombatIntegrationManager().hasTagPlayerMethod())
+                        && plugin.getCombatIntegrationManager().hasTagPlayerMethod()) {
                     plugin.getCombatIntegrationManager().tagPlayer(p, creator);
+                }
             }
         }
     }
@@ -256,31 +278,37 @@ public class HydroKlatkaManager {
 
     private void playCreationSounds(Location center) {
         World world = center.getWorld();
+        if (world == null) return;
         ItemsConfig config = plugin.getItemsConfig();
 
         try {
             Sound s = Sound.valueOf(config.getHydroKlatkaExplodeSound());
             world.playSound(center, s, SoundCategory.BLOCKS,
                     config.getHydroKlatkaExplodeVolume(), config.getHydroKlatkaExplodePitch());
-        } catch (IllegalArgumentException ignored) {}
+        } catch (IllegalArgumentException ignored) {
+        }
 
         try {
             Sound s = Sound.valueOf(config.getHydroKlatkaSplashSound());
             world.playSound(center, s, SoundCategory.BLOCKS,
                     config.getHydroKlatkaSplashVolume(), config.getHydroKlatkaSplashPitch());
-        } catch (IllegalArgumentException ignored) {}
+        } catch (IllegalArgumentException ignored) {
+        }
 
         int animDur = config.getHydroKlatkaAnimationDuration();
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             try {
                 Sound s = Sound.valueOf(config.getHydroKlatkaAmbientSound());
-                for (Player p : world.getPlayers())
-                    if (p.getLocation().distance(center) <= 50)
+                for (Player p : world.getPlayers()) {
+                    if (p.getLocation().distance(center) <= 50) {
                         p.playSound(center, s, SoundCategory.BLOCKS,
                                 config.getHydroKlatkaAmbientVolume(),
                                 config.getHydroKlatkaAmbientPitch());
-            } catch (IllegalArgumentException ignored) {}
-        }, animDur - 10L);
+                    }
+                }
+            } catch (IllegalArgumentException ignored) {
+            }
+        }, Math.max(1L, animDur - 10L));
     }
 
     // ==================== BUILD ANIMATION ====================
@@ -297,10 +325,18 @@ public class HydroKlatkaManager {
 
         new BukkitRunnable() {
             int y = maxY;
+
             @Override
             public void run() {
-                if (!activeKlatki.containsKey(klatka.getId())) { cancel(); return; }
-                if (y < minY) { klatka.setAnimationComplete(true); cancel(); return; }
+                if (!activeKlatki.containsKey(klatka.getId())) {
+                    cancel();
+                    return;
+                }
+                if (y < minY) {
+                    klatka.setAnimationComplete(true);
+                    cancel();
+                    return;
+                }
                 buildLayer(klatka, y);
                 y--;
             }
@@ -311,6 +347,7 @@ public class HydroKlatkaManager {
         Location center = klatka.getCenter();
         int radius = klatka.getRadius();
         World world = center.getWorld();
+        if (world == null) return;
         List<String> blocked = plugin.getItemsConfig().getHydroKlatkaBlockedRegions();
 
         for (int x = -radius; x <= radius; x++) {
@@ -324,8 +361,9 @@ public class HydroKlatkaManager {
                 Material type = block.getType();
                 if (PROTECTED_BLOCKS.contains(type)) continue;
 
-                if (!klatka.hasOriginalBlock(loc))
+                if (!klatka.hasOriginalBlock(loc)) {
                     klatka.addOriginalBlock(loc, block.getBlockData());
+                }
 
                 if (dist > radius - 1.0) {
                     block.setType(SHELL);
@@ -338,8 +376,8 @@ public class HydroKlatkaManager {
     }
 
     private Material mapToWaterBlock(Material m) {
-        String name = m.name();
         if (m == Material.BEDROCK) return Material.BEDROCK;
+        String name = m.name();
         if (m == Material.DIRT || m == Material.GRASS_BLOCK
                 || m == Material.COARSE_DIRT || m == Material.ROOTED_DIRT)
             return Material.LIGHT_GRAY_TERRACOTTA;
@@ -364,7 +402,6 @@ public class HydroKlatkaManager {
             @Override
             public void run() {
                 removeKlatka(klatka);
-                Bukkit.getScheduler().runTaskLater(plugin, () -> chunkCooldowns.clear(), 100L);
             }
         }.runTaskLater(plugin, 20L * klatka.getOriginalDuration());
     }
@@ -372,11 +409,17 @@ public class HydroKlatkaManager {
     public void removeKlatka(ActiveHydroKlatka klatka) {
         if (!activeKlatki.containsKey(klatka.getId())) return;
 
-        klatka.getOriginalBlocks().forEach((loc, data) -> {
-            if (!klatka.wasBlockDestroyed(loc))
-                loc.getBlock().setBlockData(data);
+        // Przywróć oryginalne bloki
+        klatka.getOriginalBlocks().forEach((key, data) -> {
+            if (!klatka.wasBlockDestroyed(key)) {
+                Location loc = ActiveHydroKlatka.keyToLocation(key);
+                if (loc != null) {
+                    loc.getBlock().setBlockData(data);
+                }
+            }
         });
 
+        // Usuń boss bary
         for (UUID id : klatka.getTrappedPlayers()) {
             BossBar bb = playerBossBars.remove(id);
             if (bb != null) {
@@ -384,23 +427,34 @@ public class HydroKlatkaManager {
                 if (p != null && p.isOnline()) p.hideBossBar(bb);
             }
         }
-        for (UUID id : klatka.getOfflinePlayers())
-            playerBossBars.remove(id);
+        for (UUID id : klatka.getOfflinePlayers()) {
+            BossBar bb = playerBossBars.remove(id);
+            if (bb != null) {
+                Player p = Bukkit.getPlayer(id);
+                if (p != null && p.isOnline()) p.hideBossBar(bb);
+            }
+        }
 
         Location center = klatka.getCenter();
         World world = center.getWorld();
         ItemsConfig config = plugin.getItemsConfig();
 
-        try {
-            Sound s = Sound.valueOf(config.getHydroKlatkaRemoveSound());
-            world.playSound(center, s, SoundCategory.BLOCKS,
-                    config.getHydroKlatkaRemoveVolume(), config.getHydroKlatkaRemovePitch());
-        } catch (IllegalArgumentException ignored) {}
+        if (world != null) {
+            try {
+                Sound s = Sound.valueOf(config.getHydroKlatkaRemoveSound());
+                world.playSound(center, s, SoundCategory.BLOCKS,
+                        config.getHydroKlatkaRemoveVolume(), config.getHydroKlatkaRemovePitch());
+            } catch (IllegalArgumentException ignored) {
+            }
 
-        world.spawnParticle(Particle.SPLASH, center, 150, 4, 4, 4, 0.5);
-        world.spawnParticle(Particle.CLOUD, center, 40, 3, 3, 3, 0.1);
+            world.spawnParticle(Particle.SPLASH, center, 150, 4, 4, 4, 0.5);
+            world.spawnParticle(Particle.CLOUD, center, 40, 3, 3, 3, 0.1);
+        }
 
         activeKlatki.remove(klatka.getId());
+
+        // Wyczyść cooldowny chunków dla TEJ klatki, z opóźnieniem
+        Bukkit.getScheduler().runTaskLater(plugin, () -> clearChunkCooldownsForKlatka(klatka), 100L);
     }
 
     // ==================== BLOCK PROTECTION ====================
@@ -412,11 +466,17 @@ public class HydroKlatkaManager {
 
     public boolean isShellBlock(Location location) {
         if (location.getBlock().getType() != SHELL) return false;
-        return activeKlatki.values().stream().anyMatch(k -> k.hasOriginalBlock(location));
+        for (ActiveHydroKlatka k : activeKlatki.values()) {
+            if (k.hasOriginalBlock(location)) return true;
+        }
+        return false;
     }
 
     public boolean isKlatkaBlock(Location location) {
-        return activeKlatki.values().stream().anyMatch(k -> k.hasOriginalBlock(location));
+        for (ActiveHydroKlatka k : activeKlatki.values()) {
+            if (k.hasOriginalBlock(location)) return true;
+        }
+        return false;
     }
 
     public boolean isProtectedByCage(Location loc) {
@@ -431,12 +491,16 @@ public class HydroKlatkaManager {
     public boolean canUseItem(Player player, Material material) {
         Set<Material> blocked = new HashSet<>();
         for (String name : plugin.getItemsConfig().getHydroKlatkaBlockedItems()) {
-            try { blocked.add(Material.valueOf(name)); }
-            catch (IllegalArgumentException ignored) {}
+            try {
+                blocked.add(Material.valueOf(name));
+            } catch (IllegalArgumentException ignored) {
+            }
         }
-        for (ActiveHydroKlatka k : activeKlatki.values())
-            if (k.isPlayerTrapped(player.getUniqueId()))
+        for (ActiveHydroKlatka k : activeKlatki.values()) {
+            if (k.isPlayerTrapped(player.getUniqueId())) {
                 return !blocked.contains(material);
+            }
+        }
         return true;
     }
 
@@ -445,16 +509,19 @@ public class HydroKlatkaManager {
     }
 
     public void markBlockAsDestroyed(Location location) {
-        activeKlatki.values().forEach(k -> k.markBlockDestroyed(location));
+        for (ActiveHydroKlatka k : activeKlatki.values()) {
+            k.markBlockDestroyed(location);
+        }
     }
 
     public Collection<ActiveHydroKlatka> getActiveKlatki() {
-        return new ArrayList<>(activeKlatki.values());
+        return Collections.unmodifiableCollection(activeKlatki.values());
     }
 
     public ActiveHydroKlatka getKlatkaForPlayer(Player player) {
-        for (ActiveHydroKlatka k : activeKlatki.values())
+        for (ActiveHydroKlatka k : activeKlatki.values()) {
             if (k.isPlayerTrapped(player.getUniqueId())) return k;
+        }
         return null;
     }
 
@@ -472,8 +539,9 @@ public class HydroKlatkaManager {
     // ==================== CLEANUP ====================
 
     public void cleanup() {
-        for (ActiveHydroKlatka k : new ArrayList<>(activeKlatki.values()))
+        for (ActiveHydroKlatka k : new ArrayList<>(activeKlatki.values())) {
             removeKlatka(k);
+        }
         cooldownTasks.values().forEach(BukkitTask::cancel);
         cooldownTasks.clear();
         chunkCooldowns.clear();
