@@ -179,55 +179,40 @@ public class ActiveHydroKlatka {
         return destroyedBlocks.contains(blockKey(location));
     }
 
-    // ==================== GEOMETRIA ====================
+    // ==================== GEOMETRIA - POPRAWIONE ====================
 
     /**
-     * Bariera niewidzialna - w połowie bloku shell (wewnętrzna krawędź).
-     * Shell jest na dystansie radius-1.0 do radius od centrum.
-     * Bariera = radius - 0.5 (środek shella).
+     * Bariera niewidzialna - w połowie bloku shell.
      */
     public double getBarrierRadius() {
         return radius - 0.5;
     }
 
     /**
-     * Dystans bezpieczeństwa - jeśli gracz jest dalej niż to, teleport na środek.
-     * Zwiększony z 0.8 na 0.9 dla lepszej ochrony.
+     * POPRAWIONE: System bezpieczeństwa - 1 PEŁNA kratka za radius.
      */
     public double getSafetyRadius() {
-        return radius + 0.9;
+        return radius + 1.0;
     }
 
-    /**
-     * Sprawdza czy lokacja jest wewnątrz klatki (całej sfery).
-     */
     public boolean isInsideCage(Location location) {
         if (location == null || location.getWorld() == null) return false;
         if (!location.getWorld().equals(center.getWorld())) return false;
         return location.distance(center) <= radius;
     }
 
-    /**
-     * Sprawdza czy lokacja jest wewnątrz bariery.
-     */
     public boolean isInsideBarrier(Location location) {
         if (location == null || location.getWorld() == null) return false;
         if (!location.getWorld().equals(center.getWorld())) return false;
         return location.distance(center) < getBarrierRadius();
     }
 
-    /**
-     * Sprawdza czy gracz dotyka lub przekracza barierę (od wewnątrz).
-     */
     public boolean isTouchingBarrier(Location location) {
         if (location == null || location.getWorld() == null) return false;
         if (!location.getWorld().equals(center.getWorld())) return false;
         return location.distance(center) >= getBarrierRadius();
     }
 
-    /**
-     * Sprawdza czy gracz jest poza strefą bezpieczeństwa.
-     */
     public boolean isBeyondSafety(Location location) {
         if (location == null || location.getWorld() == null) return false;
         if (!location.getWorld().equals(center.getWorld())) return false;
