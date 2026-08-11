@@ -83,12 +83,14 @@ public class HydroKlatkaMovementListener implements Listener {
 
                 for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
                     Location center = klatka.getCenter();
+                    if (center == null || center.getWorld() == null) continue;
 
                     for (UUID uuid : new ArrayList<>(klatka.getTrappedPlayers())) {
                         Player player = plugin.getServer().getPlayer(uuid);
                         if (player == null || !player.isOnline()) continue;
 
                         Location playerLoc = player.getLocation();
+                        if (playerLoc == null || playerLoc.getWorld() == null) continue;
 
                         // Sprawdź czy ten sam świat
                         if (!playerLoc.getWorld().equals(center.getWorld())) continue;
@@ -140,6 +142,7 @@ public class HydroKlatkaMovementListener implements Listener {
      * go nie blokował.
      */
     private void doInternalTeleport(Player player, Location destination) {
+        if (player == null || destination == null) return;
         internalTeleports.add(player.getUniqueId());
         player.teleport(destination);
 
@@ -159,6 +162,7 @@ public class HydroKlatkaMovementListener implements Listener {
      * Wysyła dźwięk i subtitle graczowi, z cooldownem żeby nie spamować.
      */
     private void sendBarrierFeedback(Player player) {
+        if (player == null) return;
         long now = System.currentTimeMillis();
         Long last = lastFeedback.get(player.getUniqueId());
         if (last != null && now - last < FEEDBACK_COOLDOWN_MS) return;
@@ -189,6 +193,7 @@ public class HydroKlatkaMovementListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
+        if (player == null) return;
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
@@ -215,6 +220,7 @@ public class HydroKlatkaMovementListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
     public void onPlayerTeleport(PlayerTeleportEvent event) {
         Player player = event.getPlayer();
+        if (player == null) return;
 
         // Nasz teleport - zawsze przepuść
         if (internalTeleports.contains(player.getUniqueId())) {
@@ -232,9 +238,12 @@ public class HydroKlatkaMovementListener implements Listener {
         Location to = event.getTo();
         if (to == null) return;
 
-        // Sprawdź czy cel teleportu jest poza klatkę
-        if (!to.getWorld().equals(klatka.getCenter().getWorld())
-                || to.distance(klatka.getCenter()) > klatka.getBarrierRadius()) {
+        Location center = klatka.getCenter();
+        if (center == null || center.getWorld() == null) return;
+
+        // Sprawdź czy cel teleportu jest poza barierę
+        if (to.getWorld() == null || !to.getWorld().equals(center.getWorld())
+                || to.distance(center) >= klatka.getBarrierRadius()) {
             event.setCancelled(true);
             manager.sendMessage(player,
                     plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
@@ -245,6 +254,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        if (event == null || event.getPlayer() == null) return;
         UUID uuid = event.getPlayer().getUniqueId();
         lastFeedback.remove(uuid);
         internalTeleports.remove(uuid);
