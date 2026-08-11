@@ -25,8 +25,6 @@ public class HydroKlatkaManager {
     private final Map<UUID, BossBar> playerBossBars = new ConcurrentHashMap<>();
 
     private static final Material SHELL = Material.BLUE_GLAZED_TERRACOTTA;
-    private static final Material INNER = Material.LIGHT_BLUE_CONCRETE;
-    private static final Material INNER_POWDER = Material.LIGHT_BLUE_CONCRETE_POWDER;
 
     private static final Set<Material> PROTECTED_BLOCKS = Set.of(
             Material.BEDROCK,
@@ -415,24 +413,20 @@ public class HydroKlatkaManager {
         }
     }
 
-    private Material mapToWaterBlock(Material m) {
-        if (m == Material.BEDROCK) return Material.BEDROCK;
-        String name = m.name();
-        if (m == Material.DIRT || m == Material.GRASS_BLOCK
-                || m == Material.COARSE_DIRT || m == Material.ROOTED_DIRT)
-            return Material.LIGHT_GRAY_TERRACOTTA;
-        if (m == Material.ANDESITE || m == Material.DIORITE
-                || m == Material.POLISHED_ANDESITE || m == Material.POLISHED_DIORITE)
-            return Material.SEA_LANTERN;
-        if (m == Material.STONE) return Material.PRISMARINE;
-        if (name.contains("BRICKS")) return Material.PRISMARINE_BRICKS;
-        if (m == Material.SPRUCE_LOG || m == Material.SPRUCE_WOOD
-                || m == Material.STRIPPED_SPRUCE_LOG)
-            return Material.BRAIN_CORAL_BLOCK;
-        if (name.contains("LEAVES")) return Material.PURPLE_TERRACOTTA;
-        if (m == Material.SAND || m == Material.RED_SAND || m == Material.GRAVEL)
-            return INNER_POWDER;
-        return INNER;
+    /**
+     * ✅ ZMIENIONA: Mapuje oryginalny blok na blok wodny używając konfiguracji.
+     */
+    private Material mapToWaterBlock(Material original) {
+        // Sprawdź mapowanie z konfiguracji
+        Map<Material, Material> mapping = plugin.getItemsConfig().getHydroKlatkaBlockMapping();
+        Material mapped = mapping.get(original);
+        
+        if (mapped != null) {
+            return mapped;
+        }
+        
+        // Fallback - domyślna wartość jeśli nie znaleziono w mapowaniu
+        return Material.LIGHT_BLUE_CONCRETE;
     }
 
     // ==================== REMOVAL ====================
@@ -447,13 +441,17 @@ public class HydroKlatkaManager {
         }.runTaskLater(plugin, 20L * klatka.getOriginalDuration());
     }
 
+    /**
+     * ✅ ZMIENIONA: removeKlatka - nie przywraca bloków postawionych podczas klatki.
+     */
     public void removeKlatka(ActiveHydroKlatka klatka) {
         if (klatka == null) return;
         if (!activeKlatki.containsKey(klatka.getId())) return;
 
-        // Przywróć oryginalne bloki
+        // Przywróć oryginalne bloki, ALE nie te postawione podczas klatki
         klatka.getOriginalBlocks().forEach((key, data) -> {
-            if (!klatka.wasBlockDestroyed(key)) {
+            // ✅ Sprawdź czy blok NIE został postawiony podczas klatki
+            if (!klatka.wasBlockDestroyed(key) && !klatka.wasBlockPlacedDuringCage(key)) {
                 Location loc = ActiveHydroKlatka.keyToLocation(key);
                 if (loc != null && data != null) {
                     loc.getBlock().setBlockData(data);
