@@ -1,4 +1,3 @@
-// src/main/java/pl/anaheim/anaitemy/listeners/HydroKlatkaMovementListener.java
 package pl.anaheim.anaitemy.listeners;
 
 import net.kyori.adventure.text.Component;
@@ -37,7 +36,6 @@ public class HydroKlatkaMovementListener implements Listener {
     private static final double HALF_W = 0.30;
     private static final double HEIGHT = 1.80;
     private static final double TELEPORT_DISTANCE = 0.75;
-
     private static final long FEEDBACK_COOLDOWN_MS = 500L;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
@@ -49,38 +47,66 @@ public class HydroKlatkaMovementListener implements Listener {
         startClampTask();
     }
 
+    // ==================== TASK CO TICK ====================
+
     private void startClampTask() {
         clampTask = new BukkitRunnable() {
             @Override
             public void run() {
                 HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
+                plugin.getLogger().info("[HK-DEBUG] Active klatki: " + manager.getActiveKlatki().size());
+
                 for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
                     Location center = klatka.getCenter();
 
+                    plugin.getLogger().info("[HK-DEBUG] Klatka trapped players: " + klatka.getTrappedPlayers().size());
+                    plugin.getLogger().info("[HK-DEBUG] Animation complete: " + klatka.isAnimationComplete());
+
                     for (UUID uuid : new ArrayList<>(klatka.getTrappedPlayers())) {
                         Player player = plugin.getServer().getPlayer(uuid);
+
+                        plugin.getLogger().info("[HK-DEBUG] Player UUID: " + uuid + " online: " + (player != null && player.isOnline()));
+
                         if (player == null || !player.isOnline()) continue;
 
                         Location loc = player.getLocation();
                         if (!loc.getWorld().equals(center.getWorld())) continue;
 
+                        plugin.getLogger().info("[HK-DEBUG] Player " + player.getName() + " gliding: " + player.isGliding());
+
                         if (player.isGliding()) continue;
 
-                        if (klatka.isAnimationComplete()) continue;
+                        // ✅ Po animacji - MC blokuje fizycznie
+                        if (klatka.isAnimationComplete()) {
+                            if (isInsideBuiltShell(loc, manager)) {
+                                plugin.getLogger().info("[HK-DEBUG] Player inside built shell - teleporting to center");
+                                teleportToCenter(player, center);
+                            }
+                            continue;
+                        }
+
+                        // ✅ PODCZAS ANIMACJI - sprawdź kolizję z barierą
+                        plugin.getLogger().info("[HK-DEBUG] Checking collision for " + player.getName() + " at " + loc);
 
                         Vector dir = getTeleportTowardCenter(loc, klatka, manager, center);
 
                         if (dir != null) {
+                            plugin.getLogger().info("[HK-DEBUG] TELEPORTING " + player.getName() + " by: " + dir);
                             Location newLoc = loc.clone().add(dir);
                             doSafeTeleport(player, newLoc);
                             feedback(player);
+                        } else {
+                            plugin.getLogger().info("[HK-DEBUG] No collision detected for " + player.getName());
                         }
                     }
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
     }
+
+    // ==================== TELEPORT W STRONĘ ŚRODKA ====================
+
     private Vector getTeleportTowardCenter(Location loc,
                                            ActiveHydroKlatka klatka,
                                            HydroKlatkaManager manager,
@@ -93,45 +119,55 @@ public class HydroKlatkaMovementListener implements Listener {
         double cy = center.getY();
         double cz = center.getZ();
 
-        plugin.getLogger().info("[HK-COLLISION] Checking collision for player at: " + px + ", " + py + ", " + pz);
-
         for (int dx = -3; dx <= 3; dx++) {
             for (int dy = -3; dy <= 4; dy++) {
                 for (int dz = -3; dz <= 3; dz++) {
-                    Location checkLoc = new Location(loc.getWorld(),
+                    Location checkLoc = new Location(
+                            loc.getWorld(),
                             (int) Math.floor(px) + dx,
                             (int) Math.floor(py) + dy,
-                            (int) Math.floor(pz) + dz);
+                            (int) Math.floor(pz) + dz
+                    );
 
                     boolean isPlanned = klatka.isPlannedShellLocation(checkLoc);
                     boolean isBuilt = manager.isShellBlock(checkLoc);
-                
+
                     if (isPlanned) {
-                        plugin.getLogger().info("[HK-COLLISION] Found PLANNED shell at: " + checkLoc);
+                        plugin.getLogger().info("[HK-DEBUG] Found PLANNED shell at: " + checkLoc);
                     }
-                    if (isBuilt && !klatka.isAnimationComplete()) {
-                        plugin.getLogger().info("[HK-COLLISION] Found BUILT shell at: " + checkLoc);
+                    if (isBuilt) {
+                        plugin.getLogger().info("[HK-DEBUG] Found BUILT shell at: " + checkLoc);
                     }
 
-                    if (!isShellBlock(checkLoc, klatka, manager)) continue;
+                    // ✅ Sprawdź ZARÓWNO planned JAK I zbudowane bloki shella
+                    if (!isPlanned && !isBuilt) continue;
 
                     double bx = checkLoc.getX() + 0.5;
                     double by = checkLoc.getY() + 0.5;
                     double bz = checkLoc.getZ() + 0.5;
 
+                    plugin.getLogger().info("[HK-DEBUG] Checking barrier distance: dx=" +
+                            Math.abs(px - bx) + " dy=" + Math.abs(py - by) + " dz=" + Math.abs(pz - bz));
+
                     if (isNearBarrier(px, py, pz, bx, by, bz)) {
-                        plugin.getLogger().info("[HK-COLLISION] BARRIER DETECTED! Teleporting...");
-                    
+                        plugin.getLogger().info("[HK-DEBUG] BARRIER HIT at: " + checkLoc);
+
                         double dirX = 0;
                         double dirY = 0;
                         double dirZ = 0;
 
-                        if (Math.abs(px - bx) > 0.15) dirX = Math.signum(cx - px) * TELEPORT_DISTANCE;
-                        if (Math.abs(py - by) > 0.15) dirY = Math.signum(cy - py) * TELEPORT_DISTANCE;
-                        if (Math.abs(pz - bz) > 0.15) dirZ = Math.signum(cz - pz) * TELEPORT_DISTANCE;
+                        if (Math.abs(px - bx) > 0.15) {
+                            dirX = Math.signum(cx - px) * TELEPORT_DISTANCE;
+                        }
+                        if (Math.abs(py - by) > 0.15) {
+                            dirY = Math.signum(cy - py) * TELEPORT_DISTANCE;
+                        }
+                        if (Math.abs(pz - bz) > 0.15) {
+                            dirZ = Math.signum(cz - pz) * TELEPORT_DISTANCE;
+                        }
 
                         if (dirX != 0 || dirY != 0 || dirZ != 0) {
-                            plugin.getLogger().info("[HK-COLLISION] Direction: " + dirX + ", " + dirY + ", " + dirZ);
+                            plugin.getLogger().info("[HK-DEBUG] Direction: " + dirX + ", " + dirY + ", " + dirZ);
                             return new Vector(dirX, dirY, dirZ);
                         }
                     }
@@ -139,9 +175,10 @@ public class HydroKlatkaMovementListener implements Listener {
             }
         }
 
-        plugin.getLogger().info("[HK-COLLISION] No collision detected");
         return null;
     }
+
+    // ==================== SPRAWDZENIE BARIERY ====================
 
     private boolean isNearBarrier(double px, double py, double pz,
                                   double bx, double by, double bz) {
@@ -152,15 +189,53 @@ public class HydroKlatkaMovementListener implements Listener {
         return (dx < HALF_W + 0.3 && dy < HEIGHT + 0.3 && dz < HALF_W + 0.3);
     }
 
-    private boolean isShellBlock(Location loc, ActiveHydroKlatka klatka, HydroKlatkaManager manager) {
-        if (klatka.isPlannedShellLocation(loc)) {
-            return true;
-        }
-        if (manager.isShellBlock(loc)) {
-            return true;
+    // ==================== SPRAWDZENIE BUILT SHELL ====================
+
+    private boolean isInsideBuiltShell(Location loc, HydroKlatkaManager manager) {
+        double px = loc.getX();
+        double py = loc.getY();
+        double pz = loc.getZ();
+
+        int minBX = (int) Math.floor(px - HALF_W);
+        int maxBX = (int) Math.floor(px + HALF_W);
+        int minBY = (int) Math.floor(py);
+        int maxBY = (int) Math.floor(py + HEIGHT);
+        int minBZ = (int) Math.floor(pz - HALF_W);
+        int maxBZ = (int) Math.floor(pz + HALF_W);
+
+        for (int bx = minBX; bx <= maxBX; bx++) {
+            for (int by = minBY; by <= maxBY; by++) {
+                for (int bz = minBZ; bz <= maxBZ; bz++) {
+                    Location blockLoc = new Location(loc.getWorld(), bx, by, bz);
+                    if (manager.isShellBlock(blockLoc)) return true;
+                }
+            }
         }
         return false;
     }
+
+    // ==================== TELEPORT NA ŚRODEK ====================
+
+    private void teleportToCenter(Player player, Location center) {
+        Location current = player.getLocation();
+        Location tp = center.clone();
+        tp.setYaw(current.getYaw());
+        tp.setPitch(current.getPitch());
+
+        ourTeleports.add(player.getUniqueId());
+        player.teleport(tp);
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                ourTeleports.remove(player.getUniqueId());
+            }
+        }.runTask(plugin);
+
+        feedback(player);
+    }
+
+    // ==================== BEZPIECZNY TELEPORT ====================
 
     private void doSafeTeleport(Player player, Location destination) {
         destination.setYaw(player.getLocation().getYaw());
@@ -177,6 +252,8 @@ public class HydroKlatkaMovementListener implements Listener {
         }.runTask(plugin);
     }
 
+    // ==================== FEEDBACK ====================
+
     private void feedback(Player player) {
         long now = System.currentTimeMillis();
         Long last = lastFeedback.get(player.getUniqueId());
@@ -191,9 +268,15 @@ public class HydroKlatkaMovementListener implements Listener {
                 Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand()
                         .deserialize("&cNie możesz opuszczać podwodnej klatki!"),
-                Title.Times.times(Duration.ofMillis(0), Duration.ofMillis(800), Duration.ofMillis(200))
+                Title.Times.times(
+                        Duration.ofMillis(0),
+                        Duration.ofMillis(800),
+                        Duration.ofMillis(200)
+                )
         ));
     }
+
+    // ==================== MOVE EVENT ====================
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
@@ -215,12 +298,15 @@ public class HydroKlatkaMovementListener implements Listener {
         }
     }
 
+    // ==================== TELEPORT EVENT ====================
+
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
     public void onPlayerTeleport(PlayerTeleportEvent event) {
         Player player = event.getPlayer();
 
-        // ✅ NASZ teleport - NIGDY nie blokuj
+        // ✅ NASZ teleport - przepuść zawsze
         if (ourTeleports.contains(player.getUniqueId())) {
+            plugin.getLogger().info("[HK-DEBUG] Allowing our teleport for " + player.getName());
             event.setCancelled(false);
             return;
         }
@@ -231,18 +317,21 @@ public class HydroKlatkaMovementListener implements Listener {
         ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
         if (klatka == null) return;
 
-        // ✅ TYLKO blokuj teleporty poza klatką podczas animacji
-        if (!klatka.isAnimationComplete()) {
-            Location to = event.getTo();
-            if (to != null && to.distance(klatka.getCenter()) > klatka.getRadius()) {
-                if (event.getCause() != PlayerTeleportEvent.TeleportCause.PLUGIN) {
-                    event.setCancelled(true);
-                    manager.sendMessage(player,
-                            plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
-                }
-            }
+        if (klatka.isAnimationComplete()) return;
+        if (event.getCause() == PlayerTeleportEvent.TeleportCause.PLUGIN) return;
+
+        Location to = event.getTo();
+        if (to == null) return;
+
+        if (to.distance(klatka.getCenter()) > klatka.getRadius()) {
+            plugin.getLogger().info("[HK-DEBUG] Blocking external teleport for " + player.getName());
+            event.setCancelled(true);
+            manager.sendMessage(player,
+                    plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
         }
     }
+
+    // ==================== CLEANUP ====================
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
