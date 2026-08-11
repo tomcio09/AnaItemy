@@ -192,9 +192,10 @@ public class ActiveHydroKlatka {
 
     /**
      * Dystans bezpieczeństwa - jeśli gracz jest dalej niż to, teleport na środek.
+     * Zwiększony z 0.8 na 0.9 dla lepszej ochrony.
      */
     public double getSafetyRadius() {
-        return radius + 0.8;
+        return radius + 0.9;
     }
 
     /**
