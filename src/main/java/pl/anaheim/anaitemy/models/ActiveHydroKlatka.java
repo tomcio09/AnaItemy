@@ -1,6 +1,9 @@
+// src/main/java/pl/anaheim/anaitemy/models/ActiveHydroKlatka.java
 package pl.anaheim.anaitemy.models;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 
 import java.util.*;
@@ -17,21 +20,38 @@ public class ActiveHydroKlatka {
 
     private final Set<UUID> trappedPlayers = ConcurrentHashMap.newKeySet();
     private final Set<UUID> offlinePlayers = ConcurrentHashMap.newKeySet();
-    private final Map<Location, BlockData> originalBlocks = new ConcurrentHashMap<>();
-    private final Set<Location> destroyedBlocks = ConcurrentHashMap.newKeySet();
-    
-    // ✅ NOWE: Zaplanowane pozycje shella (dla niewidzialnej kolizji podczas animacji)
-    private final Set<Location> plannedShellLocations = ConcurrentHashMap.newKeySet();
+    private final Map<String, BlockData> originalBlocks = new ConcurrentHashMap<>();
+    private final Set<String> destroyedBlocks = ConcurrentHashMap.newKeySet();
+    private final Set<String> plannedShellLocations = ConcurrentHashMap.newKeySet();
 
     private boolean animationComplete = false;
 
     public ActiveHydroKlatka(Location center, int radius, int duration, UUID creatorId) {
         this.id = UUID.randomUUID();
-        this.center = center;
+        this.center = center.clone();
         this.radius = radius;
         this.originalDuration = duration;
         this.createdAt = System.currentTimeMillis();
         this.creatorId = creatorId;
+    }
+
+    // ==================== BLOCK KEY ====================
+
+    public static String blockKey(Location loc) {
+        return loc.getWorld().getName() + ":"
+                + loc.getBlockX() + ":"
+                + loc.getBlockY() + ":"
+                + loc.getBlockZ();
+    }
+
+    public static Location keyToLocation(String key) {
+        String[] parts = key.split(":");
+        World world = Bukkit.getWorld(parts[0]);
+        if (world == null) return null;
+        return new Location(world,
+                Integer.parseInt(parts[1]),
+                Integer.parseInt(parts[2]),
+                Integer.parseInt(parts[3]));
     }
 
     // ==================== GETTERY ====================
@@ -75,24 +95,17 @@ public class ActiveHydroKlatka {
         this.animationComplete = complete;
     }
 
-    // ==================== ✅ PLANNED SHELL LOCATIONS ====================
+    // ==================== PLANNED SHELL LOCATIONS ====================
 
     public void setPlannedShellLocations(Set<Location> locations) {
         this.plannedShellLocations.clear();
-        this.plannedShellLocations.addAll(locations);
+        for (Location loc : locations) {
+            this.plannedShellLocations.add(blockKey(loc));
+        }
     }
 
     public boolean isPlannedShellLocation(Location location) {
-        Location blockLoc = location.getBlock().getLocation();
-        for (Location planned : plannedShellLocations) {
-            if (planned.getBlockX() == blockLoc.getBlockX()
-                    && planned.getBlockY() == blockLoc.getBlockY()
-                    && planned.getBlockZ() == blockLoc.getBlockZ()
-                    && planned.getWorld().equals(blockLoc.getWorld())) {
-                return true;
-            }
-        }
-        return false;
+        return plannedShellLocations.contains(blockKey(location));
     }
 
     // ==================== TRAPPED PLAYERS ====================
@@ -125,28 +138,76 @@ public class ActiveHydroKlatka {
     // ==================== BLOKI ====================
 
     public void addOriginalBlock(Location location, BlockData blockData) {
-        originalBlocks.put(location, blockData);
+        originalBlocks.put(blockKey(location), blockData);
     }
 
     public boolean hasOriginalBlock(Location location) {
-        return originalBlocks.containsKey(location);
+        return originalBlocks.containsKey(blockKey(location));
     }
 
-    public Map<Location, BlockData> getOriginalBlocks() {
+    public Map<String, BlockData> getOriginalBlocks() {
         return new HashMap<>(originalBlocks);
     }
 
     public void markBlockDestroyed(Location location) {
-        destroyedBlocks.add(location);
+        destroyedBlocks.add(blockKey(location));
     }
 
-    public boolean wasBlockDestroyed(Location location) {
-        return destroyedBlocks.contains(location);
+    public boolean wasBlockDestroyed(String key) {
+        return destroyedBlocks.contains(key);
     }
 
-    // ==================== POMOCNICZE ====================
+    public boolean wasBlockDestroyedAt(Location location) {
+        return destroyedBlocks.contains(blockKey(location));
+    }
 
+    // ==================== GEOMETRIA ====================
+
+    /**
+     * Bariera niewidzialna - w połowie bloku shell (wewnętrzna krawędź).
+     * Shell jest na dystansie radius-1.0 do radius od centrum.
+     * Bariera = radius - 0.5 (środek shella).
+     */
+    public double getBarrierRadius() {
+        return radius - 0.5;
+    }
+
+    /**
+     * Dystans bezpieczeństwa - jeśli gracz jest dalej niż to, teleport na środek.
+     */
+    public double getSafetyRadius() {
+        return radius + 0.8;
+    }
+
+    /**
+     * Sprawdza czy lokacja jest wewnątrz klatki (całej sfery).
+     */
     public boolean isInsideCage(Location location) {
+        if (!location.getWorld().equals(center.getWorld())) return false;
         return location.distance(center) <= radius;
+    }
+
+    /**
+     * Sprawdza czy lokacja jest wewnątrz bariery.
+     */
+    public boolean isInsideBarrier(Location location) {
+        if (!location.getWorld().equals(center.getWorld())) return false;
+        return location.distance(center) < getBarrierRadius();
+    }
+
+    /**
+     * Sprawdza czy gracz dotyka lub przekracza barierę (od wewnątrz).
+     */
+    public boolean isTouchingBarrier(Location location) {
+        if (!location.getWorld().equals(center.getWorld())) return false;
+        return location.distance(center) >= getBarrierRadius();
+    }
+
+    /**
+     * Sprawdza czy gracz jest poza strefą bezpieczeństwa.
+     */
+    public boolean isBeyondSafety(Location location) {
+        if (!location.getWorld().equals(center.getWorld())) return false;
+        return location.distance(center) >= getSafetyRadius();
     }
 }
