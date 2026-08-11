@@ -22,6 +22,8 @@ public class HydroKlatkaJoinListener implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
+        if (event == null || event.getPlayer() == null) return;
+        
         Player player = event.getPlayer();
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
@@ -31,8 +33,11 @@ public class HydroKlatkaJoinListener implements Listener {
             Location playerLoc = player.getLocation();
             Location center = klatka.getCenter();
 
+            if (playerLoc == null || center == null || center.getWorld() == null) return;
+
             // Jeśli gracz jest poza barierą - teleportuj do centrum
-            if (!playerLoc.getWorld().equals(center.getWorld())
+            if (playerLoc.getWorld() == null
+                    || !playerLoc.getWorld().equals(center.getWorld())
                     || playerLoc.distance(center) > klatka.getBarrierRadius()) {
                 Location teleportLoc = center.clone();
                 teleportLoc.setYaw(playerLoc.getYaw());
@@ -51,6 +56,8 @@ public class HydroKlatkaJoinListener implements Listener {
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
+        if (event == null || event.getPlayer() == null) return;
+        
         Player player = event.getPlayer();
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
