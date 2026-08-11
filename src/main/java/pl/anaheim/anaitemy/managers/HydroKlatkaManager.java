@@ -31,9 +31,41 @@ public class HydroKlatkaManager {
             Material.BEACON
     );
 
+    /**
+     * ✅ NOWE: Zbiór materiałów które klatka może ustawić.
+     * Używany w removeKlatka() do sprawdzenia czy blok jest "nasz".
+     */
+    private Set<Material> cageMaterials = null;
+
     public HydroKlatkaManager(AnaItemy plugin) {
         this.plugin = plugin;
         startCleanupTask();
+    }
+
+    /**
+     * ✅ NOWE: Zwraca zbiór materiałów które klatka może ustawić (shell + mapped bloki).
+     * Używane do sprawdzenia czy blok jest "nasz" przed przywróceniem.
+     */
+    private Set<Material> getCageMaterials() {
+        if (cageMaterials == null) {
+            cageMaterials = new HashSet<>();
+            cageMaterials.add(SHELL);
+
+            // Dodaj wszystkie materiały docelowe z mapowania
+            Map<Material, Material> mapping = plugin.getItemsConfig().getHydroKlatkaBlockMapping();
+            cageMaterials.addAll(mapping.values());
+
+            // Dodaj domyślny fallback
+            cageMaterials.add(Material.LIGHT_BLUE_CONCRETE);
+        }
+        return cageMaterials;
+    }
+
+    /**
+     * ✅ NOWE: Resetuje cache materiałów klatki (po reload configu).
+     */
+    public void resetCageMaterialsCache() {
+        cageMaterials = null;
     }
 
     // ==================== CLEANUP TASK ====================
@@ -120,7 +152,7 @@ public class HydroKlatkaManager {
         if (klatka == null) return;
         Location center = klatka.getCenter();
         if (center == null || center.getWorld() == null) return;
-        
+
         int radius = klatka.getRadius();
         String world = center.getWorld().getName();
         int cx = center.getBlockX() >> 4;
@@ -189,14 +221,13 @@ public class HydroKlatkaManager {
 
     public void createKlatka(Location center, Player creator) {
         if (center == null || creator == null || center.getWorld() == null) return;
-        
+
         ItemsConfig config = plugin.getItemsConfig();
         int radius = config.getHydroKlatkaRadius();
         int duration = config.getHydroKlatkaDuration();
 
         ActiveHydroKlatka klatka = new ActiveHydroKlatka(center, radius, duration, creator.getUniqueId());
 
-        // Oblicz pozycje shella PRZED dodaniem do mapy aktywnych
         Set<Location> shellPositions = calculateShellPositions(center, radius, center.getWorld());
         klatka.setPlannedShellLocations(shellPositions);
 
@@ -214,7 +245,7 @@ public class HydroKlatkaManager {
     private Set<Location> calculateShellPositions(Location center, int radius, World world) {
         Set<Location> positions = new HashSet<>();
         if (center == null || world == null) return positions;
-        
+
         for (int x = -radius; x <= radius; x++)
             for (int y = -radius; y <= radius; y++)
                 for (int z = -radius; z <= radius; z++) {
@@ -234,7 +265,7 @@ public class HydroKlatkaManager {
         if (klatka == null) return;
         Location center = klatka.getCenter();
         if (center == null || center.getWorld() == null) return;
-        
+
         Player creator = Bukkit.getPlayer(klatka.getCreatorId());
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blocked = config.getHydroKlatkaBlockedRegions();
@@ -244,7 +275,7 @@ public class HydroKlatkaManager {
             Location pLoc = p.getLocation();
             if (pLoc == null || pLoc.getWorld() == null) continue;
             if (!pLoc.getWorld().equals(center.getWorld())) continue;
-            
+
             if (pLoc.distance(center) <= klatka.getRadius()) {
                 if (plugin.getWorldGuardManager().isInBlockedRegion(pLoc, blocked))
                     continue;
@@ -268,7 +299,7 @@ public class HydroKlatkaManager {
             if (p == null || !p.isOnline()) continue;
             Location pLoc = p.getLocation();
             if (pLoc == null) continue;
-            
+
             if (plugin.getWorldGuardManager().isInBlockedRegion(pLoc, blocked)) {
                 klatka.removeTrappedPlayer(id);
                 BossBar bb = playerBossBars.remove(id);
@@ -349,7 +380,7 @@ public class HydroKlatkaManager {
         ItemsConfig config = plugin.getItemsConfig();
         Location center = klatka.getCenter();
         if (center == null) return;
-        
+
         int radius = klatka.getRadius();
         int animDur = config.getHydroKlatkaAnimationDuration();
         int maxY = center.getBlockY() + radius;
@@ -381,11 +412,11 @@ public class HydroKlatkaManager {
         if (klatka == null) return;
         Location center = klatka.getCenter();
         if (center == null) return;
-        
+
         int radius = klatka.getRadius();
         World world = center.getWorld();
         if (world == null) return;
-        
+
         List<String> blocked = plugin.getItemsConfig().getHydroKlatkaBlockedRegions();
 
         for (int x = -radius; x <= radius; x++) {
@@ -414,22 +445,20 @@ public class HydroKlatkaManager {
     }
 
     /**
-     * ✅ ZMIENIONA: Mapuje oryginalny blok na blok wodny używając konfiguracji.
+     * Mapuje oryginalny blok na blok wodny używając konfiguracji.
      */
     private Material mapToWaterBlock(Material original) {
-        // Sprawdź mapowanie z konfiguracji
         Map<Material, Material> mapping = plugin.getItemsConfig().getHydroKlatkaBlockMapping();
         Material mapped = mapping.get(original);
-        
+
         if (mapped != null) {
             return mapped;
         }
-        
-        // Fallback - domyślna wartość jeśli nie znaleziono w mapowaniu
+
         return Material.LIGHT_BLUE_CONCRETE;
     }
 
-    // ==================== REMOVAL ====================
+    // ==================== ✅ REMOVAL - POPRAWIONA ====================
 
     private void scheduleRemoval(ActiveHydroKlatka klatka) {
         if (klatka == null) return;
@@ -442,21 +471,45 @@ public class HydroKlatkaManager {
     }
 
     /**
-     * ✅ ZMIENIONA: removeKlatka - nie przywraca bloków postawionych podczas klatki.
+     * ✅ POPRAWIONA: removeKlatka
+     * 
+     * Logika przywracania bloków:
+     * 1. Jeśli blok został zniszczony przez gracza → NIE przywracaj
+     * 2. Jeśli blok został postawiony podczas klatki → NIE przywracaj
+     * 3. Jeśli aktualny blok NIE jest blokiem klatki (shell/mapped) → NIE przywracaj
+     *    (ktoś/coś zmieniło blok na coś innego - np. Cudowna Latarnia postawiła BEACON)
+     * 4. W pozostałych przypadkach → przywróć oryginalny blok
      */
     public void removeKlatka(ActiveHydroKlatka klatka) {
         if (klatka == null) return;
         if (!activeKlatki.containsKey(klatka.getId())) return;
 
-        // Przywróć oryginalne bloki, ALE nie te postawione podczas klatki
+        Set<Material> knownCageMaterials = getCageMaterials();
+
+        // Przywróć oryginalne bloki
         klatka.getOriginalBlocks().forEach((key, data) -> {
-            // ✅ Sprawdź czy blok NIE został postawiony podczas klatki
-            if (!klatka.wasBlockDestroyed(key) && !klatka.wasBlockPlacedDuringCage(key)) {
-                Location loc = ActiveHydroKlatka.keyToLocation(key);
-                if (loc != null && data != null) {
-                    loc.getBlock().setBlockData(data);
-                }
+            // 1. Blok zniszczony przez gracza - nie przywracaj
+            if (klatka.wasBlockDestroyed(key)) return;
+
+            // 2. Blok postawiony podczas klatki - nie przywracaj
+            if (klatka.wasBlockPlacedDuringCage(key)) return;
+
+            Location loc = ActiveHydroKlatka.keyToLocation(key);
+            if (loc == null || data == null) return;
+
+            // 3. Sprawdź AKTUALNY blok w świecie
+            Block currentBlock = loc.getBlock();
+            Material currentType = currentBlock.getType();
+
+            // Jeśli aktualny blok NIE jest blokiem klatki (shell ani mapped material)
+            // to znaczy że coś go zmieniło (np. plugin postawił BEACON)
+            // → NIE przywracaj, zostaw co jest
+            if (!knownCageMaterials.contains(currentType)) {
+                return;
             }
+
+            // 4. Aktualny blok jest blokiem klatki → przywróć oryginalny
+            currentBlock.setBlockData(data);
         });
 
         // Usuń boss bary
@@ -493,7 +546,6 @@ public class HydroKlatkaManager {
 
         activeKlatki.remove(klatka.getId());
 
-        // Wyczyść cooldowny chunków dla TEJ klatki, z opóźnieniem
         Bukkit.getScheduler().runTaskLater(plugin, () -> clearChunkCooldownsForKlatka(klatka), 100L);
     }
 
