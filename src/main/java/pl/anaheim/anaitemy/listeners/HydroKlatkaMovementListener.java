@@ -32,13 +32,14 @@ public class HydroKlatkaMovementListener implements Listener {
 
     private final AnaItemy plugin;
 
-    private static final long FEEDBACK_COOLDOWN_MS = 100L; // Krótszy cooldown - szybsze reakcje
-
     private static final double HALF_W = 0.30;
     private static final double HEIGHT = 1.80;
 
-    // ✅ O ILE TELEPORTOWAĆ W KIERUNKU ŚRODKA
-    private static final double TELEPORT_DISTANCE = 1.0;
+    // ✅ MAŁY teleport - gracz "odbija się" od bariery ale dalej pada
+    private static final double TELEPORT_BOUNCE = 0.15;
+    
+    // ✅ Cooldown TYLKO dla feedbacku (dźwięk/subtitle), NIE dla teleportu
+    private static final long FEEDBACK_COOLDOWN_MS = 500L;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
     private BukkitTask clampTask;
@@ -77,23 +78,26 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         // ✅ Po animacji - MC blokuje
                         if (klatka.isAnimationComplete()) {
-                            // Tylko ratunkowy teleport gdy gracz glitchuje w bloku
                             if (isInsideBuiltShell(loc, manager)) {
                                 teleportToCenter(player, center);
                             }
                             continue;
                         }
 
-                        // ✅ Sprawdź czy gracz DOTKNĄŁ bariery planned shell
+                        // ✅ Sprawdź czy gracz DOTKNĄŁ bariery
                         Vector teleportDirection = getTeleportDirection(loc, klatka, manager, center);
                         
                         if (teleportDirection != null) {
-                            // ✅ TELEPORT 1 blok w kierunku środka
+                            // ✅ TELEPORT BEZ COOLDOWNU - pętla działa co tick
+                            // ✅ NIE ZERUJ VELOCITY - gracz dalej pada naturalnie
+                            
                             Location newLoc = loc.clone().add(teleportDirection);
                             newLoc.setYaw(loc.getYaw());
                             newLoc.setPitch(loc.getPitch());
 
                             player.teleport(newLoc);
+                            
+                            // Feedback z cooldownem (dźwięk nie spamuje)
                             feedback(player);
                         }
                     }
@@ -110,11 +114,6 @@ public class HydroKlatkaMovementListener implements Listener {
 
     // ==================== KIERUNEK TELEPORTU ====================
 
-    /**
-     * Zwraca kierunek teleportu jeśli gracz dotknął bariery.
-     * Bariera = połowa planned shell bloku.
-     * Teleport = 1 blok w kierunku środka klatki.
-     */
     private Vector getTeleportDirection(Location loc,
                                         ActiveHydroKlatka klatka,
                                         HydroKlatkaManager manager,
@@ -123,32 +122,32 @@ public class HydroKlatkaMovementListener implements Listener {
         double py = loc.getY();
         double pz = loc.getZ();
 
-        // ==================== DÓŁ - sprawdź czy gracz dotyka od GÓRY ====================
+        // ==================== DÓŁ ====================
         {
             int[] footXBlocks = getFootBlocksX(px);
             int[] footZBlocks = getFootBlocksZ(pz);
 
             for (int checkX : footXBlocks) {
                 for (int checkZ : footZBlocks) {
-                    // Skanuj w dół
-                    for (int checkY = (int) Math.floor(py); checkY >= (int) Math.floor(py) - 3; checkY--) {
+                    // ✅ Zwiększony zakres skanowania
+                    for (int checkY = (int) Math.floor(py) + 1; checkY >= (int) Math.floor(py) - 5; checkY--) {
                         Location blockLoc = new Location(center.getWorld(), checkX, checkY, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
                         // Bariera w połowie bloku
                         double barrierY = checkY + 0.5;
 
-                        // Gracz dotyka od góry?
-                        if (py <= barrierY + 0.2) {
-                            // ✅ TELEPORT 1 BLOK W GÓRĘ (w kierunku środka)
-                            return new Vector(0, TELEPORT_DISTANCE, 0);
+                        // ✅ Bardzo mały margin - precyzyjna detekcja
+                        if (py <= barrierY + 0.05) {
+                            // ✅ MAŁY teleport w górę - "bounce"
+                            return new Vector(0, TELEPORT_BOUNCE, 0);
                         }
                     }
                 }
             }
         }
 
-        // ==================== GÓRA - sprawdź czy gracz dotyka od DOŁU ====================
+        // ==================== GÓRA ====================
         {
             int[] footXBlocks = getFootBlocksX(px);
             int[] footZBlocks = getFootBlocksZ(pz);
@@ -156,16 +155,15 @@ public class HydroKlatkaMovementListener implements Listener {
             for (int checkX : footXBlocks) {
                 for (int checkZ : footZBlocks) {
                     int headBlockY = (int) Math.floor(py + HEIGHT);
-                    for (int checkY = headBlockY; checkY <= headBlockY + 3; checkY++) {
+                    for (int checkY = headBlockY - 1; checkY <= headBlockY + 4; checkY++) {
                         Location blockLoc = new Location(center.getWorld(), checkX, checkY, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
                         double barrierY = checkY + 0.5;
                         double playerTop = py + HEIGHT;
 
-                        if (playerTop >= barrierY - 0.2) {
-                            // ✅ TELEPORT 1 BLOK W DÓŁ (w kierunku środka)
-                            return new Vector(0, -TELEPORT_DISTANCE, 0);
+                        if (playerTop >= barrierY - 0.05) {
+                            return new Vector(0, -TELEPORT_BOUNCE, 0);
                         }
                     }
                 }
@@ -182,17 +180,15 @@ public class HydroKlatkaMovementListener implements Listener {
 
                 int[] zBlocks = getFootBlocksZ(pz);
                 for (int checkZ : zBlocks) {
-                    // Skanuj w prawo
-                    for (int scanX = (int) Math.floor(px); scanX <= (int) Math.floor(px) + 3; scanX++) {
+                    for (int scanX = (int) Math.floor(px); scanX <= (int) Math.floor(px) + 4; scanX++) {
                         Location blockLoc = new Location(center.getWorld(), scanX, by, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
                         double barrierX = scanX + 0.5;
                         double playerRight = px + HALF_W;
 
-                        if (playerRight >= barrierX - 0.2) {
-                            // ✅ TELEPORT 1 BLOK W LEWO (w kierunku środka)
-                            return new Vector(-TELEPORT_DISTANCE, 0, 0);
+                        if (playerRight >= barrierX - 0.05) {
+                            return new Vector(-TELEPORT_BOUNCE, 0, 0);
                         }
                     }
                 }
@@ -209,17 +205,15 @@ public class HydroKlatkaMovementListener implements Listener {
 
                 int[] zBlocks = getFootBlocksZ(pz);
                 for (int checkZ : zBlocks) {
-                    // Skanuj w lewo
-                    for (int scanX = (int) Math.floor(px); scanX >= (int) Math.floor(px) - 3; scanX--) {
+                    for (int scanX = (int) Math.floor(px); scanX >= (int) Math.floor(px) - 4; scanX--) {
                         Location blockLoc = new Location(center.getWorld(), scanX, by, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
                         double barrierX = scanX + 0.5;
                         double playerLeft = px - HALF_W;
 
-                        if (playerLeft <= barrierX + 0.2) {
-                            // ✅ TELEPORT 1 BLOK W PRAWO (w kierunku środka)
-                            return new Vector(TELEPORT_DISTANCE, 0, 0);
+                        if (playerLeft <= barrierX + 0.05) {
+                            return new Vector(TELEPORT_BOUNCE, 0, 0);
                         }
                     }
                 }
@@ -236,17 +230,15 @@ public class HydroKlatkaMovementListener implements Listener {
 
                 int[] xBlocks = getFootBlocksX(px);
                 for (int checkX : xBlocks) {
-                    // Skanuj do przodu
-                    for (int scanZ = (int) Math.floor(pz); scanZ <= (int) Math.floor(pz) + 3; scanZ++) {
+                    for (int scanZ = (int) Math.floor(pz); scanZ <= (int) Math.floor(pz) + 4; scanZ++) {
                         Location blockLoc = new Location(center.getWorld(), checkX, by, scanZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
                         double barrierZ = scanZ + 0.5;
                         double playerFront = pz + HALF_W;
 
-                        if (playerFront >= barrierZ - 0.2) {
-                            // ✅ TELEPORT 1 BLOK DO TYŁU (w kierunku środka)
-                            return new Vector(0, 0, -TELEPORT_DISTANCE);
+                        if (playerFront >= barrierZ - 0.05) {
+                            return new Vector(0, 0, -TELEPORT_BOUNCE);
                         }
                     }
                 }
@@ -263,24 +255,21 @@ public class HydroKlatkaMovementListener implements Listener {
 
                 int[] xBlocks = getFootBlocksX(px);
                 for (int checkX : xBlocks) {
-                    // Skanuj do tyłu
-                    for (int scanZ = (int) Math.floor(pz); scanZ >= (int) Math.floor(pz) - 3; scanZ--) {
+                    for (int scanZ = (int) Math.floor(pz); scanZ >= (int) Math.floor(pz) - 4; scanZ--) {
                         Location blockLoc = new Location(center.getWorld(), checkX, by, scanZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
                         double barrierZ = scanZ + 0.5;
                         double playerBack = pz - HALF_W;
 
-                        if (playerBack <= barrierZ + 0.2) {
-                            // ✅ TELEPORT 1 BLOK DO PRZODU (w kierunku środka)
-                            return new Vector(0, 0, TELEPORT_DISTANCE);
+                        if (playerBack <= barrierZ + 0.05) {
+                            return new Vector(0, 0, TELEPORT_BOUNCE);
                         }
                     }
                 }
             }
         }
 
-        // Nie dotknął bariery
         return null;
     }
 
@@ -307,6 +296,7 @@ public class HydroKlatkaMovementListener implements Listener {
     private boolean isPlannedShellOnly(Location blockLoc,
                                        ActiveHydroKlatka klatka,
                                        HydroKlatkaManager manager) {
+        // ✅ Gdy blok się zbuduje - zwróć false, MC będzie blokował fizycznie
         if (manager.isShellBlock(blockLoc)) return false;
         if (klatka.isAnimationComplete()) return false;
         return klatka.isPlannedShellLocation(blockLoc);
@@ -370,7 +360,7 @@ public class HydroKlatkaMovementListener implements Listener {
         ));
     }
 
-    // ==================== MOVE EVENT - CZYSTA WERSJA ====================
+    // ==================== MOVE EVENT ====================
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
