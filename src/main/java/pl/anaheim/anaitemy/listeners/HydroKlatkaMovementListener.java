@@ -35,13 +35,12 @@ public class HydroKlatkaMovementListener implements Listener {
     private static final double HALF_W = 0.30;
     private static final double HEIGHT = 1.80;
 
-    // ✅ MAŁY teleport - gracz "odbija się" od bariery ale dalej pada
     private static final double TELEPORT_BOUNCE = 0.15;
-    
-    // ✅ Cooldown TYLKO dla feedbacku (dźwięk/subtitle), NIE dla teleportu
     private static final long FEEDBACK_COOLDOWN_MS = 500L;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
+    // ✅ Flaga - nasz teleport, nie blokuj
+    private final Map<UUID, Boolean> teleportingByBarrier = new ConcurrentHashMap<>();
     private BukkitTask clampTask;
 
     public HydroKlatkaMovementListener(AnaItemy plugin) {
@@ -69,7 +68,8 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         // ✅ EXPLOIT: Gracz POZA shellem - teleport NA ŚRODEK
                         if (isOutsideShell(loc, klatka)) {
-                            teleportToCenter(player, center);
+                            doTeleport(player, center.clone());
+                            feedback(player);
                             continue;
                         }
 
@@ -79,31 +79,40 @@ public class HydroKlatkaMovementListener implements Listener {
                         // ✅ Po animacji - MC blokuje
                         if (klatka.isAnimationComplete()) {
                             if (isInsideBuiltShell(loc, manager)) {
-                                teleportToCenter(player, center);
+                                doTeleport(player, center.clone());
+                                feedback(player);
                             }
                             continue;
                         }
 
                         // ✅ Sprawdź czy gracz DOTKNĄŁ bariery
                         Vector teleportDirection = getTeleportDirection(loc, klatka, manager, center);
-                        
+
                         if (teleportDirection != null) {
-                            // ✅ TELEPORT BEZ COOLDOWNU - pętla działa co tick
-                            // ✅ NIE ZERUJ VELOCITY - gracz dalej pada naturalnie
-                            
                             Location newLoc = loc.clone().add(teleportDirection);
                             newLoc.setYaw(loc.getYaw());
                             newLoc.setPitch(loc.getPitch());
 
-                            player.teleport(newLoc);
-                            
-                            // Feedback z cooldownem (dźwięk nie spamuje)
+                            doTeleport(player, newLoc);
                             feedback(player);
                         }
                     }
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    // ==================== TELEPORT Z FLAGĄ ====================
+
+    private void doTeleport(Player player, Location destination) {
+        destination.setYaw(player.getLocation().getYaw());
+        destination.setPitch(player.getLocation().getPitch());
+
+        // ✅ Ustaw flagę przed teleportem
+        teleportingByBarrier.put(player.getUniqueId(), true);
+        player.teleport(destination);
+        // ✅ Usuń flagę po teleporcie
+        teleportingByBarrier.remove(player.getUniqueId());
     }
 
     // ==================== SPRAWDŹ CZY POZA SHELLEM ====================
@@ -129,17 +138,13 @@ public class HydroKlatkaMovementListener implements Listener {
 
             for (int checkX : footXBlocks) {
                 for (int checkZ : footZBlocks) {
-                    // ✅ Zwiększony zakres skanowania
                     for (int checkY = (int) Math.floor(py) + 1; checkY >= (int) Math.floor(py) - 5; checkY--) {
                         Location blockLoc = new Location(center.getWorld(), checkX, checkY, checkZ);
                         if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
 
-                        // Bariera w połowie bloku
                         double barrierY = checkY + 0.5;
 
-                        // ✅ Bardzo mały margin - precyzyjna detekcja
                         if (py <= barrierY + 0.05) {
-                            // ✅ MAŁY teleport w górę - "bounce"
                             return new Vector(0, TELEPORT_BOUNCE, 0);
                         }
                     }
@@ -296,7 +301,6 @@ public class HydroKlatkaMovementListener implements Listener {
     private boolean isPlannedShellOnly(Location blockLoc,
                                        ActiveHydroKlatka klatka,
                                        HydroKlatkaManager manager) {
-        // ✅ Gdy blok się zbuduje - zwróć false, MC będzie blokował fizycznie
         if (manager.isShellBlock(blockLoc)) return false;
         if (klatka.isAnimationComplete()) return false;
         return klatka.isPlannedShellLocation(blockLoc);
@@ -323,17 +327,6 @@ public class HydroKlatkaMovementListener implements Listener {
             }
         }
         return false;
-    }
-
-    // ==================== TELEPORT NA ŚRODEK ====================
-
-    private void teleportToCenter(Player player, Location center) {
-        Location tp = center.clone();
-        tp.setYaw(player.getLocation().getYaw());
-        tp.setPitch(player.getLocation().getPitch());
-
-        player.teleport(tp);
-        feedback(player);
     }
 
     // ==================== FEEDBACK ====================
@@ -387,6 +380,10 @@ public class HydroKlatkaMovementListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerTeleport(PlayerTeleportEvent event) {
         Player player = event.getPlayer();
+
+        // ✅ NASZ teleport - NIE BLOKUJ
+        if (teleportingByBarrier.getOrDefault(player.getUniqueId(), false)) return;
+
         if (player.isGliding()) return;
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
@@ -411,6 +408,7 @@ public class HydroKlatkaMovementListener implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         lastFeedback.remove(event.getPlayer().getUniqueId());
+        teleportingByBarrier.remove(event.getPlayer().getUniqueId());
     }
 
     public void stopTasks() {
@@ -419,5 +417,6 @@ public class HydroKlatkaMovementListener implements Listener {
             clampTask = null;
         }
         lastFeedback.clear();
+        teleportingByBarrier.clear();
     }
 }
