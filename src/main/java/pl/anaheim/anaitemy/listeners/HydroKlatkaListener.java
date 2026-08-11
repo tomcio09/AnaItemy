@@ -1,3 +1,4 @@
+// src/main/java/pl/anaheim/anaitemy/listeners/HydroKlatkaListener.java
 package pl.anaheim.anaitemy.listeners;
 
 import net.kyori.adventure.text.Component;
@@ -49,12 +50,9 @@ public class HydroKlatkaListener implements Listener {
 
         // Sprawdź cooldown gracza
         if (manager.isPlayerOnCooldown(player)) {
-            // Wiadomość na czacie
             String message = config.getHydroKlatkaMessageCooldown();
             manager.sendMessage(player, message);
 
-            // Subtitle (nie title!)
-            player.sendActionBar(Component.empty());
             player.showTitle(Title.title(
                     Component.empty(),
                     net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacyAmpersand()
@@ -66,7 +64,6 @@ public class HydroKlatkaListener implements Listener {
                     )
             ));
 
-            // Dźwięk villagera (zaprzeczenie)
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO,
                     SoundCategory.PLAYERS, 1.0f, 1.0f);
             return;
@@ -84,10 +81,10 @@ public class HydroKlatkaListener implements Listener {
         // Wystrzał fireball
         shootFireball(player);
 
-        // Ustaw cooldown (automatycznie uruchamia action bar)
+        // Ustaw cooldown
         manager.setCooldown(player);
 
-        // Dźwięk strzału z configu
+        // Dźwięk strzału
         try {
             Sound shootSound = Sound.valueOf(config.getHydroKlatkaShootSound());
             player.playSound(player.getLocation(), shootSound,
@@ -128,7 +125,7 @@ public class HydroKlatkaListener implements Listener {
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         ItemsConfig config = plugin.getItemsConfig();
 
-        // Sprawdź chunk cooldown - dźwięk szkła z configu
+        // Sprawdź chunk cooldown
         if (manager.isChunkBlocked(hitLocation)) {
             manager.sendMessage(shooter, config.getHydroKlatkaMessageChunkBlocked());
 
@@ -146,6 +143,4 @@ public class HydroKlatkaListener implements Listener {
 
         manager.createKlatka(hitLocation, shooter);
     }
-
-    // USUNIĘTO onItemHeld - action bar będzie aktywny cały czas podczas cooldownu
 }
