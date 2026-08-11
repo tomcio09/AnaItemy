@@ -35,11 +35,14 @@ public class ZlamaneSerceListener implements Listener {
 
     public ZlamaneSerceListener(AnaItemy plugin) {
         this.plugin = plugin;
+        
+        // ✅ Inicjalizuj klucz PDC
+        ZlamaneSerceItem.init(plugin);
     }
 
     // ==================== PRAWY KLIK NA GRACZA ====================
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onInteractEntity(PlayerInteractEntityEvent event) {
         if (event.getHand() == EquipmentSlot.OFF_HAND) return;
         if (!(event.getRightClicked() instanceof Player victim)) return;
@@ -56,7 +59,7 @@ public class ZlamaneSerceListener implements Listener {
 
     // ==================== LEWY KLIK (UDERZENIE) NA GRACZA ====================
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityDamage(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Player attacker)) return;
         if (!(event.getEntity() instanceof Player victim)) return;
@@ -64,7 +67,6 @@ public class ZlamaneSerceListener implements Listener {
         ItemStack mainHand = attacker.getInventory().getItemInMainHand();
         if (!ZlamaneSerceItem.isZlamaneSerce(mainHand)) return;
 
-        // Anuluj obrażenia - złamane serce nie zadaje dmg, tylko daje efekt
         event.setCancelled(true);
         applyZlamaneSerce(attacker, victim, mainHand);
     }
@@ -138,8 +140,6 @@ public class ZlamaneSerceListener implements Listener {
         if (item == null) return;
 
         if (ZlamaneSerceItem.isZlamaneSerce(item)) {
-            // ✅ Nie anuluj całego eventu - tylko zablokuj użycie na bloku
-            // żeby PlayerInteractEntityEvent dalej się odpalił
             event.setUseItemInHand(org.bukkit.event.Event.Result.DENY);
             event.setUseInteractedBlock(org.bukkit.event.Event.Result.DENY);
         }
