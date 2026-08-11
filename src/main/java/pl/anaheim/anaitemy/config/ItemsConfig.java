@@ -1,17 +1,25 @@
+// src/main/java/pl/anaheim/anaitemy/config/ItemsConfig.java
 package pl.anaheim.anaitemy.config;
 
+import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import pl.anaheim.anaitemy.AnaItemy;
 
 import java.io.File;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ItemsConfig {
 
     private final AnaItemy plugin;
     private FileConfiguration config;
     private File configFile;
+
+    // ✅ NOWE: Cache dla mapowania bloków HydroKlatka
+    private Map<Material, Material> hydroKlatkaBlockMapping = null;
 
     public ItemsConfig(AnaItemy plugin) {
         this.plugin = plugin;
@@ -24,8 +32,104 @@ public class ItemsConfig {
         config = YamlConfiguration.loadConfiguration(configFile);
     }
 
-    public void reloadConfig() { loadConfig(); }
+    public void reloadConfig() { 
+        loadConfig(); 
+        // ✅ Resetuj cache przy przeładowaniu
+        resetHydroKlatkaBlockMapping();
+    }
+    
     public FileConfiguration getConfig() { return config; }
+
+    // ==================== ✅ HYDRO KLATKA BLOCK MAPPING ====================
+
+    /**
+     * Zwraca mapowanie bloków dla HydroKlatka z items.yml.
+     * Klucz = material oryginalny, wartość = material docelowy w klatce.
+     */
+    public Map<Material, Material> getHydroKlatkaBlockMapping() {
+        if (hydroKlatkaBlockMapping == null) {
+            hydroKlatkaBlockMapping = new HashMap<>();
+            
+            ConfigurationSection section = config.getConfigurationSection("hydro-klatka.block-mapping");
+            if (section != null) {
+                for (String fromKey : section.getKeys(false)) {
+                    String toValue = section.getString(fromKey);
+                    if (toValue != null) {
+                        try {
+                            Material fromMaterial = Material.valueOf(fromKey.toUpperCase());
+                            Material toMaterial = Material.valueOf(toValue.toUpperCase());
+                            hydroKlatkaBlockMapping.put(fromMaterial, toMaterial);
+                        } catch (IllegalArgumentException e) {
+                            plugin.getLogger().warning("Nieprawidłowe mapowanie bloku w hydro-klatka.block-mapping: " 
+                                    + fromKey + " -> " + toValue);
+                        }
+                    }
+                }
+            }
+            
+            // Jeśli brak konfiguracji, użyj domyślnych wartości
+            if (hydroKlatkaBlockMapping.isEmpty()) {
+                setDefaultBlockMapping();
+            }
+        }
+        
+        return hydroKlatkaBlockMapping;
+    }
+
+    /**
+     * Ustawia domyślne mapowanie bloków jeśli brak w konfiguracji.
+     */
+    private void setDefaultBlockMapping() {
+        hydroKlatkaBlockMapping.put(Material.DIRT, Material.LIGHT_BLUE_CONCRETE);
+        hydroKlatkaBlockMapping.put(Material.GRASS_BLOCK, Material.LIGHT_BLUE_CONCRETE);
+        hydroKlatkaBlockMapping.put(Material.COARSE_DIRT, Material.LIGHT_BLUE_CONCRETE);
+        hydroKlatkaBlockMapping.put(Material.ROOTED_DIRT, Material.LIGHT_BLUE_CONCRETE);
+        hydroKlatkaBlockMapping.put(Material.STONE, Material.PRISMARINE);
+        hydroKlatkaBlockMapping.put(Material.COBBLESTONE, Material.PRISMARINE);
+        hydroKlatkaBlockMapping.put(Material.ANDESITE, Material.SEA_LANTERN);
+        hydroKlatkaBlockMapping.put(Material.DIORITE, Material.SEA_LANTERN);
+        hydroKlatkaBlockMapping.put(Material.GRANITE, Material.SEA_LANTERN);
+        hydroKlatkaBlockMapping.put(Material.POLISHED_ANDESITE, Material.SEA_LANTERN);
+        hydroKlatkaBlockMapping.put(Material.POLISHED_DIORITE, Material.SEA_LANTERN);
+        hydroKlatkaBlockMapping.put(Material.POLISHED_GRANITE, Material.SEA_LANTERN);
+        hydroKlatkaBlockMapping.put(Material.SAND, Material.LIGHT_BLUE_CONCRETE_POWDER);
+        hydroKlatkaBlockMapping.put(Material.RED_SAND, Material.LIGHT_BLUE_CONCRETE_POWDER);
+        hydroKlatkaBlockMapping.put(Material.GRAVEL, Material.LIGHT_BLUE_CONCRETE_POWDER);
+        hydroKlatkaBlockMapping.put(Material.SPRUCE_LOG, Material.BRAIN_CORAL_BLOCK);
+        hydroKlatkaBlockMapping.put(Material.OAK_LOG, Material.BRAIN_CORAL_BLOCK);
+        hydroKlatkaBlockMapping.put(Material.BIRCH_LOG, Material.BRAIN_CORAL_BLOCK);
+        hydroKlatkaBlockMapping.put(Material.JUNGLE_LOG, Material.BRAIN_CORAL_BLOCK);
+        hydroKlatkaBlockMapping.put(Material.ACACIA_LOG, Material.BRAIN_CORAL_BLOCK);
+        hydroKlatkaBlockMapping.put(Material.DARK_OAK_LOG, Material.BRAIN_CORAL_BLOCK);
+        hydroKlatkaBlockMapping.put(Material.SPRUCE_WOOD, Material.BRAIN_CORAL_BLOCK);
+        hydroKlatkaBlockMapping.put(Material.OAK_WOOD, Material.BRAIN_CORAL_BLOCK);
+        hydroKlatkaBlockMapping.put(Material.BIRCH_WOOD, Material.BRAIN_CORAL_BLOCK);
+        hydroKlatkaBlockMapping.put(Material.STRIPPED_SPRUCE_LOG, Material.BRAIN_CORAL_BLOCK);
+        hydroKlatkaBlockMapping.put(Material.STRIPPED_OAK_LOG, Material.BRAIN_CORAL_BLOCK);
+        hydroKlatkaBlockMapping.put(Material.STRIPPED_BIRCH_LOG, Material.BRAIN_CORAL_BLOCK);
+        hydroKlatkaBlockMapping.put(Material.OAK_LEAVES, Material.PURPLE_TERRACOTTA);
+        hydroKlatkaBlockMapping.put(Material.BIRCH_LEAVES, Material.PURPLE_TERRACOTTA);
+        hydroKlatkaBlockMapping.put(Material.SPRUCE_LEAVES, Material.PURPLE_TERRACOTTA);
+        hydroKlatkaBlockMapping.put(Material.JUNGLE_LEAVES, Material.PURPLE_TERRACOTTA);
+        hydroKlatkaBlockMapping.put(Material.ACACIA_LEAVES, Material.PURPLE_TERRACOTTA);
+        hydroKlatkaBlockMapping.put(Material.DARK_OAK_LEAVES, Material.PURPLE_TERRACOTTA);
+        hydroKlatkaBlockMapping.put(Material.STONE_BRICKS, Material.PRISMARINE_BRICKS);
+        hydroKlatkaBlockMapping.put(Material.MOSSY_STONE_BRICKS, Material.PRISMARINE_BRICKS);
+        hydroKlatkaBlockMapping.put(Material.CRACKED_STONE_BRICKS, Material.PRISMARINE_BRICKS);
+        hydroKlatkaBlockMapping.put(Material.CHISELED_STONE_BRICKS, Material.PRISMARINE_BRICKS);
+        
+        // Ważne bloki które powinny pozostać bez zmian
+        hydroKlatkaBlockMapping.put(Material.BEDROCK, Material.BEDROCK);
+        hydroKlatkaBlockMapping.put(Material.BEACON, Material.BEACON);
+        hydroKlatkaBlockMapping.put(Material.OBSIDIAN, Material.OBSIDIAN);
+    }
+
+    /**
+     * Resetuje cache mapowania bloków - użyj po przeładowaniu konfiguracji.
+     */
+    public void resetHydroKlatkaBlockMapping() {
+        hydroKlatkaBlockMapping = null;
+    }
 
     // ==================== TOTEM ====================
     public String getTotemName() { return config.getString("totem-ulaskawienia.name", "&5&lTotem Ulaskawienia"); }
@@ -367,6 +471,7 @@ public class ItemsConfig {
     public List<String> getOlafBlockedRegions() { return config.getStringList("olaf.blocked-regions"); }
     public String getOlafCooldownSubtitle() { return config.getString("olaf.messages.cooldown-subtitle", "&bOlafa &7mozesz uzyc za: &b{seconds_left}&7!"); }
     public String getOlafVictimSubtitle() { return config.getString("olaf.messages.victim-subtitle", "&3Olaf! &7zostalo uderzen: &b{left}&7!"); }
+
     // ==================== WZMOCNIANA ELYTRA ====================
     public List<String> getWzmocnianaElytraBlockedRegions() {
         return config.getStringList("wzmocniana-elytra.blocked-regions");
