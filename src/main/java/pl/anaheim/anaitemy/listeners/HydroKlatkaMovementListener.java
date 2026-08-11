@@ -50,6 +50,24 @@ public class HydroKlatkaMovementListener implements Listener {
 
     // ==================== GŁÓWNY TASK ====================
 
+    /**
+     * Task co tick.
+     *
+     * Progi (od centrum):
+     * 
+     * [0 ........... radius-0.5 ... radius ... radius+∞]
+     *  |   WEWNĄTRZ   | BARIERA |  TELEPORT NA ŚRODEK  |
+     *  |   (OK)       | (push)  |  (agresywny)         |
+     *  |              |         |                       |
+     *  | elytra OK    | cancel  | zawsze tp na środek   |
+     *  |              | move    |                       |
+     *
+     * radius - 0.5 = wewnętrzna krawędź shell (połowa bloku)
+     * radius       = zewnętrzna krawędź shell (koniec bloku)
+     *
+     * Gracz na elytrze obija się o bloki od WEWNĄTRZ (distance < radius - 0.5)
+     * więc NIE jest łapany przez żaden próg.
+     */
     private void startBarrierTask() {
         barrierTask = new BukkitRunnable() {
             @Override
@@ -60,12 +78,9 @@ public class HydroKlatkaMovementListener implements Listener {
                     Location center = klatka.getCenter();
                     if (center == null || center.getWorld() == null) continue;
 
-                    boolean animDone = klatka.isAnimationComplete();
                     int radius = klatka.getRadius();
-
-                    // POPRAWNE wartości:
-                    double barrierRadius = radius - 0.5;        // bariera w połowie shell bloku
-                    double safetyRadius = radius + 1.0;         // 1 PEŁNA kratka za radius
+                    double barrierRadius = radius - 0.5;   // połowa shell bloku (wewnętrzna krawędź)
+                    double shellOuterEdge = radius;         // zewnętrzna krawędź shell bloku
 
                     for (UUID uuid : new ArrayList<>(klatka.getTrappedPlayers())) {
                         Player player = plugin.getServer().getPlayer(uuid);
@@ -82,30 +97,36 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         double dist = loc.distance(center);
 
-                        // === SYSTEM BEZPIECZEŃSTWA - 1 kratka za radius ===
-                        if (dist > safetyRadius) {
+                        // === AGRESYWNY TELEPORT NA ŚRODEK ===
+                        // Gracz jest za zewnętrzną krawędzią shell bloku
+                        // = zbugowany w shell tak że hitbox nie wystaje
+                        // = wypadł z klatki
+                        // Teleport NATYCHMIASTOWY na środek
+                        if (dist >= shellOuterEdge) {
                             teleportToCenter(player, loc, center);
                             sendBarrierFeedback(player);
                             continue;
                         }
 
-                        // === GRACZ W BLOKU SHELL - ZAWSZE teleport na środek ===
-                        if (animDone && isPlayerInShellBlock(loc)) {
-                            teleportToCenter(player, loc, center);
-                            sendBarrierFeedback(player);
-                            continue;
-                        }
-
-                        // === BARIERA BACKUP (gdy PlayerMoveEvent nie złapie) ===
+                        // === BARIERA (połowa shell bloku) ===
+                        // Gracz jest między wewnętrzną a zewnętrzną krawędzią shell
+                        // = w bloku shell od wewnętrznej strony
+                        // Pushback w stronę centrum
                         if (dist >= barrierRadius) {
-                            if (animDone) {
-                                // Po animacji: teleport na środek (fizyczne bloki mają chronić ale mogą być buggy)
-                                teleportToCenter(player, loc, center);
-                            } else {
-                                // Podczas animacji: pushback
+                            // Podczas animacji: pushback
+                            if (!klatka.isAnimationComplete()) {
                                 pushbackToBarrier(player, loc, center, barrierRadius);
+                                sendBarrierFeedback(player);
                             }
-                            sendBarrierFeedback(player);
+                            // Po animacji: sprawdź czy gracz jest W bloku shell
+                            else if (isPlayerInShellBlock(loc)) {
+                                // Gracz jest w bloku shell → teleport na środek
+                                teleportToCenter(player, loc, center);
+                                sendBarrierFeedback(player);
+                            }
+                            // Po animacji: gracz jest blisko bariery ale NIE w bloku shell
+                            // = normalne obijanie się o bloki (elytra, chodzenie)
+                            // → nie robimy nic, fizyczne bloki go zatrzymują
                         }
                     }
                 }
@@ -116,22 +137,21 @@ public class HydroKlatkaMovementListener implements Listener {
     // ==================== SPRAWDZENIE BLOKU SHELL ====================
 
     /**
-     * Sprawdza czy gracz jest w bloku shell (na wysokości stóp lub głowy).
+     * Sprawdza czy gracz jest w bloku shell (stopy lub głowa).
      */
     private boolean isPlayerInShellBlock(Location loc) {
-        if (loc.getWorld() == null) return false;
-        
+        if (loc == null || loc.getWorld() == null) return false;
+
         Block feetBlock = loc.getBlock();
         Block headBlock = loc.clone().add(0, 1, 0).getBlock();
-        
+
         return feetBlock.getType() == SHELL_MATERIAL || headBlock.getType() == SHELL_MATERIAL;
     }
 
     // ==================== TELEPORT NA ŚRODEK ====================
 
     /**
-     * Teleportuje gracza na środek klatki.
-     * PROSTE I PEWNE - żadnych obliczeń.
+     * Teleportuje gracza na środek klatki. Zachowuje yaw/pitch.
      */
     private void teleportToCenter(Player player, Location playerLoc, Location center) {
         Location dest = center.clone();
@@ -144,22 +164,19 @@ public class HydroKlatkaMovementListener implements Listener {
 
     /**
      * Pushback gracza gdy dotknie bariery podczas animacji.
-     * 
-     * Oblicza pozycję 1 blok WEWNĄTRZ bariery:
-     * pozycja = centrum + (gracz - centrum).normalize() * (barrierRadius - 1.0)
+     * Pozycja = na linii gracz-centrum, 1 blok wewnątrz bariery.
      */
     private void pushbackToBarrier(Player player, Location playerLoc, Location center, double barrierRadius) {
         Vector fromCenter = playerLoc.toVector().subtract(center.toVector());
-        if (fromCenter.lengthSquared() < 0.001) return; // gracz w centrum
+        if (fromCenter.lengthSquared() < 0.001) return;
 
         fromCenter.normalize();
-        
-        // Pozycja 1 blok WEWNĄTRZ bariery
+
         double targetDist = Math.max(0, barrierRadius - 1.0);
         Location dest = center.clone().add(fromCenter.multiply(targetDist));
         dest.setYaw(playerLoc.getYaw());
         dest.setPitch(playerLoc.getPitch());
-        
+
         doInternalTeleport(player, dest);
     }
 
@@ -167,10 +184,9 @@ public class HydroKlatkaMovementListener implements Listener {
 
     private void doInternalTeleport(Player player, Location destination) {
         if (player == null || destination == null) return;
-        
+
         internalTeleports.add(player.getUniqueId());
-        
-        // Teleport przez scheduler dla pewności
+
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -179,8 +195,7 @@ public class HydroKlatkaMovementListener implements Listener {
                 }
             }
         }.runTask(plugin);
-        
-        // Usuń flagę po 3 tickach
+
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -214,12 +229,16 @@ public class HydroKlatkaMovementListener implements Listener {
         ));
     }
 
-    // ==================== MOVE EVENT - BARIERA ZAWSZE ====================
+    // ==================== MOVE EVENT ====================
 
     /**
-     * GŁÓWNA OCHRONA BARIERY - DZIAŁA ZAWSZE (podczas i po animacji).
-     * 
-     * To jest główna ochrona. barrierTask to tylko backup.
+     * Główna ochrona bariery.
+     *
+     * Anuluje ruch gdy gracz próbuje przekroczyć barierę (radius - 0.5).
+     * Działa ZAWSZE (podczas i po animacji).
+     *
+     * Gracz na elytrze obija się o fizyczne bloki shell od wewnątrz
+     * (distance < radius - 0.5) więc ten event go NIE łapie.
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
@@ -230,7 +249,7 @@ public class HydroKlatkaMovementListener implements Listener {
         Location to = event.getTo();
         if (to == null || from == null) return;
 
-        // Tylko gdy gracz zmienia blok
+        // Tylko jeśli gracz faktycznie zmienił pozycję
         if (from.getBlockX() == to.getBlockX()
                 && from.getBlockY() == to.getBlockY()
                 && from.getBlockZ() == to.getBlockZ()) {
@@ -249,15 +268,14 @@ public class HydroKlatkaMovementListener implements Listener {
             return;
         }
 
-        // === BARIERA - ZAWSZE (podczas i po animacji) ===
+        // === BARIERA - ZAWSZE ===
         Location center = klatka.getCenter();
         if (center == null || center.getWorld() == null) return;
         if (to.getWorld() == null || !to.getWorld().equals(center.getWorld())) return;
 
         double barrierRadius = klatka.getRadius() - 0.5;
-        
+
         if (to.distance(center) >= barrierRadius) {
-            // ZATRZYMAJ RUCH
             event.setCancelled(true);
             sendBarrierFeedback(player);
         }
@@ -270,7 +288,7 @@ public class HydroKlatkaMovementListener implements Listener {
         Player player = event.getPlayer();
         if (player == null) return;
 
-        // === NASZ TELEPORT - ZAWSZE PRZEPUŚĆ ===
+        // Nasz teleport - zawsze przepuść
         if (internalTeleports.contains(player.getUniqueId())) {
             event.setCancelled(false);
             return;
@@ -291,7 +309,6 @@ public class HydroKlatkaMovementListener implements Listener {
 
         double barrierRadius = klatka.getRadius() - 0.5;
 
-        // Blokuj teleport poza barierę
         if (to.getWorld() == null
                 || !to.getWorld().equals(center.getWorld())
                 || to.distance(center) >= barrierRadius) {
