@@ -35,9 +35,8 @@ public class HydroKlatkaMovementListener implements Listener {
 
     private static final double HALF_W = 0.30;
     private static final double HEIGHT = 1.80;
+    private static final double TELEPORT_DISTANCE = 0.75; // ✅ 0.75 bloku do środka
 
-    // ✅ TELEPORT W STRONĘ ŚRODKA (poziomo)
-    private static final double TELEPORT_BOUNCE = 0.15;
     private static final long FEEDBACK_COOLDOWN_MS = 500L;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
@@ -48,8 +47,6 @@ public class HydroKlatkaMovementListener implements Listener {
         this.plugin = plugin;
         startClampTask();
     }
-
-    // ==================== TASK CO TICK ====================
 
     private void startClampTask() {
         clampTask = new BukkitRunnable() {
@@ -67,48 +64,20 @@ public class HydroKlatkaMovementListener implements Listener {
                         Location loc = player.getLocation();
                         if (!loc.getWorld().equals(center.getWorld())) continue;
 
-                        plugin.getLogger().info("[HK-DEBUG] Checking player: " + player.getName() + " at " + loc);
+                        // ✅ Elytra - nie rób nic
+                        if (player.isGliding()) continue;
 
-                        // ✅ EXPLOIT: Gracz POZA shellem - teleport NA ŚRODEK
-                        if (isOutsideShell(loc, klatka)) {
-                            plugin.getLogger().info("[HK-DEBUG] Player " + player.getName() + " OUTSIDE SHELL! Distance: " + loc.distance(center) + " Radius: " + klatka.getRadius());
-                            doSafeTeleport(player, center.clone());
-                            feedback(player);
-                            continue;
-                        }
+                        // ✅ Po animacji - Minecraft blokuje fizycznie
+                        if (klatka.isAnimationComplete()) continue;
 
-                        // ✅ Elytra - nie teleportuj
-                        if (player.isGliding()) {
-                            plugin.getLogger().info("[HK-DEBUG] Player " + player.getName() + " is gliding, skipping");
-                            continue;
-                        }
-
-                        // ✅ Po animacji - MC blokuje
-                        if (klatka.isAnimationComplete()) {
-                            plugin.getLogger().info("[HK-DEBUG] Animation complete for " + player.getName());
-                            if (isInsideBuiltShell(loc, manager)) {
-                                plugin.getLogger().info("[HK-DEBUG] Player " + player.getName() + " inside built shell!");
-                                doSafeTeleport(player, center.clone());
-                                feedback(player);
-                            }
-                            continue;
-                        }
-
-                        plugin.getLogger().info("[HK-DEBUG] Animation running, checking barrier for " + player.getName());
-
-                        // ✅ Sprawdź czy gracz DOTKNĄŁ bariery
-                        Vector dir = getTeleportDirection(loc, klatka, manager, center);
+                        // ✅ JEDYNA LOGIKA: Teleportuj do środka jeśli gracz dotyka bariery
+                        Vector dir = getTeleportTowardCenter(loc, klatka, manager, center);
 
                         if (dir != null) {
-                            plugin.getLogger().info("[HK-DEBUG] TELEPORTING " + player.getName() + " by vector: " + dir);
+                            plugin.getLogger().info("[HK] Teleporting " + player.getName() + " by: " + dir);
                             Location newLoc = loc.clone().add(dir);
-                            newLoc.setYaw(loc.getYaw());
-                            newLoc.setPitch(loc.getPitch());
-
                             doSafeTeleport(player, newLoc);
                             feedback(player);
-                        } else {
-                            plugin.getLogger().info("[HK-DEBUG] No barrier touch for " + player.getName());
                         }
                     }
                 }
@@ -116,42 +85,16 @@ public class HydroKlatkaMovementListener implements Listener {
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    // ==================== BEZPIECZNY TELEPORT ====================
-
-    private void doSafeTeleport(Player player, Location destination) {
-        destination.setYaw(player.getLocation().getYaw());
-        destination.setPitch(player.getLocation().getPitch());
-
-        plugin.getLogger().info("[HK-DEBUG] doSafeTeleport: " + player.getName() + " to " + destination);
-
-        ourTeleports.add(player.getUniqueId());
-
-        player.teleport(destination);
-
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                ourTeleports.remove(player.getUniqueId());
-                plugin.getLogger().info("[HK-DEBUG] Removed teleport flag for " + player.getName());
-            }
-        }.runTask(plugin);
-    }
-
-    // ==================== SPRAWDŹ CZY POZA SHELLEM ====================
-
-    private boolean isOutsideShell(Location loc, ActiveHydroKlatka klatka) {
-        return loc.distance(klatka.getCenter()) > klatka.getRadius() + 1.0;
-    }
-
-    // ==================== KIERUNEK TELEPORTU ====================
+    // ==================== TELEPORT W STRONĘ ŚRODKA ====================
 
     /**
-     * ✅ TELEPORT W STRONĘ ŚRODKA (poziomo lub pionowo)
+     * ✅ Zwraca kierunek teleportu (0.75 bloku w stronę środka)
+     * jeśli gracz dotyka bariery (połowa planned shell bloku)
      */
-    private Vector getTeleportDirection(Location loc,
-                                        ActiveHydroKlatka klatka,
-                                        HydroKlatkaManager manager,
-                                        Location center) {
+    private Vector getTeleportTowardCenter(Location loc,
+                                           ActiveHydroKlatka klatka,
+                                           HydroKlatkaManager manager,
+                                           Location center) {
         double px = loc.getX();
         double py = loc.getY();
         double pz = loc.getZ();
@@ -160,160 +103,37 @@ public class HydroKlatkaMovementListener implements Listener {
         double cy = center.getY();
         double cz = center.getZ();
 
-        // ==================== DÓŁ ====================
-        {
-            int[] footXBlocks = getFootBlocksX(px);
-            int[] footZBlocks = getFootBlocksZ(pz);
+        // Skanuj WSZĘDZIE wokół gracza - szukaj bariery
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dy = -2; dy <= 3; dy++) {
+                for (int dz = -2; dz <= 2; dz++) {
+                    Location checkLoc = new Location(loc.getWorld(),
+                            (int) Math.floor(px) + dx,
+                            (int) Math.floor(py) + dy,
+                            (int) Math.floor(pz) + dz);
 
-            for (int checkX : footXBlocks) {
-                for (int checkZ : footZBlocks) {
-                    for (int checkY = (int) Math.floor(py) + 1;
-                         checkY >= (int) Math.floor(py) - 5; checkY--) {
-                        Location blockLoc = new Location(center.getWorld(), checkX, checkY, checkZ);
-                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
+                    // ✅ Sprawdzaj ZARÓWNO planned jak i zbudowane bloki shella
+                    if (!isShellBlock(checkLoc, klatka, manager)) continue;
 
-                        double barrierY = checkY + 0.5;
-                        if (py <= barrierY + 0.05) {
-                            plugin.getLogger().info("[HK-DEBUG] BOTTOM BARRIER hit at Y=" + barrierY);
-                            // ✅ Teleport W STRONĘ ŚRODKA (poziomo), nie w górę
-                            double dirX = Math.signum(cx - px) * TELEPORT_BOUNCE;
-                            double dirZ = Math.signum(cz - pz) * TELEPORT_BOUNCE;
-                            return new Vector(dirX, 0, dirZ);
-                        }
-                    }
-                }
-            }
-        }
+                    // ✅ Znaleźliśmy blok shella - oblicz barierę w jego połowie
+                    double barrierX = checkLoc.getX() + 0.5;
+                    double barrierY = checkLoc.getY() + 0.5;
+                    double barrierZ = checkLoc.getZ() + 0.5;
 
-        // ==================== GÓRA ====================
-        {
-            int[] footXBlocks = getFootBlocksX(px);
-            int[] footZBlocks = getFootBlocksZ(pz);
+                    // Czy gracz dotyka tej bariery?
+                    if (isNearBarrier(px, py, pz, barrierX, barrierY, barrierZ)) {
+                        plugin.getLogger().info("[HK] Barrier detected at: " + checkLoc);
 
-            for (int checkX : footXBlocks) {
-                for (int checkZ : footZBlocks) {
-                    int headBlockY = (int) Math.floor(py + HEIGHT);
-                    for (int checkY = headBlockY - 1; checkY <= headBlockY + 4; checkY++) {
-                        Location blockLoc = new Location(center.getWorld(), checkX, checkY, checkZ);
-                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
+                        // ✅ Teleport 0.75 bloku W STRONĘ ŚRODKA
+                        double dirX = 0;
+                        double dirY = 0;
+                        double dirZ = 0;
 
-                        double barrierY = checkY + 0.5;
-                        double playerTop = py + HEIGHT;
-                        if (playerTop >= barrierY - 0.05) {
-                            plugin.getLogger().info("[HK-DEBUG] TOP BARRIER hit at Y=" + barrierY);
-                            // ✅ Teleport W STRONĘ ŚRODKA (poziomo), nie w dół
-                            double dirX = Math.signum(cx - px) * TELEPORT_BOUNCE;
-                            double dirZ = Math.signum(cz - pz) * TELEPORT_BOUNCE;
-                            return new Vector(dirX, 0, dirZ);
-                        }
-                    }
-                }
-            }
-        }
+                        if (Math.abs(px - barrierX) > 0.1) dirX = Math.signum(cx - px) * TELEPORT_DISTANCE;
+                        if (Math.abs(py - barrierY) > 0.1) dirY = Math.signum(cy - py) * TELEPORT_DISTANCE;
+                        if (Math.abs(pz - barrierZ) > 0.1) dirZ = Math.signum(cz - pz) * TELEPORT_DISTANCE;
 
-        // ==================== PRAWO (+X) ====================
-        {
-            int minBY = (int) Math.floor(py);
-            int maxBY = (int) Math.floor(py + HEIGHT - 0.01);
-
-            for (int by = minBY; by <= maxBY; by++) {
-                if (!rowOverlapsPlayer(py, by)) continue;
-
-                int[] zBlocks = getFootBlocksZ(pz);
-                for (int checkZ : zBlocks) {
-                    for (int scanX = (int) Math.floor(px);
-                         scanX <= (int) Math.floor(px) + 4; scanX++) {
-                        Location blockLoc = new Location(center.getWorld(), scanX, by, checkZ);
-                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
-
-                        double barrierX = scanX + 0.5;
-                        double playerRight = px + HALF_W;
-                        if (playerRight >= barrierX - 0.05) {
-                            plugin.getLogger().info("[HK-DEBUG] RIGHT BARRIER hit at X=" + barrierX);
-                            // ✅ Teleport W LEWO (do środka)
-                            return new Vector(-TELEPORT_BOUNCE, 0, 0);
-                        }
-                    }
-                }
-            }
-        }
-
-        // ==================== LEWO (-X) ====================
-        {
-            int minBY = (int) Math.floor(py);
-            int maxBY = (int) Math.floor(py + HEIGHT - 0.01);
-
-            for (int by = minBY; by <= maxBY; by++) {
-                if (!rowOverlapsPlayer(py, by)) continue;
-
-                int[] zBlocks = getFootBlocksZ(pz);
-                for (int checkZ : zBlocks) {
-                    for (int scanX = (int) Math.floor(px);
-                         scanX >= (int) Math.floor(px) - 4; scanX--) {
-                        Location blockLoc = new Location(center.getWorld(), scanX, by, checkZ);
-                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
-
-                        double barrierX = scanX + 0.5;
-                        double playerLeft = px - HALF_W;
-                        if (playerLeft <= barrierX + 0.05) {
-                            plugin.getLogger().info("[HK-DEBUG] LEFT BARRIER hit at X=" + barrierX);
-                            // ✅ Teleport W PRAWO (do środka)
-                            return new Vector(TELEPORT_BOUNCE, 0, 0);
-                        }
-                    }
-                }
-            }
-        }
-
-        // ==================== PRZÓD (+Z) ====================
-        {
-            int minBY = (int) Math.floor(py);
-            int maxBY = (int) Math.floor(py + HEIGHT - 0.01);
-
-            for (int by = minBY; by <= maxBY; by++) {
-                if (!rowOverlapsPlayer(py, by)) continue;
-
-                int[] xBlocks = getFootBlocksX(px);
-                for (int checkX : xBlocks) {
-                    for (int scanZ = (int) Math.floor(pz);
-                         scanZ <= (int) Math.floor(pz) + 4; scanZ++) {
-                        Location blockLoc = new Location(center.getWorld(), checkX, by, scanZ);
-                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
-
-                        double barrierZ = scanZ + 0.5;
-                        double playerFront = pz + HALF_W;
-                        if (playerFront >= barrierZ - 0.05) {
-                            plugin.getLogger().info("[HK-DEBUG] FRONT BARRIER hit at Z=" + barrierZ);
-                            // ✅ Teleport W TYŁ (do środka)
-                            return new Vector(0, 0, -TELEPORT_BOUNCE);
-                        }
-                    }
-                }
-            }
-        }
-
-        // ==================== TYŁ (-Z) ====================
-        {
-            int minBY = (int) Math.floor(py);
-            int maxBY = (int) Math.floor(py + HEIGHT - 0.01);
-
-            for (int by = minBY; by <= maxBY; by++) {
-                if (!rowOverlapsPlayer(py, by)) continue;
-
-                int[] xBlocks = getFootBlocksX(px);
-                for (int checkX : xBlocks) {
-                    for (int scanZ = (int) Math.floor(pz);
-                         scanZ >= (int) Math.floor(pz) - 4; scanZ--) {
-                        Location blockLoc = new Location(center.getWorld(), checkX, by, scanZ);
-                        if (!isPlannedShellOnly(blockLoc, klatka, manager)) continue;
-
-                        double barrierZ = scanZ + 0.5;
-                        double playerBack = pz - HALF_W;
-                        if (playerBack <= barrierZ + 0.05) {
-                            plugin.getLogger().info("[HK-DEBUG] BACK BARRIER hit at Z=" + barrierZ);
-                            // ✅ Teleport W PRZÓD (do środka)
-                            return new Vector(0, 0, TELEPORT_BOUNCE);
-                        }
+                        return new Vector(dirX, dirY, dirZ);
                     }
                 }
             }
@@ -322,59 +142,57 @@ public class HydroKlatkaMovementListener implements Listener {
         return null;
     }
 
-    // ==================== HELPERY ====================
+    // ==================== SPRAWDZENIE BARIERY ====================
 
-    private boolean rowOverlapsPlayer(double py, int by) {
-        return (py + HEIGHT > by) && (py < by + 1.0);
+    /**
+     * ✅ Czy gracz dotyka bariery bloku?
+     */
+    private boolean isNearBarrier(double px, double py, double pz,
+                                  double bx, double by, double bz) {
+        double dx = Math.abs(px - bx);
+        double dy = Math.abs(py - by);
+        double dz = Math.abs(pz - bz);
+
+        // Hitbox gracza + margines
+        return (dx < HALF_W + 0.2 && dy < HEIGHT + 0.2 && dz < HALF_W + 0.2);
     }
 
-    private int[] getFootBlocksX(double px) {
-        int left = (int) Math.floor(px - HALF_W);
-        int right = (int) Math.floor(px + HALF_W);
-        if (left == right) return new int[]{left};
-        return new int[]{left, right};
-    }
+    // ==================== SPRAWDZENIE BLOKU SHELLA ====================
 
-    private int[] getFootBlocksZ(double pz) {
-        int back = (int) Math.floor(pz - HALF_W);
-        int front = (int) Math.floor(pz + HALF_W);
-        if (back == front) return new int[]{back};
-        return new int[]{back, front};
-    }
-
-    private boolean isPlannedShellOnly(Location blockLoc,
-                                       ActiveHydroKlatka klatka,
-                                       HydroKlatkaManager manager) {
-        if (manager.isShellBlock(blockLoc)) return false;
-        if (klatka.isAnimationComplete()) return false;
-        boolean result = klatka.isPlannedShellLocation(blockLoc);
-        if (result) {
-            plugin.getLogger().info("[HK-DEBUG] Found planned shell at: " + blockLoc);
+    /**
+     * ✅ Czy to blok shella (planned LUB zbudowany)
+     */
+    private boolean isShellBlock(Location loc, ActiveHydroKlatka klatka, HydroKlatkaManager manager) {
+        // Planned shell
+        if (klatka.isPlannedShellLocation(loc)) {
+            plugin.getLogger().info("[HK] Found PLANNED shell at: " + loc);
+            return true;
         }
-        return result;
-    }
 
-    private boolean isInsideBuiltShell(Location loc, HydroKlatkaManager manager) {
-        double px = loc.getX();
-        double py = loc.getY();
-        double pz = loc.getZ();
-
-        int minBX = (int) Math.floor(px - HALF_W);
-        int maxBX = (int) Math.floor(px + HALF_W);
-        int minBY = (int) Math.floor(py);
-        int maxBY = (int) Math.floor(py + HEIGHT);
-        int minBZ = (int) Math.floor(pz - HALF_W);
-        int maxBZ = (int) Math.floor(pz + HALF_W);
-
-        for (int bx = minBX; bx <= maxBX; bx++) {
-            for (int by = minBY; by <= maxBY; by++) {
-                for (int bz = minBZ; bz <= maxBZ; bz++) {
-                    Location blockLoc = new Location(loc.getWorld(), bx, by, bz);
-                    if (manager.isShellBlock(blockLoc)) return true;
-                }
-            }
+        // Zbudowany shell
+        if (manager.isShellBlock(loc)) {
+            plugin.getLogger().info("[HK] Found BUILT shell at: " + loc);
+            return true;
         }
+
         return false;
+    }
+
+    // ==================== TELEPORT Z FLAGĄ ====================
+
+    private void doSafeTeleport(Player player, Location destination) {
+        destination.setYaw(player.getLocation().getYaw());
+        destination.setPitch(player.getLocation().getPitch());
+
+        ourTeleports.add(player.getUniqueId());
+        player.teleport(destination);
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                ourTeleports.remove(player.getUniqueId());
+            }
+        }.runTask(plugin);
     }
 
     // ==================== FEEDBACK ====================
@@ -393,11 +211,7 @@ public class HydroKlatkaMovementListener implements Listener {
                 Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand()
                         .deserialize("&cNie możesz opuszczać podwodnej klatki!"),
-                Title.Times.times(
-                        Duration.ofMillis(0),
-                        Duration.ofMillis(800),
-                        Duration.ofMillis(200)
-                )
+                Title.Times.times(Duration.ofMillis(0), Duration.ofMillis(800), Duration.ofMillis(200))
         ));
     }
 
@@ -429,9 +243,7 @@ public class HydroKlatkaMovementListener implements Listener {
     public void onPlayerTeleport(PlayerTeleportEvent event) {
         Player player = event.getPlayer();
 
-        // ✅ NASZ teleport - przepuść zawsze
         if (ourTeleports.contains(player.getUniqueId())) {
-            plugin.getLogger().info("[HK-DEBUG] onPlayerTeleport: Allowing our teleport for " + player.getName());
             event.setCancelled(false);
             return;
         }
@@ -442,17 +254,14 @@ public class HydroKlatkaMovementListener implements Listener {
         ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
         if (klatka == null) return;
 
-        if (klatka.isAnimationComplete()) return;
         if (event.getCause() == PlayerTeleportEvent.TeleportCause.PLUGIN) return;
 
         Location to = event.getTo();
         if (to == null) return;
 
         if (to.distance(klatka.getCenter()) > klatka.getRadius()) {
-            plugin.getLogger().info("[HK-DEBUG] onPlayerTeleport: Blocking external teleport for " + player.getName());
             event.setCancelled(true);
-            manager.sendMessage(player,
-                    plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+            manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
         }
     }
 
