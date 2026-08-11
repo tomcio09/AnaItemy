@@ -5,8 +5,10 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -35,7 +37,7 @@ public class HydroKlatkaMovementListener implements Listener {
     private final AnaItemy plugin;
 
     /**
-     * Dystans teleportu w stronę środka klatki gdy gracz dotknie bariery (backup).
+     * Dystans teleportu w stronę środka klatki gdy gracz dotknie bariery (podczas animacji).
      */
     private static final double PUSHBACK_DISTANCE = 0.75;
 
@@ -43,6 +45,11 @@ public class HydroKlatkaMovementListener implements Listener {
      * Minimalny czas między feedbackami (dźwięk + subtitle) dla jednego gracza.
      */
     private static final long FEEDBACK_COOLDOWN_MS = 500L;
+
+    /**
+     * Material bloku shell.
+     */
+    private static final Material SHELL_MATERIAL = Material.BLUE_GLAZED_TERRACOTTA;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
 
@@ -59,16 +66,18 @@ public class HydroKlatkaMovementListener implements Listener {
         startBarrierTask();
     }
 
-    // ==================== GŁÓWNY TASK - BACKUP ====================
+    // ==================== GŁÓWNY TASK ====================
 
     /**
-     * Task uruchamiany co tick (50ms) - BACKUP dla szybkiego ruchu.
+     * Task uruchamiany co tick (50ms).
      *
-     * Dla każdego trapped gracza sprawdza:
-     * 1. Czy gracz jest poza strefą bezpieczeństwa (radius + 0.8) → teleport na środek
-     * 2. Czy gracz jest poza barierą (radius - 0.5) → teleport 0.75 w stronę środka
+     * PODCZAS ANIMACJI:
+     * - System bezpieczeństwa (radius + 0.8) → teleport na środek
+     * - Bariera (radius - 0.5) → pushback 0.75 w stronę środka
      *
-     * Główna ochrona jest w PlayerMoveEvent - ten task to backup dla elytra/teleportów.
+     * PO ANIMACJI:
+     * - System bezpieczeństwa (radius + 0.8) → teleport na środek
+     * - Wykrywanie kolizji z blokami shell → wypychanie gracza z bloku
      */
     private void startBarrierTask() {
         barrierTask = new BukkitRunnable() {
@@ -79,6 +88,8 @@ public class HydroKlatkaMovementListener implements Listener {
                 for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
                     Location center = klatka.getCenter();
                     if (center == null || center.getWorld() == null) continue;
+
+                    boolean animationComplete = klatka.isAnimationComplete();
 
                     for (UUID uuid : new ArrayList<>(klatka.getTrappedPlayers())) {
                         Player player = plugin.getServer().getPlayer(uuid);
@@ -92,8 +103,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         double distance = playerLoc.distance(center);
 
-                        // === SYSTEM BEZPIECZEŃSTWA ===
-                        // Gracz jest daleko poza klatką (glitch) → teleport na środek
+                        // === SYSTEM BEZPIECZEŃSTWA (ZAWSZE) ===
                         if (distance >= klatka.getSafetyRadius()) {
                             Location safeLoc = center.clone();
                             safeLoc.setYaw(playerLoc.getYaw());
@@ -103,32 +113,145 @@ public class HydroKlatkaMovementListener implements Listener {
                             continue;
                         }
 
-                        // === BARIERA BACKUP ===
-                        // Jeśli gracz jakoś jest poza barierą (np. szybki ruch elytrą)
-                        // → pushback 0.75 w stronę centrum
-                        if (distance >= klatka.getBarrierRadius()) {
-                            // Oblicz kierunek od gracza DO centrum
-                            Vector toCenter = center.toVector().subtract(playerLoc.toVector());
+                        // === PODCZAS ANIMACJI - BARIERA SOFTWAROWA ===
+                        if (!animationComplete) {
+                            if (distance >= klatka.getBarrierRadius()) {
+                                Vector toCenter = center.toVector().subtract(playerLoc.toVector());
+                                if (toCenter.lengthSquared() < 0.001) continue;
 
-                            // Zabezpieczenie: jeśli gracz jest dokładnie w centrum
-                            if (toCenter.lengthSquared() < 0.001) {
-                                continue;
+                                toCenter.normalize();
+                                Vector pushback = toCenter.multiply(PUSHBACK_DISTANCE);
+
+                                Location newLoc = playerLoc.clone().add(pushback);
+                                newLoc.setYaw(playerLoc.getYaw());
+                                newLoc.setPitch(playerLoc.getPitch());
+
+                                doInternalTeleport(player, newLoc);
+                                sendBarrierFeedback(player);
                             }
-
-                            toCenter.normalize();
-                            Vector pushback = toCenter.multiply(PUSHBACK_DISTANCE);
-
-                            Location newLoc = playerLoc.clone().add(pushback);
-                            newLoc.setYaw(playerLoc.getYaw());
-                            newLoc.setPitch(playerLoc.getPitch());
-
-                            doInternalTeleport(player, newLoc);
-                            sendBarrierFeedback(player);
+                        }
+                        // === PO ANIMACJI - WYPYCHANIE Z BLOKÓW SHELL ===
+                        else {
+                            handleShellBlockCollision(player, playerLoc, center, klatka);
                         }
                     }
                 }
             }
         }.runTaskTimer(plugin, 0L, 1L);
+    }
+
+    // ==================== KOLIZJA Z BLOKAMI SHELL ====================
+
+    /**
+     * Wykrywa czy gracz jest w kolizji z blokiem shell i wypycha go.
+     * 
+     * Przypadki:
+     * 1. Gracz spada w dół i jest w bloku shell → teleport NA górę bloku
+     * 2. Gracz jest w bloku shell z boku → teleport przed blok (w stronę centrum)
+     */
+    private void handleShellBlockCollision(Player player, Location playerLoc, Location center, ActiveHydroKlatka klatka) {
+        if (player == null || playerLoc == null || center == null) return;
+
+        // Sprawdź czy gracz jest w bloku shell
+        Block blockAtPlayer = playerLoc.getBlock();
+        Block blockAtPlayerHead = playerLoc.clone().add(0, 1, 0).getBlock();
+        
+        boolean inShellBlock = isShellBlock(blockAtPlayer) || isShellBlock(blockAtPlayerHead);
+        
+        if (!inShellBlock) return;
+
+        // Sprawdź czy gracz spada (velocity w dół)
+        Vector velocity = player.getVelocity();
+        boolean isFalling = velocity.getY() < -0.1;
+
+        if (isFalling) {
+            // === GRACZ SPADA - TELEPORT NA GÓRĘ BLOKU ===
+            Location safeLocation = findSafeLocationAbove(playerLoc);
+            if (safeLocation != null) {
+                safeLocation.setYaw(playerLoc.getYaw());
+                safeLocation.setPitch(playerLoc.getPitch());
+                doInternalTeleport(player, safeLocation);
+            }
+        } else {
+            // === GRACZ W BLOKU Z BOKU - TELEPORT PRZED BLOK ===
+            Location safeLocation = findSafeLocationTowardsCenter(playerLoc, center, klatka);
+            if (safeLocation != null) {
+                safeLocation.setYaw(playerLoc.getYaw());
+                safeLocation.setPitch(playerLoc.getPitch());
+                doInternalTeleport(player, safeLocation);
+            }
+        }
+    }
+
+    /**
+     * Sprawdza czy blok jest blokiem shell.
+     */
+    private boolean isShellBlock(Block block) {
+        if (block == null) return false;
+        return block.getType() == SHELL_MATERIAL;
+    }
+
+    /**
+     * Znajduje bezpieczną lokację nad blokiem shell (dla spadającego gracza).
+     * Zwraca pozycję NA górze najbliższego bloku pod graczem.
+     */
+    private Location findSafeLocationAbove(Location playerLoc) {
+        if (playerLoc == null || playerLoc.getWorld() == null) return null;
+
+        // Szukaj najbliższego solidnego bloku pod graczem (max 5 bloków w dół)
+        for (int y = 0; y <= 5; y++) {
+            Location checkLoc = playerLoc.clone().subtract(0, y, 0);
+            Block block = checkLoc.getBlock();
+            
+            if (block.getType().isSolid()) {
+                // Znaleziono solidny blok - teleport NA górę tego bloku
+                Location safeLoc = block.getLocation().clone().add(0.5, 1.0, 0.5);
+                
+                // Sprawdź czy nad blokiem jest wolne miejsce (2 bloki wysokości dla gracza)
+                Block above1 = safeLoc.getBlock();
+                Block above2 = safeLoc.clone().add(0, 1, 0).getBlock();
+                
+                if (!above1.getType().isSolid() && !above2.getType().isSolid()) {
+                    return safeLoc;
+                }
+            }
+        }
+
+        // Fallback - teleport 1 blok wyżej
+        return playerLoc.clone().add(0, 1, 0);
+    }
+
+    /**
+     * Znajduje bezpieczną lokację przed blokiem shell (w stronę centrum).
+     * Gracz jest teleportowany 0.5 bloku w stronę centrum, poza blok shell.
+     */
+    private Location findSafeLocationTowardsCenter(Location playerLoc, Location center, ActiveHydroKlatka klatka) {
+        if (playerLoc == null || center == null) return null;
+
+        // Kierunek do centrum
+        Vector toCenter = center.toVector().subtract(playerLoc.toVector());
+        if (toCenter.lengthSquared() < 0.001) {
+            // Gracz w centrum - teleport lekko w górę
+            return playerLoc.clone().add(0, 0.5, 0);
+        }
+
+        toCenter.normalize();
+
+        // Teleport 1 blok w stronę centrum
+        Location safeLoc = playerLoc.clone().add(toCenter.multiply(1.0));
+        
+        // Sprawdź czy nowa pozycja jest bezpieczna (nie w bloku)
+        Block blockAtSafe = safeLoc.getBlock();
+        Block blockAtSafeHead = safeLoc.clone().add(0, 1, 0).getBlock();
+        
+        if (!blockAtSafe.getType().isSolid() && !blockAtSafeHead.getType().isSolid()) {
+            return safeLoc;
+        }
+
+        // Fallback - teleport do centrum klatki
+        Location centerSafe = center.clone();
+        centerSafe.setY(playerLoc.getY()); // zachowaj wysokość gracza
+        return centerSafe;
     }
 
     // ==================== TELEPORT WEWNĘTRZNY ====================
@@ -180,17 +303,16 @@ public class HydroKlatkaMovementListener implements Listener {
         ));
     }
 
-    // ==================== MOVE EVENT - GŁÓWNA OCHRONA ====================
+    // ==================== MOVE EVENT - BARIERA PODCZAS ANIMACJI ====================
 
     /**
-     * GŁÓWNA OCHRONA PRZED WYJŚCIEM Z KLATKI.
+     * GŁÓWNA OCHRONA PODCZAS ANIMACJI.
      * 
      * Sprawdza:
      * 1. Czy gracz nie wchodzi w zablokowany region WorldGuard → usuń z klatki
-     * 2. Czy gracz nie próbuje wyjść poza barierę → zatrzymaj ruch i wyświetl feedback
+     * 2. PODCZAS ANIMACJI: Czy gracz nie próbuje wyjść poza barierę → zatrzymaj ruch
      * 
-     * To działa dla normalnego ruchu (chodzenie, bieganie, pływanie).
-     * Dla szybkiego ruchu (elytra) działa barrierTask jako backup.
+     * Po zakończeniu animacji - fizyczne bloki shell zatrzymują gracza naturalnie.
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
@@ -220,20 +342,23 @@ public class HydroKlatkaMovementListener implements Listener {
             return;
         }
 
-        // === SPRAWDŹ BARIERĘ ===
-        Location center = klatka.getCenter();
-        if (center == null || center.getWorld() == null) return;
-        if (to.getWorld() == null || !to.getWorld().equals(center.getWorld())) return;
+        // === SPRAWDŹ BARIERĘ - TYLKO PODCZAS ANIMACJI ===
+        // Po zakończeniu animacji fizyczne bloki shell zatrzymują gracza
+        if (!klatka.isAnimationComplete()) {
+            Location center = klatka.getCenter();
+            if (center == null || center.getWorld() == null) return;
+            if (to.getWorld() == null || !to.getWorld().equals(center.getWorld())) return;
 
-        double distanceTo = to.distance(center);
-        
-        // Jeśli gracz próbuje wyjść poza barierę - ZATRZYMAJ RUCH
-        if (distanceTo >= klatka.getBarrierRadius()) {
-            // Anuluj ruch - gracz zostaje w miejscu (jak uderzenie w blok)
-            event.setCancelled(true);
+            double distanceTo = to.distance(center);
             
-            // Wyświetl feedback (z cooldownem)
-            sendBarrierFeedback(player);
+            // Jeśli gracz próbuje wyjść poza barierę - ZATRZYMAJ RUCH
+            if (distanceTo >= klatka.getBarrierRadius()) {
+                // Anuluj ruch - gracz zostaje w miejscu (jak uderzenie w blok)
+                event.setCancelled(true);
+                
+                // Wyświetl feedback (z cooldownem)
+                sendBarrierFeedback(player);
+            }
         }
     }
 
