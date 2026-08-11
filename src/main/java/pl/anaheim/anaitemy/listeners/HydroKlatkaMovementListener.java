@@ -72,11 +72,11 @@ public class HydroKlatkaMovementListener implements Listener {
      * Task uruchamiany co tick (50ms).
      *
      * PODCZAS ANIMACJI:
-     * - System bezpieczeństwa (radius + 0.9) → teleport na środek
+     * - System bezpieczeństwa (radius + 0.9) → teleport na środek (lub usuń z klatki jeśli inny świat)
      * - Bariera (radius - 0.5) → pushback 0.75 w stronę środka
      *
      * PO ANIMACJI:
-     * - System bezpieczeństwa (radius + 0.9) → teleport na środek
+     * - System bezpieczeństwa (radius + 0.9) → teleport na środek (lub usuń z klatki jeśli inny świat)
      * - Wykrywanie kolizji z blokami shell → wypychanie gracza z bloku
      */
     private void startBarrierTask() {
@@ -100,8 +100,12 @@ public class HydroKlatkaMovementListener implements Listener {
                         Location playerLoc = player.getLocation();
                         if (playerLoc == null || playerLoc.getWorld() == null) continue;
 
-                        // Sprawdź czy ten sam świat
-                        if (!playerLoc.getWorld().equals(center.getWorld())) continue;
+                        // === SPRAWDŹ CZY GRACZ ZMIENIŁ ŚWIAT ===
+                        if (!playerLoc.getWorld().equals(center.getWorld())) {
+                            // Gracz zmienił świat - usuń z klatki
+                            manager.removePlayerFromKlatka(player);
+                            continue;
+                        }
 
                         double distance = playerLoc.distance(center);
 
