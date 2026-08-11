@@ -5,7 +5,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.block.Block;
@@ -18,6 +17,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
@@ -36,43 +36,6 @@ public class HydroKlatkaMovementListener implements Listener {
 
     private final AnaItemy plugin;
     private static final long FEEDBACK_COOLDOWN_MS = 500L;
-    private static final Material SHELL_MATERIAL = Material.BLUE_GLAZED_TERRACOTTA;
-
-    /**
-     * Połowa szerokości hitboxu gracza.
-     * Hitbox gracza = 0.6 bloku szerokości → 0.3 na każdą stronę.
-     */
-    private static final double HITBOX_HALF_WIDTH = 0.3;
-
-    /**
-     * Wysokość hitboxu gracza (stojącego).
-     */
-    private static final double HITBOX_HEIGHT = 1.8;
-
-    /**
-     * Offsety do sprawdzania punktów hitboxu gracza.
-     * Sprawdzamy 8 rogów + 2 punkty środkowe (stopy i głowa).
-     */
-    private static final double[][] HITBOX_CHECK_OFFSETS = {
-            // Stopy - 4 rogi + środek
-            {0, 0, 0},
-            {HITBOX_HALF_WIDTH, 0, HITBOX_HALF_WIDTH},
-            {HITBOX_HALF_WIDTH, 0, -HITBOX_HALF_WIDTH},
-            {-HITBOX_HALF_WIDTH, 0, HITBOX_HALF_WIDTH},
-            {-HITBOX_HALF_WIDTH, 0, -HITBOX_HALF_WIDTH},
-            // Głowa - 4 rogi + środek
-            {0, HITBOX_HEIGHT, 0},
-            {HITBOX_HALF_WIDTH, HITBOX_HEIGHT, HITBOX_HALF_WIDTH},
-            {HITBOX_HALF_WIDTH, HITBOX_HEIGHT, -HITBOX_HALF_WIDTH},
-            {-HITBOX_HALF_WIDTH, HITBOX_HEIGHT, HITBOX_HALF_WIDTH},
-            {-HITBOX_HALF_WIDTH, HITBOX_HEIGHT, -HITBOX_HALF_WIDTH},
-            // Środek ciała - 4 rogi + środek
-            {0, 0.9, 0},
-            {HITBOX_HALF_WIDTH, 0.9, HITBOX_HALF_WIDTH},
-            {HITBOX_HALF_WIDTH, 0.9, -HITBOX_HALF_WIDTH},
-            {-HITBOX_HALF_WIDTH, 0.9, HITBOX_HALF_WIDTH},
-            {-HITBOX_HALF_WIDTH, 0.9, -HITBOX_HALF_WIDTH},
-    };
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
     private final Set<UUID> internalTeleports = ConcurrentHashMap.newKeySet();
@@ -87,20 +50,17 @@ public class HydroKlatkaMovementListener implements Listener {
     // ==================== GŁÓWNY TASK ====================
 
     /**
-     * Task co tick.
+     * Logika:
      *
-     * Progi (od centrum):
-     * 
-     * [0 ........... radius-0.5 ... radius ... radius+∞]
-     *  |   WEWNĄTRZ   | BARIERA |  TELEPORT NA ŚRODEK  |
-     *  |   (OK)       | (push)  |  (agresywny)         |
+     * 1. Jeśli środek gracza jest za radius -> teleport na środek
+     * 2. Jeśli CAŁY hitbox gracza jest za barierą (radius - 0.5) -> teleport na środek
+     *    To łapie sytuację "jestem cały w bloku shell i nie wystaję do środka".
+     * 3. Podczas animacji, gdy gracz tylko dotyka bariery -> pushback
      *
-     * Dodatkowo po animacji:
-     * - sprawdza czy JAKIKOLWIEK punkt hitboxu gracza jest w bloku shell
-     * - jeśli tak → teleport na środek
-     *
-     * Elytra: gracz obija się o bloki od WEWNĄTRZ (distance < radius - 0.5)
-     * więc NIE jest łapany. Ale jeśli wleci W blok shell → teleport.
+     * Dzięki temu:
+     * - elytra obijająca się o bloki od środka NIE teleportuje,
+     *   bo część hitboxu nadal jest wewnątrz bariery
+     * - gracz zbugowany w shell i cały za połową bloku -> teleportuje
      */
     private void startBarrierTask() {
         barrierTask = new BukkitRunnable() {
@@ -115,48 +75,49 @@ public class HydroKlatkaMovementListener implements Listener {
                     int radius = klatka.getRadius();
                     double barrierRadius = radius - 0.5;
                     double shellOuterEdge = radius;
-                    boolean animDone = klatka.isAnimationComplete();
+                    boolean animationComplete = klatka.isAnimationComplete();
 
                     for (UUID uuid : new ArrayList<>(klatka.getTrappedPlayers())) {
                         Player player = plugin.getServer().getPlayer(uuid);
                         if (player == null || !player.isOnline()) continue;
 
                         Location loc = player.getLocation();
-                        if (loc.getWorld() == null) continue;
+                        if (loc == null || loc.getWorld() == null) continue;
 
-                        // === INNY ŚWIAT → USUŃ ===
+                        // Inny świat -> usuń z klatki
                         if (!loc.getWorld().equals(center.getWorld())) {
                             manager.removePlayerFromKlatka(player);
                             continue;
                         }
 
-                        double dist = loc.distance(center);
+                        double playerDistance = loc.distance(center);
 
-                        // === AGRESYWNY TELEPORT - za zewnętrzną krawędzią shell ===
-                        if (dist >= shellOuterEdge) {
+                        // ====================
+                        // 1. ŚRODEK GRACZA ZA SHELL
+                        // ====================
+                        if (playerDistance >= shellOuterEdge) {
                             teleportToCenter(player, loc, center);
                             sendBarrierFeedback(player);
                             continue;
                         }
 
-                        // === SPRAWDŹ CZY HITBOX GRACZA JEST W BLOKU SHELL ===
-                        // Działa ZAWSZE (podczas i po animacji)
-                        // Sprawdza 15 punktów hitboxu gracza
-                        if (isHitboxInShellBlock(loc, center, klatka)) {
+                        // ====================
+                        // 2. CAŁY HITBOX ZA BARIERĄ
+                        // ====================
+                        // To jest dokładnie przypadek:
+                        // "jestem zbugowany w shell i nie wystaję hitboxem do środka"
+                        if (isEntireHitboxBeyondBarrier(player, center, barrierRadius)) {
                             teleportToCenter(player, loc, center);
                             sendBarrierFeedback(player);
                             continue;
                         }
 
-                        // === BARIERA SOFTWAROWA (połowa shell bloku) ===
-                        if (dist >= barrierRadius) {
-                            if (!animDone) {
-                                // Podczas animacji: pushback
-                                pushbackToBarrier(player, loc, center, barrierRadius);
-                                sendBarrierFeedback(player);
-                            }
-                            // Po animacji: fizyczne bloki shell zatrzymują gracza
-                            // Hitbox check powyżej złapie gracza jeśli jest W bloku
+                        // ====================
+                        // 3. PODCZAS ANIMACJI - PUSHBACK
+                        // ====================
+                        if (!animationComplete && playerDistance >= barrierRadius) {
+                            pushbackToBarrier(player, loc, center, barrierRadius);
+                            sendBarrierFeedback(player);
                         }
                     }
                 }
@@ -164,53 +125,119 @@ public class HydroKlatkaMovementListener implements Listener {
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    // ==================== SPRAWDZENIE HITBOXU W SHELL ====================
+    // ==================== HITBOX VS BARIERA ====================
 
     /**
-     * Sprawdza czy JAKIKOLWIEK punkt hitboxu gracza jest w bloku shell.
-     * 
-     * Sprawdza 15 punktów:
-     * - 5 na poziomie stóp (środek + 4 rogi)
-     * - 5 na poziomie głowy (środek + 4 rogi)
-     * - 5 na poziomie środka ciała (środek + 4 rogi)
-     * 
-     * Dodatkowo: jeśli punkt jest po WEWNĘTRZNEJ stronie shell bloku
-     * (bliżej centrum niż bariera), to NIE liczymy go jako kolizję.
-     * Dzięki temu elytra obijająca się o bloki od wewnątrz nie teleportuje.
+     * Sprawdza czy CAŁY hitbox gracza jest już za barierą.
+     *
+     * Bierzemy bounding box gracza i znajdujemy punkt hitboxu,
+     * który jest NAJBLIŻEJ środka klatki.
+     *
+     * Jeśli nawet ten najbliższy punkt ma dystans >= barrierRadius,
+     * to znaczy że cały hitbox jest po zewnętrznej stronie połowy shell bloku.
+     *
+     * To idealnie łapie:
+     * - gracza zbugowanego w shell
+     * - NIE łapie zwykłego obijania się od wewnątrz
      */
-    private boolean isHitboxInShellBlock(Location playerLoc, Location center, ActiveHydroKlatka klatka) {
-        if (playerLoc == null || playerLoc.getWorld() == null) return false;
+    private boolean isEntireHitboxBeyondBarrier(Player player, Location center, double barrierRadius) {
+        if (player == null || center == null) return false;
 
-        double barrierRadius = klatka.getBarrierRadius();
+        BoundingBox box = player.getBoundingBox();
+        double nearestDistance = getNearestDistanceFromCenterToBoundingBox(center, box);
 
-        for (double[] offset : HITBOX_CHECK_OFFSETS) {
-            Location checkPoint = playerLoc.clone().add(offset[0], offset[1], offset[2]);
-            
-            // Sprawdź czy ten punkt jest w bloku shell
-            Block block = checkPoint.getBlock();
-            if (block.getType() != SHELL_MATERIAL) continue;
+        return nearestDistance >= barrierRadius;
+    }
 
-            // Punkt jest w bloku shell - ale czy jest po zewnętrznej stronie?
-            // Jeśli punkt jest bliżej centrum niż bariera → to normalne obijanie się
-            // Jeśli punkt jest dalej od centrum niż bariera → gracz wchodzi W shell
-            double pointDist = checkPoint.distance(center);
-            
-            if (pointDist >= barrierRadius) {
-                // Punkt hitboxu jest za barierą w bloku shell → KOLIZJA
-                return true;
-            }
-        }
+    /**
+     * Liczy odległość od środka klatki do NAJBLIŻSZEGO punktu bounding boxa gracza.
+     */
+    private double getNearestDistanceFromCenterToBoundingBox(Location center, BoundingBox box) {
+        double cx = center.getX();
+        double cy = center.getY();
+        double cz = center.getZ();
 
-        return false;
+        double nearestX = clamp(cx, box.getMinX(), box.getMaxX());
+        double nearestY = clamp(cy, box.getMinY(), box.getMaxY());
+        double nearestZ = clamp(cz, box.getMinZ(), box.getMaxZ());
+
+        double dx = nearestX - cx;
+        double dy = nearestY - cy;
+        double dz = nearestZ - cz;
+
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    private double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     // ==================== TELEPORT NA ŚRODEK ====================
 
+    /**
+     * Teleportuje gracza jak najbliżej środka, ale do bezpiecznej pozycji.
+     * Jeśli exact center jest wolny -> użyje center.
+     * Jeśli nie -> szuka najbliższego bezpiecznego miejsca w okolicy środka.
+     */
     private void teleportToCenter(Player player, Location playerLoc, Location center) {
-        Location dest = center.clone();
-        dest.setYaw(playerLoc.getYaw());
-        dest.setPitch(playerLoc.getPitch());
-        doInternalTeleport(player, dest);
+        Location destination = findSafeCenterLocation(center, playerLoc.getYaw(), playerLoc.getPitch());
+        doInternalTeleport(player, destination);
+    }
+
+    /**
+     * Szuka bezpiecznej pozycji możliwie najbliżej środka klatki.
+     */
+    private Location findSafeCenterLocation(Location center, float yaw, float pitch) {
+        if (center == null || center.getWorld() == null) return center;
+
+        // 1. Najpierw exact center
+        Location exact = center.clone();
+        exact.setYaw(yaw);
+        exact.setPitch(pitch);
+        if (isSafeForPlayer(exact)) {
+            return exact;
+        }
+
+        // 2. Szukaj najbliżej środka
+        int[] yOffsets = {0, 1, -1, 2, -2, 3, -3};
+
+        for (int radius = 0; radius <= 2; radius++) {
+            for (int yOff : yOffsets) {
+                for (int x = -radius; x <= radius; x++) {
+                    for (int z = -radius; z <= radius; z++) {
+                        Location candidate = new Location(
+                                center.getWorld(),
+                                center.getBlockX() + x + 0.5,
+                                center.getBlockY() + yOff,
+                                center.getBlockZ() + z + 0.5,
+                                yaw,
+                                pitch
+                        );
+
+                        if (isSafeForPlayer(candidate)) {
+                            return candidate;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Fallback
+        exact.setYaw(yaw);
+        exact.setPitch(pitch);
+        return exact;
+    }
+
+    /**
+     * Czy gracz może stać w tej pozycji.
+     */
+    private boolean isSafeForPlayer(Location loc) {
+        if (loc == null || loc.getWorld() == null) return false;
+
+        Block feet = loc.getBlock();
+        Block head = loc.clone().add(0, 1, 0).getBlock();
+
+        return !feet.getType().isSolid() && !head.getType().isSolid();
     }
 
     // ==================== PUSHBACK PODCZAS ANIMACJI ====================
@@ -299,7 +326,6 @@ public class HydroKlatkaMovementListener implements Listener {
         ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
         if (klatka == null) return;
 
-        // === WORLDGUARD ===
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
         if (plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions)) {
@@ -307,7 +333,6 @@ public class HydroKlatkaMovementListener implements Listener {
             return;
         }
 
-        // === BARIERA - ZAWSZE ===
         Location center = klatka.getCenter();
         if (center == null || center.getWorld() == null) return;
         if (to.getWorld() == null || !to.getWorld().equals(center.getWorld())) return;
