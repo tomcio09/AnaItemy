@@ -35,7 +35,7 @@ public class HydroKlatkaMovementListener implements Listener {
     private final AnaItemy plugin;
 
     /**
-     * Dystans teleportu w stronę środka klatki gdy gracz dotknie bariery.
+     * Dystans teleportu w stronę środka klatki gdy gracz dotknie bariery (backup).
      */
     private static final double PUSHBACK_DISTANCE = 0.75;
 
@@ -59,21 +59,16 @@ public class HydroKlatkaMovementListener implements Listener {
         startBarrierTask();
     }
 
-    // ==================== GŁÓWNY TASK - CO TICK ====================
+    // ==================== GŁÓWNY TASK - BACKUP ====================
 
     /**
-     * Task uruchamiany co tick (50ms).
+     * Task uruchamiany co tick (50ms) - BACKUP dla szybkiego ruchu.
      *
      * Dla każdego trapped gracza sprawdza:
      * 1. Czy gracz jest poza strefą bezpieczeństwa (radius + 0.8) → teleport na środek
-     * 2. Czy gracz dotyka bariery (radius - 0.5) → teleport 0.75 w stronę środka
+     * 2. Czy gracz jest poza barierą (radius - 0.5) → teleport 0.75 w stronę środka
      *
-     * Bariera działa ZAWSZE - podczas animacji i po niej.
-     * Dzięki temu jeśli bloki shell zostaną zniszczone, bariera nadal trzyma gracza.
-     *
-     * Bariera jest w połowie bloku shell. Fizyczny blok shell zajmuje cały blok,
-     * więc po zbudowaniu gracz uderza w blok ZANIM dotknie bariery.
-     * Ale jeśli blok zostanie usunięty - bariera nadal działa.
+     * Główna ochrona jest w PlayerMoveEvent - ten task to backup dla elytra/teleportów.
      */
     private void startBarrierTask() {
         barrierTask = new BukkitRunnable() {
@@ -108,8 +103,9 @@ public class HydroKlatkaMovementListener implements Listener {
                             continue;
                         }
 
-                        // === BARIERA NIEWIDZIALNA ===
-                        // Gracz dotknął bariery (w połowie shell blocku) → pushback 0.75 w stronę centrum
+                        // === BARIERA BACKUP ===
+                        // Jeśli gracz jakoś jest poza barierą (np. szybki ruch elytrą)
+                        // → pushback 0.75 w stronę centrum
                         if (distance >= klatka.getBarrierRadius()) {
                             // Oblicz kierunek od gracza DO centrum
                             Vector toCenter = center.toVector().subtract(playerLoc.toVector());
@@ -146,8 +142,7 @@ public class HydroKlatkaMovementListener implements Listener {
         internalTeleports.add(player.getUniqueId());
         player.teleport(destination);
 
-        // Usuń flagę w następnym TICK-u (teleport jest synchroniczny,
-        // ale event może się odpalić w tym samym ticku)
+        // Usuń flagę w następnym TICK-u
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -160,8 +155,9 @@ public class HydroKlatkaMovementListener implements Listener {
 
     /**
      * Wysyła dźwięk i subtitle graczowi, z cooldownem żeby nie spamować.
+     * Package-private żeby onPlayerMove mógł używać.
      */
-    private void sendBarrierFeedback(Player player) {
+    void sendBarrierFeedback(Player player) {
         if (player == null) return;
         long now = System.currentTimeMillis();
         Long last = lastFeedback.get(player.getUniqueId());
@@ -184,29 +180,60 @@ public class HydroKlatkaMovementListener implements Listener {
         ));
     }
 
-    // ==================== MOVE EVENT ====================
+    // ==================== MOVE EVENT - GŁÓWNA OCHRONA ====================
 
     /**
-     * Sprawdza czy gracz nie wchodzi w zablokowany region WorldGuard.
-     * Jeśli tak - usuwa go z klatki (region ma priorytet).
+     * GŁÓWNA OCHRONA PRZED WYJŚCIEM Z KLATKI.
+     * 
+     * Sprawdza:
+     * 1. Czy gracz nie wchodzi w zablokowany region WorldGuard → usuń z klatki
+     * 2. Czy gracz nie próbuje wyjść poza barierę → zatrzymaj ruch i wyświetl feedback
+     * 
+     * To działa dla normalnego ruchu (chodzenie, bieganie, pływanie).
+     * Dla szybkiego ruchu (elytra) działa barrierTask jako backup.
      */
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
         if (player == null) return;
+
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        if (to == null || from == null) return;
+
+        // Optymalizacja - sprawdź czy gracz faktycznie się poruszył (nie tylko obrócił głową)
+        if (from.getBlockX() == to.getBlockX() 
+                && from.getBlockY() == to.getBlockY() 
+                && from.getBlockZ() == to.getBlockZ()) {
+            return;
+        }
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
         if (klatka == null) return;
 
-        Location to = event.getTo();
-        if (to == null) return;
-
+        // === SPRAWDŹ WORLDGUARD ===
         ItemsConfig config = plugin.getItemsConfig();
         List<String> blockedRegions = config.getHydroKlatkaBlockedRegions();
-
         if (plugin.getWorldGuardManager().isInBlockedRegion(to, blockedRegions)) {
             manager.removePlayerFromKlatka(player);
+            return;
+        }
+
+        // === SPRAWDŹ BARIERĘ ===
+        Location center = klatka.getCenter();
+        if (center == null || center.getWorld() == null) return;
+        if (to.getWorld() == null || !to.getWorld().equals(center.getWorld())) return;
+
+        double distanceTo = to.distance(center);
+        
+        // Jeśli gracz próbuje wyjść poza barierę - ZATRZYMAJ RUCH
+        if (distanceTo >= klatka.getBarrierRadius()) {
+            // Anuluj ruch - gracz zostaje w miejscu (jak uderzenie w blok)
+            event.setCancelled(true);
+            
+            // Wyświetl feedback (z cooldownem)
+            sendBarrierFeedback(player);
         }
     }
 
