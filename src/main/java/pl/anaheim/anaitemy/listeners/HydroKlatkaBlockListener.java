@@ -1,3 +1,4 @@
+// src/main/java/pl/anaheim/anaitemy/listeners/HydroKlatkaBlockListener.java
 package pl.anaheim.anaitemy.listeners;
 
 import net.kyori.adventure.text.Component;
@@ -23,6 +24,7 @@ import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.metadata.FixedMetadataValue;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.models.ActiveHydroKlatka;
@@ -36,7 +38,6 @@ public class HydroKlatkaBlockListener implements Listener {
 
     private final AnaItemy plugin;
 
-    // ✅ Anti-spam dla dźwięku niszczenia powłoki
     private static final int BREAK_SOUND_COOLDOWN_MS = 400;
     private final Map<UUID, Long> lastBreakSoundTime = new ConcurrentHashMap<>();
 
@@ -73,14 +74,12 @@ public class HydroKlatkaBlockListener implements Listener {
         Location location = event.getBlock().getLocation();
         Player player = event.getPlayer();
 
-        // ✅ Shell NIE może być zniszczony - dźwięk + subtitle
         if (manager.isShellBlock(location)) {
             event.setCancelled(true);
             playShellBreakFeedback(player);
             return;
         }
 
-        // ✅ Blok planowanego shella (podczas animacji) - też nie można niszczyć
         for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
             if (!klatka.isAnimationComplete() && klatka.isPlannedShellLocation(location)) {
                 event.setCancelled(true);
@@ -110,16 +109,14 @@ public class HydroKlatkaBlockListener implements Listener {
 
         Long lastSound = lastBreakSoundTime.get(uuid);
         if (lastSound != null && now - lastSound < BREAK_SOUND_COOLDOWN_MS) {
-            return; // anti-spam
+            return;
         }
 
         lastBreakSoundTime.put(uuid, now);
 
-        // ✅ Dźwięk szkła
         player.playSound(player.getLocation(), Sound.BLOCK_GLASS_BREAK,
                 SoundCategory.PLAYERS, 0.8f, 0.8f);
 
-        // ✅ Subtitle
         player.showTitle(Title.title(
                 Component.empty(),
                 LegacyComponentSerializer.legacyAmpersand()
@@ -213,7 +210,7 @@ public class HydroKlatkaBlockListener implements Listener {
         for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
             if (klatka.isPlayerTrapped(player.getUniqueId())) {
                 pearl.setMetadata("from_cage",
-                        new org.bukkit.metadata.FixedMetadataValue(plugin, klatka.getId().toString()));
+                        new FixedMetadataValue(plugin, klatka.getId().toString()));
                 return;
             }
         }
