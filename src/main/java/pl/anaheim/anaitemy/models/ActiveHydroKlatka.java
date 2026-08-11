@@ -23,6 +23,9 @@ public class ActiveHydroKlatka {
     private final Map<String, BlockData> originalBlocks = new ConcurrentHashMap<>();
     private final Set<String> destroyedBlocks = ConcurrentHashMap.newKeySet();
     private final Set<String> plannedShellLocations = ConcurrentHashMap.newKeySet();
+    
+    // ✅ NOWE: Bloki postawione przez graczy PODCZAS trwania klatki
+    private final Set<String> blocksPlacedDuringCage = ConcurrentHashMap.newKeySet();
 
     private boolean animationComplete = false;
 
@@ -149,7 +152,7 @@ public class ActiveHydroKlatka {
         return new HashSet<>(offlinePlayers);
     }
 
-    // ==================== BLOKI ====================
+    // ==================== BLOKI ORYGINALNE ====================
 
     public void addOriginalBlock(Location location, BlockData blockData) {
         if (location == null || location.getWorld() == null || blockData == null) return;
@@ -179,18 +182,42 @@ public class ActiveHydroKlatka {
         return destroyedBlocks.contains(blockKey(location));
     }
 
-    // ==================== GEOMETRIA - POPRAWIONE ====================
+    // ==================== ✅ BLOKI POSTAWIONE PODCZAS KLATKI ====================
 
     /**
-     * Bariera niewidzialna - w połowie bloku shell.
+     * Dodaje blok postawiony przez gracza PODCZAS trwania klatki.
+     * Te bloki nie zostaną przywrócone po zakończeniu klatki.
      */
+    public void addBlockPlacedDuringCage(Location location) {
+        if (location == null || location.getWorld() == null) return;
+        blocksPlacedDuringCage.add(blockKey(location));
+    }
+
+    /**
+     * Sprawdza czy blok został postawiony podczas trwania klatki.
+     */
+    public boolean wasBlockPlacedDuringCage(String key) {
+        return blocksPlacedDuringCage.contains(key);
+    }
+
+    public boolean wasBlockPlacedDuringCageAt(Location location) {
+        if (location == null || location.getWorld() == null) return false;
+        return blocksPlacedDuringCage.contains(blockKey(location));
+    }
+
+    /**
+     * Zwraca kopię setu bloków postawionych podczas klatki.
+     */
+    public Set<String> getBlocksPlacedDuringCage() {
+        return new HashSet<>(blocksPlacedDuringCage);
+    }
+
+    // ==================== GEOMETRIA ====================
+
     public double getBarrierRadius() {
         return radius - 0.5;
     }
 
-    /**
-     * POPRAWIONE: System bezpieczeństwa - 1 PEŁNA kratka za radius.
-     */
     public double getSafetyRadius() {
         return radius + 1.0;
     }
