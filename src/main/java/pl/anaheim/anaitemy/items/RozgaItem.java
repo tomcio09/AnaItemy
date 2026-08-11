@@ -18,7 +18,7 @@ public class RozgaItem {
 
     public static final String ITEM_NAME_STRIPPED = "Rózga";
     // ✅ POPRAWKA: CMD=1 żeby isRozga() działało poprawnie
-    public static final int CUSTOM_MODEL_DATA = 1;
+    public static final int CUSTOM_MODEL_DATA = 0;
 
     public static ItemStack create() {
         List<String> lore = Arrays.asList(
