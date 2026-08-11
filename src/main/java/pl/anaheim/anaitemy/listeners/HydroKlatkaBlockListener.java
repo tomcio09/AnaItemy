@@ -70,9 +70,13 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockBreak(BlockBreakEvent event) {
+        if (event == null || event.getBlock() == null) return;
+        
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         Location location = event.getBlock().getLocation();
         Player player = event.getPlayer();
+
+        if (location == null || player == null) return;
 
         // Bloki shell nie mogą być niszczone
         if (manager.isShellBlock(location)) {
@@ -107,6 +111,8 @@ public class HydroKlatkaBlockListener implements Listener {
     // ==================== FEEDBACK DLA POWŁOKI ====================
 
     private void playShellBreakFeedback(Player player) {
+        if (player == null) return;
+        
         long now = System.currentTimeMillis();
         UUID uuid = player.getUniqueId();
 
@@ -136,9 +142,13 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onBlockPlace(BlockPlaceEvent event) {
+        if (event == null || event.getBlock() == null) return;
+        
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         Location location = event.getBlock().getLocation();
         Player player = event.getPlayer();
+
+        if (location == null || player == null) return;
 
         // Trapped gracze nie mogą stawiać bloków wewnątrz klatki
         for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
@@ -160,10 +170,12 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerInteract(PlayerInteractEvent event) {
+        if (event == null) return;
+        
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
 
-        if (item == null) return;
+        if (player == null || item == null) return;
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
@@ -190,8 +202,12 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerConsume(PlayerItemConsumeEvent event) {
+        if (event == null) return;
+        
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
+
+        if (player == null || item == null) return;
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
@@ -207,6 +223,7 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPearlLaunch(ProjectileLaunchEvent event) {
+        if (event == null || event.getEntity() == null) return;
         if (!(event.getEntity() instanceof EnderPearl pearl)) return;
         if (!(pearl.getShooter() instanceof Player player)) return;
 
@@ -223,10 +240,12 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPearlHit(ProjectileHitEvent event) {
+        if (event == null || event.getEntity() == null) return;
         if (!(event.getEntity() instanceof EnderPearl pearl)) return;
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         Location hitLocation = pearl.getLocation();
+        if (hitLocation == null) return;
 
         // Usuń perłę jeśli uderzy w blok shell lub blok klatki
         if (manager.isShellBlock(hitLocation) || manager.isKlatkaBlock(hitLocation)) {
@@ -238,8 +257,12 @@ public class HydroKlatkaBlockListener implements Listener {
         // Usuń perłę jeśli uderzy w barierę lub poza klatką (wystrzelona z wnętrza)
         if (pearl.hasMetadata("from_cage")) {
             for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
-                if (!hitLocation.getWorld().equals(klatka.getCenter().getWorld())) continue;
-                if (hitLocation.distance(klatka.getCenter()) >= klatka.getBarrierRadius()) {
+                Location center = klatka.getCenter();
+                if (center == null || center.getWorld() == null) continue;
+                if (hitLocation.getWorld() == null) continue;
+                if (!hitLocation.getWorld().equals(center.getWorld())) continue;
+                
+                if (hitLocation.distance(center) >= klatka.getBarrierRadius()) {
                     event.setCancelled(true);
                     pearl.remove();
                     return;
@@ -250,20 +273,24 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPearlTeleport(PlayerTeleportEvent event) {
+        if (event == null) return;
         if (event.getCause() != PlayerTeleportEvent.TeleportCause.ENDER_PEARL) return;
 
         Player player = event.getPlayer();
         Location to = event.getTo();
-        if (to == null) return;
+        if (player == null || to == null) return;
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
         for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
-            if (!to.getWorld().equals(klatka.getCenter().getWorld())) continue;
+            Location center = klatka.getCenter();
+            if (center == null || center.getWorld() == null) continue;
+            if (to.getWorld() == null) continue;
+            if (!to.getWorld().equals(center.getWorld())) continue;
 
             // Trapped gracz próbuje teleportować się poza barierę
             if (klatka.isPlayerTrapped(player.getUniqueId())) {
-                if (to.distance(klatka.getCenter()) >= klatka.getBarrierRadius()) {
+                if (to.distance(center) >= klatka.getBarrierRadius()) {
                     event.setCancelled(true);
                     manager.sendMessage(player,
                             plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
@@ -287,8 +314,12 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onBucketEmpty(PlayerBucketEmptyEvent event) {
+        if (event == null) return;
+        
         Player player = event.getPlayer();
         Material bucket = event.getBucket();
+
+        if (player == null || bucket == null) return;
 
         if (bucket == Material.LAVA_BUCKET) {
             HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
@@ -308,23 +339,26 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent event) {
+        if (event == null) return;
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
-        event.blockList().removeIf(block -> manager.isKlatkaBlock(block.getLocation()));
+        event.blockList().removeIf(block -> block != null && manager.isKlatkaBlock(block.getLocation()));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockExplode(BlockExplodeEvent event) {
+        if (event == null) return;
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
-        event.blockList().removeIf(block -> manager.isKlatkaBlock(block.getLocation()));
+        event.blockList().removeIf(block -> block != null && manager.isKlatkaBlock(block.getLocation()));
     }
 
     // ==================== PISTONY ====================
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPistonExtend(BlockPistonExtendEvent event) {
+        if (event == null) return;
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         for (var block : event.getBlocks()) {
-            if (manager.isKlatkaBlock(block.getLocation())) {
+            if (block != null && manager.isKlatkaBlock(block.getLocation())) {
                 event.setCancelled(true);
                 return;
             }
@@ -333,9 +367,10 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPistonRetract(BlockPistonRetractEvent event) {
+        if (event == null) return;
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         for (var block : event.getBlocks()) {
-            if (manager.isKlatkaBlock(block.getLocation())) {
+            if (block != null && manager.isKlatkaBlock(block.getLocation())) {
                 event.setCancelled(true);
                 return;
             }
@@ -346,9 +381,13 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockFromTo(BlockFromToEvent event) {
+        if (event == null || event.getBlock() == null || event.getToBlock() == null) return;
+        
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         Location toLoc = event.getToBlock().getLocation();
         Location fromLoc = event.getBlock().getLocation();
+
+        if (toLoc == null || fromLoc == null) return;
 
         if (manager.isKlatkaBlock(toLoc) || manager.isKlatkaBlock(fromLoc)) {
             event.setCancelled(true);
@@ -359,6 +398,7 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockBurn(BlockBurnEvent event) {
+        if (event == null || event.getBlock() == null) return;
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         if (manager.isKlatkaBlock(event.getBlock().getLocation())) {
             event.setCancelled(true);
@@ -367,6 +407,7 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockIgnite(BlockIgniteEvent event) {
+        if (event == null || event.getBlock() == null) return;
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         if (manager.isKlatkaBlock(event.getBlock().getLocation())) {
             event.setCancelled(true);
@@ -377,6 +418,7 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockFade(BlockFadeEvent event) {
+        if (event == null || event.getBlock() == null) return;
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         if (manager.isKlatkaBlock(event.getBlock().getLocation())) {
             event.setCancelled(true);
@@ -387,6 +429,7 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(org.bukkit.event.entity.PlayerDeathEvent event) {
+        if (event == null || event.getEntity() == null) return;
         Player player = event.getEntity();
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         manager.removePlayerFromKlatka(player);
@@ -396,9 +439,10 @@ public class HydroKlatkaBlockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityChangeBlock(EntityChangeBlockEvent event) {
+        if (event == null || event.getBlock() == null) return;
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         Location location = event.getBlock().getLocation();
-        if (manager.isKlatkaBlock(location)) {
+        if (location != null && manager.isKlatkaBlock(location)) {
             event.setCancelled(true);
         }
     }
