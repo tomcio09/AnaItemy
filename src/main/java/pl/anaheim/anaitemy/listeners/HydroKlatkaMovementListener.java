@@ -72,11 +72,11 @@ public class HydroKlatkaMovementListener implements Listener {
      * Task uruchamiany co tick (50ms).
      *
      * PODCZAS ANIMACJI:
-     * - System bezpieczeństwa (radius + 0.8) → teleport na środek
+     * - System bezpieczeństwa (radius + 0.9) → teleport na środek
      * - Bariera (radius - 0.5) → pushback 0.75 w stronę środka
      *
      * PO ANIMACJI:
-     * - System bezpieczeństwa (radius + 0.8) → teleport na środek
+     * - System bezpieczeństwa (radius + 0.9) → teleport na środek
      * - Wykrywanie kolizji z blokami shell → wypychanie gracza z bloku
      */
     private void startBarrierTask() {
@@ -90,6 +90,8 @@ public class HydroKlatkaMovementListener implements Listener {
                     if (center == null || center.getWorld() == null) continue;
 
                     boolean animationComplete = klatka.isAnimationComplete();
+                    double safetyRadius = klatka.getSafetyRadius();
+                    double barrierRadius = klatka.getBarrierRadius();
 
                     for (UUID uuid : new ArrayList<>(klatka.getTrappedPlayers())) {
                         Player player = plugin.getServer().getPlayer(uuid);
@@ -104,18 +106,19 @@ public class HydroKlatkaMovementListener implements Listener {
                         double distance = playerLoc.distance(center);
 
                         // === SYSTEM BEZPIECZEŃSTWA (ZAWSZE) ===
-                        if (distance >= klatka.getSafetyRadius()) {
+                        // Jeśli gracz jest daleko poza klatką → teleport na środek
+                        if (distance >= safetyRadius) {
                             Location safeLoc = center.clone();
                             safeLoc.setYaw(playerLoc.getYaw());
                             safeLoc.setPitch(playerLoc.getPitch());
                             doInternalTeleport(player, safeLoc);
                             sendBarrierFeedback(player);
-                            continue;
+                            continue; // Skip rest of checks
                         }
 
                         // === PODCZAS ANIMACJI - BARIERA SOFTWAROWA ===
                         if (!animationComplete) {
-                            if (distance >= klatka.getBarrierRadius()) {
+                            if (distance >= barrierRadius) {
                                 Vector toCenter = center.toVector().subtract(playerLoc.toVector());
                                 if (toCenter.lengthSquared() < 0.001) continue;
 
@@ -147,7 +150,7 @@ public class HydroKlatkaMovementListener implements Listener {
      * 
      * Przypadki:
      * 1. Gracz spada w dół i jest w bloku shell → teleport NA górę bloku
-     * 2. Gracz jest w bloku shell z boku → teleport przed blok (w stronę centrum)
+     * 2. Gracz jest w bloku shell z boku → teleport do najbliższej bezpiecznej pozycji (w stronę centrum)
      */
     private void handleShellBlockCollision(Player player, Location playerLoc, Location center, ActiveHydroKlatka klatka) {
         if (player == null || playerLoc == null || center == null) return;
@@ -173,7 +176,7 @@ public class HydroKlatkaMovementListener implements Listener {
                 doInternalTeleport(player, safeLocation);
             }
         } else {
-            // === GRACZ W BLOKU Z BOKU - TELEPORT PRZED BLOK ===
+            // === GRACZ W BLOKU Z BOKU - TELEPORT DO NAJBLIŻSZEJ BEZPIECZNEJ POZYCJI ===
             Location safeLocation = findSafeLocationTowardsCenter(playerLoc, center, klatka);
             if (safeLocation != null) {
                 safeLocation.setYaw(playerLoc.getYaw());
@@ -189,6 +192,19 @@ public class HydroKlatkaMovementListener implements Listener {
     private boolean isShellBlock(Block block) {
         if (block == null) return false;
         return block.getType() == SHELL_MATERIAL;
+    }
+
+    /**
+     * Sprawdza czy lokacja jest bezpieczna dla gracza (2 bloki wysokości wolne).
+     */
+    private boolean isSafeLocation(Location loc) {
+        if (loc == null || loc.getWorld() == null) return false;
+        
+        Block blockAtFeet = loc.getBlock();
+        Block blockAtHead = loc.clone().add(0, 1, 0).getBlock();
+        
+        // Musi być wolne miejsce (nie solid)
+        return !blockAtFeet.getType().isSolid() && !blockAtHead.getType().isSolid();
     }
 
     /**
@@ -208,10 +224,7 @@ public class HydroKlatkaMovementListener implements Listener {
                 Location safeLoc = block.getLocation().clone().add(0.5, 1.0, 0.5);
                 
                 // Sprawdź czy nad blokiem jest wolne miejsce (2 bloki wysokości dla gracza)
-                Block above1 = safeLoc.getBlock();
-                Block above2 = safeLoc.clone().add(0, 1, 0).getBlock();
-                
-                if (!above1.getType().isSolid() && !above2.getType().isSolid()) {
+                if (isSafeLocation(safeLoc)) {
                     return safeLoc;
                 }
             }
@@ -222,8 +235,10 @@ public class HydroKlatkaMovementListener implements Listener {
     }
 
     /**
-     * Znajduje bezpieczną lokację przed blokiem shell (w stronę centrum).
-     * Gracz jest teleportowany 0.5 bloku w stronę centrum, poza blok shell.
+     * Znajduje najbliższą bezpieczną lokację przed blokiem shell (w stronę centrum).
+     * 
+     * Iteruje od 0.1 do 2.0 bloków w stronę centrum, znajduje pierwszą bezpieczną pozycję.
+     * Zapobiega teleportowaniu gracza za daleko (przez centrum na drugą stronę).
      */
     private Location findSafeLocationTowardsCenter(Location playerLoc, Location center, ActiveHydroKlatka klatka) {
         if (playerLoc == null || center == null) return null;
@@ -237,18 +252,22 @@ public class HydroKlatkaMovementListener implements Listener {
 
         toCenter.normalize();
 
-        // Teleport 1 blok w stronę centrum
-        Location safeLoc = playerLoc.clone().add(toCenter.multiply(1.0));
-        
-        // Sprawdź czy nowa pozycja jest bezpieczna (nie w bloku)
-        Block blockAtSafe = safeLoc.getBlock();
-        Block blockAtSafeHead = safeLoc.clone().add(0, 1, 0).getBlock();
-        
-        if (!blockAtSafe.getType().isSolid() && !blockAtSafeHead.getType().isSolid()) {
-            return safeLoc;
+        // Iteruj od 0.1 do 2.0 bloków w stronę centrum
+        // Znajdź pierwszą bezpieczną pozycję (nie w bloku solid)
+        for (double distance = 0.1; distance <= 2.0; distance += 0.1) {
+            Location testLoc = playerLoc.clone().add(toCenter.clone().multiply(distance));
+            
+            // Sprawdź czy pozycja jest bezpieczna
+            if (isSafeLocation(testLoc)) {
+                // Dodatkowe sprawdzenie: czy nie wychodzimy poza klatkę
+                double distFromCenter = testLoc.distance(center);
+                if (distFromCenter < klatka.getBarrierRadius()) {
+                    return testLoc;
+                }
+            }
         }
 
-        // Fallback - teleport do centrum klatki
+        // Fallback - teleport do centrum klatki (bezpieczne)
         Location centerSafe = center.clone();
         centerSafe.setY(playerLoc.getY()); // zachowaj wysokość gracza
         return centerSafe;
