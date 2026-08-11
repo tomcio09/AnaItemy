@@ -81,7 +81,6 @@ public class HydroKlatkaMovementListener implements Listener {
             }
         }.runTaskTimer(plugin, 0L, 1L);
     }
-
     private Vector getTeleportTowardCenter(Location loc,
                                            ActiveHydroKlatka klatka,
                                            HydroKlatkaManager manager,
@@ -94,6 +93,8 @@ public class HydroKlatkaMovementListener implements Listener {
         double cy = center.getY();
         double cz = center.getZ();
 
+        plugin.getLogger().info("[HK-COLLISION] Checking collision for player at: " + px + ", " + py + ", " + pz);
+
         for (int dx = -3; dx <= 3; dx++) {
             for (int dy = -3; dy <= 4; dy++) {
                 for (int dz = -3; dz <= 3; dz++) {
@@ -102,6 +103,16 @@ public class HydroKlatkaMovementListener implements Listener {
                             (int) Math.floor(py) + dy,
                             (int) Math.floor(pz) + dz);
 
+                    boolean isPlanned = klatka.isPlannedShellLocation(checkLoc);
+                    boolean isBuilt = manager.isShellBlock(checkLoc);
+                
+                    if (isPlanned) {
+                        plugin.getLogger().info("[HK-COLLISION] Found PLANNED shell at: " + checkLoc);
+                    }
+                    if (isBuilt && !klatka.isAnimationComplete()) {
+                        plugin.getLogger().info("[HK-COLLISION] Found BUILT shell at: " + checkLoc);
+                    }
+
                     if (!isShellBlock(checkLoc, klatka, manager)) continue;
 
                     double bx = checkLoc.getX() + 0.5;
@@ -109,6 +120,8 @@ public class HydroKlatkaMovementListener implements Listener {
                     double bz = checkLoc.getZ() + 0.5;
 
                     if (isNearBarrier(px, py, pz, bx, by, bz)) {
+                        plugin.getLogger().info("[HK-COLLISION] BARRIER DETECTED! Teleporting...");
+                    
                         double dirX = 0;
                         double dirY = 0;
                         double dirZ = 0;
@@ -118,6 +131,7 @@ public class HydroKlatkaMovementListener implements Listener {
                         if (Math.abs(pz - bz) > 0.15) dirZ = Math.signum(cz - pz) * TELEPORT_DISTANCE;
 
                         if (dirX != 0 || dirY != 0 || dirZ != 0) {
+                            plugin.getLogger().info("[HK-COLLISION] Direction: " + dirX + ", " + dirY + ", " + dirZ);
                             return new Vector(dirX, dirY, dirZ);
                         }
                     }
@@ -125,6 +139,7 @@ public class HydroKlatkaMovementListener implements Listener {
             }
         }
 
+        plugin.getLogger().info("[HK-COLLISION] No collision detected");
         return null;
     }
 
