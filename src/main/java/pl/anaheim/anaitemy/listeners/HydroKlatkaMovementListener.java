@@ -179,14 +179,22 @@ public class HydroKlatkaMovementListener implements Listener {
     }
 
     // ==================== SPRAWDZENIE BARIERY ====================
-
     private boolean isNearBarrier(double px, double py, double pz,
-                                  double bx, double by, double bz) {
+                              double bx, double by, double bz) {
         double dx = Math.abs(px - bx);
         double dy = Math.abs(py - by);
         double dz = Math.abs(pz - bz);
 
-        return (dx < HALF_W + 0.3 && dy < HEIGHT + 0.3 && dz < HALF_W + 0.3);
+        // ✅ Sprawdź czy gracz jest blisko DOWOLNEJ ściany shella
+        // Shell jest kulą - gracz może dotykać go z każdej strony
+        // Wystarczy że jest blisko centrum bloku shella w dowolnej osi
+        boolean nearX = dx < HALF_W + 0.5;
+        boolean nearY = dy < HEIGHT + 0.5;
+        boolean nearZ = dz < HALF_W + 0.5;
+
+        // ✅ Dwie z trzech osi muszą być bliskie (gracz dotyka boku shella)
+        int nearCount = (nearX ? 1 : 0) + (nearY ? 1 : 0) + (nearZ ? 1 : 0);
+        return nearCount >= 2;
     }
 
     // ==================== SPRAWDZENIE BUILT SHELL ====================
