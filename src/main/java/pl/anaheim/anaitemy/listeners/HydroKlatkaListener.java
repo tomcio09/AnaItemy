@@ -35,10 +35,13 @@ public class HydroKlatkaListener implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPlayerInteract(PlayerInteractEvent event) {
+        if (event == null) return;
         if (event.getAction() != Action.RIGHT_CLICK_AIR &&
                 event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
 
         Player player = event.getPlayer();
+        if (player == null) return;
+        
         ItemStack item = player.getInventory().getItemInMainHand();
 
         if (!HydroKlatka.isHydroKlatka(item)) return;
@@ -97,6 +100,7 @@ public class HydroKlatkaListener implements Listener {
     }
 
     private void shootFireball(Player player) {
+        if (player == null) return;
         Location eye = player.getEyeLocation();
         Vector direction = eye.getDirection().normalize();
 
@@ -111,6 +115,8 @@ public class HydroKlatkaListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onProjectileHit(ProjectileHitEvent event) {
+        if (event == null || event.getEntity() == null) return;
+        
         Projectile projectile = event.getEntity();
 
         if (!(projectile instanceof Fireball)) return;
@@ -121,6 +127,8 @@ public class HydroKlatkaListener implements Listener {
 
         Player shooter = (Player) projectile.getShooter();
         Location hitLocation = projectile.getLocation();
+
+        if (shooter == null || hitLocation == null) return;
 
         HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
         ItemsConfig config = plugin.getItemsConfig();
