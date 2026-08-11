@@ -1,6 +1,8 @@
+// src/main/java/pl/anaheim/anaitemy/listeners/HydroKlatkaJoinListener.java
 package pl.anaheim.anaitemy.listeners;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -29,8 +31,9 @@ public class HydroKlatkaJoinListener implements Listener {
             Location playerLoc = player.getLocation();
             Location center = klatka.getCenter();
 
-            // Jeśli gracz jest poza klatką - teleportuj do centrum
-            if (playerLoc.distance(center) > klatka.getRadius()) {
+            // Jeśli gracz jest poza barierą - teleportuj do centrum
+            if (!playerLoc.getWorld().equals(center.getWorld())
+                    || playerLoc.distance(center) > klatka.getBarrierRadius()) {
                 Location teleportLoc = center.clone();
                 teleportLoc.setYaw(playerLoc.getYaw());
                 teleportLoc.setPitch(playerLoc.getPitch());
@@ -38,8 +41,10 @@ public class HydroKlatkaJoinListener implements Listener {
             }
         }
 
-        // Sprawdź czy gracz ma cooldown i wznów action bar
+        // Sprawdź czy gracz ma cooldown i wznów action bar + item cooldown
         if (manager.isPlayerOnCooldown(player)) {
+            long remaining = manager.getPlayerCooldownRemaining(player);
+            player.setCooldown(Material.BLAZE_ROD, (int) (remaining * 20));
             manager.startCooldownDisplay(player);
         }
     }
@@ -51,5 +56,11 @@ public class HydroKlatkaJoinListener implements Listener {
 
         // Zatrzymaj action bar display przy wylogowaniu
         manager.stopCooldownDisplay(player);
+
+        // Oznacz gracza jako offline w klatce (żeby nie stracić informacji o trappingu)
+        ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
+        if (klatka != null) {
+            klatka.addOfflinePlayer(player.getUniqueId());
+        }
     }
 }
