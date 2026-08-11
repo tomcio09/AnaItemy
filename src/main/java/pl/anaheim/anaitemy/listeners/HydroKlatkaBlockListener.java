@@ -138,7 +138,7 @@ public class HydroKlatkaBlockListener implements Listener {
         ));
     }
 
-    // ==================== STAWIANIE BLOKÓW ====================
+    // ==================== ✅ STAWIANIE BLOKÓW - ŚLEDZI BLOKI POSTAWIONE PODCZAS KLATKI ====================
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onBlockPlace(BlockPlaceEvent event) {
@@ -150,7 +150,10 @@ public class HydroKlatkaBlockListener implements Listener {
 
         if (location == null || player == null) return;
 
-        // Trapped gracze nie mogą stawiać bloków wewnątrz klatki
+        // Sprawdź czy gracz jest trapped w jakiejś klatce
+        ActiveHydroKlatka playerKlatka = manager.getKlatkaForPlayer(player);
+
+        // Trapped gracze nie mogą stawiać bloków wewnątrz klatki (sprawdzenie bezpieczeństwa)
         for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
             if (klatka.isPlayerTrapped(player.getUniqueId()) && klatka.isInsideCage(location)) {
                 event.setCancelled(true);
@@ -163,6 +166,28 @@ public class HydroKlatkaBlockListener implements Listener {
         if (manager.isKlatkaBlock(location)) {
             event.setCancelled(true);
             manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+            return;
+        }
+
+        // ✅ NOWE: Śledź bloki postawione podczas trwania klatki
+        // Jeśli gracz jest trapped lub stawianie odbywa się wewnątrz aktywnej klatki
+        if (playerKlatka != null) {
+            for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
+                if (klatka.isInsideCage(location)) {
+                    // Gracz (trapped lub nie) stawia blok wewnątrz klatki 
+                    // - zaznacz jako "postawiony podczas klatki" (nie przywracaj go)
+                    klatka.addBlockPlacedDuringCage(location);
+                    break;
+                }
+            }
+        } else {
+            // Gracz nie jest trapped, ale może stawiać bloki wewnątrz cudzej klatki
+            for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
+                if (klatka.isInsideCage(location)) {
+                    klatka.addBlockPlacedDuringCage(location);
+                    break;
+                }
+            }
         }
     }
 
