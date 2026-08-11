@@ -1,3 +1,4 @@
+// src/main/java/pl/anaheim/anaitemy/listeners/HydroKlatkaMovementListener.java
 package pl.anaheim.anaitemy.listeners;
 
 import net.kyori.adventure.text.Component;
@@ -35,7 +36,7 @@ public class HydroKlatkaMovementListener implements Listener {
 
     private static final double HALF_W = 0.30;
     private static final double HEIGHT = 1.80;
-    private static final double TELEPORT_DISTANCE = 0.75; // ✅ 0.75 bloku do środka
+    private static final double TELEPORT_DISTANCE = 0.75;
 
     private static final long FEEDBACK_COOLDOWN_MS = 500L;
 
@@ -64,17 +65,13 @@ public class HydroKlatkaMovementListener implements Listener {
                         Location loc = player.getLocation();
                         if (!loc.getWorld().equals(center.getWorld())) continue;
 
-                        // ✅ Elytra - nie rób nic
                         if (player.isGliding()) continue;
 
-                        // ✅ Po animacji - Minecraft blokuje fizycznie
                         if (klatka.isAnimationComplete()) continue;
 
-                        // ✅ JEDYNA LOGIKA: Teleportuj do środka jeśli gracz dotyka bariery
                         Vector dir = getTeleportTowardCenter(loc, klatka, manager, center);
 
                         if (dir != null) {
-                            plugin.getLogger().info("[HK] Teleporting " + player.getName() + " by: " + dir);
                             Location newLoc = loc.clone().add(dir);
                             doSafeTeleport(player, newLoc);
                             feedback(player);
@@ -85,12 +82,6 @@ public class HydroKlatkaMovementListener implements Listener {
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    // ==================== TELEPORT W STRONĘ ŚRODKA ====================
-
-    /**
-     * ✅ Zwraca kierunek teleportu (0.75 bloku w stronę środka)
-     * jeśli gracz dotyka bariery (połowa planned shell bloku)
-     */
     private Vector getTeleportTowardCenter(Location loc,
                                            ActiveHydroKlatka klatka,
                                            HydroKlatkaManager manager,
@@ -103,37 +94,32 @@ public class HydroKlatkaMovementListener implements Listener {
         double cy = center.getY();
         double cz = center.getZ();
 
-        // Skanuj WSZĘDZIE wokół gracza - szukaj bariery
-        for (int dx = -2; dx <= 2; dx++) {
-            for (int dy = -2; dy <= 3; dy++) {
-                for (int dz = -2; dz <= 2; dz++) {
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dy = -3; dy <= 4; dy++) {
+                for (int dz = -3; dz <= 3; dz++) {
                     Location checkLoc = new Location(loc.getWorld(),
                             (int) Math.floor(px) + dx,
                             (int) Math.floor(py) + dy,
                             (int) Math.floor(pz) + dz);
 
-                    // ✅ Sprawdzaj ZARÓWNO planned jak i zbudowane bloki shella
                     if (!isShellBlock(checkLoc, klatka, manager)) continue;
 
-                    // ✅ Znaleźliśmy blok shella - oblicz barierę w jego połowie
-                    double barrierX = checkLoc.getX() + 0.5;
-                    double barrierY = checkLoc.getY() + 0.5;
-                    double barrierZ = checkLoc.getZ() + 0.5;
+                    double bx = checkLoc.getX() + 0.5;
+                    double by = checkLoc.getY() + 0.5;
+                    double bz = checkLoc.getZ() + 0.5;
 
-                    // Czy gracz dotyka tej bariery?
-                    if (isNearBarrier(px, py, pz, barrierX, barrierY, barrierZ)) {
-                        plugin.getLogger().info("[HK] Barrier detected at: " + checkLoc);
-
-                        // ✅ Teleport 0.75 bloku W STRONĘ ŚRODKA
+                    if (isNearBarrier(px, py, pz, bx, by, bz)) {
                         double dirX = 0;
                         double dirY = 0;
                         double dirZ = 0;
 
-                        if (Math.abs(px - barrierX) > 0.1) dirX = Math.signum(cx - px) * TELEPORT_DISTANCE;
-                        if (Math.abs(py - barrierY) > 0.1) dirY = Math.signum(cy - py) * TELEPORT_DISTANCE;
-                        if (Math.abs(pz - barrierZ) > 0.1) dirZ = Math.signum(cz - pz) * TELEPORT_DISTANCE;
+                        if (Math.abs(px - bx) > 0.15) dirX = Math.signum(cx - px) * TELEPORT_DISTANCE;
+                        if (Math.abs(py - by) > 0.15) dirY = Math.signum(cy - py) * TELEPORT_DISTANCE;
+                        if (Math.abs(pz - bz) > 0.15) dirZ = Math.signum(cz - pz) * TELEPORT_DISTANCE;
 
-                        return new Vector(dirX, dirY, dirZ);
+                        if (dirX != 0 || dirY != 0 || dirZ != 0) {
+                            return new Vector(dirX, dirY, dirZ);
+                        }
                     }
                 }
             }
@@ -142,43 +128,24 @@ public class HydroKlatkaMovementListener implements Listener {
         return null;
     }
 
-    // ==================== SPRAWDZENIE BARIERY ====================
-
-    /**
-     * ✅ Czy gracz dotyka bariery bloku?
-     */
     private boolean isNearBarrier(double px, double py, double pz,
                                   double bx, double by, double bz) {
         double dx = Math.abs(px - bx);
         double dy = Math.abs(py - by);
         double dz = Math.abs(pz - bz);
 
-        // Hitbox gracza + margines
-        return (dx < HALF_W + 0.2 && dy < HEIGHT + 0.2 && dz < HALF_W + 0.2);
+        return (dx < HALF_W + 0.3 && dy < HEIGHT + 0.3 && dz < HALF_W + 0.3);
     }
 
-    // ==================== SPRAWDZENIE BLOKU SHELLA ====================
-
-    /**
-     * ✅ Czy to blok shella (planned LUB zbudowany)
-     */
     private boolean isShellBlock(Location loc, ActiveHydroKlatka klatka, HydroKlatkaManager manager) {
-        // Planned shell
         if (klatka.isPlannedShellLocation(loc)) {
-            plugin.getLogger().info("[HK] Found PLANNED shell at: " + loc);
             return true;
         }
-
-        // Zbudowany shell
         if (manager.isShellBlock(loc)) {
-            plugin.getLogger().info("[HK] Found BUILT shell at: " + loc);
             return true;
         }
-
         return false;
     }
-
-    // ==================== TELEPORT Z FLAGĄ ====================
 
     private void doSafeTeleport(Player player, Location destination) {
         destination.setYaw(player.getLocation().getYaw());
@@ -194,8 +161,6 @@ public class HydroKlatkaMovementListener implements Listener {
             }
         }.runTask(plugin);
     }
-
-    // ==================== FEEDBACK ====================
 
     private void feedback(Player player) {
         long now = System.currentTimeMillis();
@@ -214,8 +179,6 @@ public class HydroKlatkaMovementListener implements Listener {
                 Title.Times.times(Duration.ofMillis(0), Duration.ofMillis(800), Duration.ofMillis(200))
         ));
     }
-
-    // ==================== MOVE EVENT ====================
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
@@ -237,12 +200,11 @@ public class HydroKlatkaMovementListener implements Listener {
         }
     }
 
-    // ==================== TELEPORT EVENT ====================
-
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
     public void onPlayerTeleport(PlayerTeleportEvent event) {
         Player player = event.getPlayer();
 
+        // ✅ NASZ teleport - NIGDY nie blokuj
         if (ourTeleports.contains(player.getUniqueId())) {
             event.setCancelled(false);
             return;
@@ -254,18 +216,18 @@ public class HydroKlatkaMovementListener implements Listener {
         ActiveHydroKlatka klatka = manager.getKlatkaForPlayer(player);
         if (klatka == null) return;
 
-        if (event.getCause() == PlayerTeleportEvent.TeleportCause.PLUGIN) return;
-
-        Location to = event.getTo();
-        if (to == null) return;
-
-        if (to.distance(klatka.getCenter()) > klatka.getRadius()) {
-            event.setCancelled(true);
-            manager.sendMessage(player, plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+        // ✅ TYLKO blokuj teleporty poza klatką podczas animacji
+        if (!klatka.isAnimationComplete()) {
+            Location to = event.getTo();
+            if (to != null && to.distance(klatka.getCenter()) > klatka.getRadius()) {
+                if (event.getCause() != PlayerTeleportEvent.TeleportCause.PLUGIN) {
+                    event.setCancelled(true);
+                    manager.sendMessage(player,
+                            plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
+                }
+            }
         }
     }
-
-    // ==================== CLEANUP ====================
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
