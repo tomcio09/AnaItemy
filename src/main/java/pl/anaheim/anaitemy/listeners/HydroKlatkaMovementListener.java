@@ -17,7 +17,6 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
@@ -37,10 +36,9 @@ public class HydroKlatkaMovementListener implements Listener {
     private final AnaItemy plugin;
     private static final long FEEDBACK_COOLDOWN_MS = 500L;
 
-    // Bariera blokowania ruchu - przesunięta o 0.1 bardziej do środka
+    // Bariera blokowania ruchu
     private static final double MOVEMENT_BARRIER_OFFSET = 0.6;
-
-    // Awaryjny teleport - na starej pozycji bariery
+    // Awaryjny teleport
     private static final double EMERGENCY_TELEPORT_OFFSET = 0.5;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
@@ -76,19 +74,18 @@ public class HydroKlatkaMovementListener implements Listener {
                         Location loc = player.getLocation();
                         if (loc == null || loc.getWorld() == null) continue;
 
-                        // Inny świat -> usuń z klatki
                         if (!loc.getWorld().equals(center.getWorld())) {
                             manager.removePlayerFromKlatka(player);
                             continue;
                         }
 
                         // ====================
-                        // 1. GRACZ REALNIE W BLOKU SHELL
+                        // 1. GRACZ W SOLID BLOKU KLATKI
                         // ====================
-                        // Najważniejszy fix:
-                        // jeśli hitbox gracza nachodzi na shell block,
-                        // teleportujemy na środek niezależnie od dystansu środka gracza.
-                        if (isPlayerInsideShellBlock(player)) {
+                        // Najprostsze i najpewniejsze rozwiązanie:
+                        // sprawdź czy gracz stoi w jakimkolwiek solid bloku który jest blokiem klatki.
+                        // To łapie przypadek "gracz podczas budowy klatki stoi w miejscu gdzie shell się buduje"
+                        if (isPlayerStuckInCageBlock(player, manager)) {
                             teleportToCenter(player, loc, center, klatka);
                             sendBarrierFeedback(player);
                             continue;
@@ -99,8 +96,6 @@ public class HydroKlatkaMovementListener implements Listener {
                         // ====================
                         // 2. AWARYJNY TELEPORT NA ŚRODEK
                         // ====================
-                        // To jest stara pozycja bariery.
-                        // Jeśli gracz tutaj dotrze, to push/cancel wcześniej nie zadziałał.
                         if (dist >= emergencyTeleportRadius) {
                             teleportToCenter(player, loc, center, klatka);
                             sendBarrierFeedback(player);
@@ -110,7 +105,6 @@ public class HydroKlatkaMovementListener implements Listener {
                         // ====================
                         // 3. PODCZAS ANIMACJI - PUSHBACK
                         // ====================
-                        // Tylko podczas animacji, bo po animacji fizyczne bloki istnieją.
                         if (!animationComplete && dist >= movementBarrierRadius) {
                             pushInsideBarrier(player, loc, center, movementBarrierRadius);
                             sendBarrierFeedback(player);
@@ -121,40 +115,58 @@ public class HydroKlatkaMovementListener implements Listener {
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    // ==================== DETEKCJA GRACZA W BLOKU SHELL ====================
+    // ==================== DETEKCJA GRACZA ZABLOKOWANEGO W BLOKU KLATKI ====================
 
     /**
-     * Sprawdza czy bounding box gracza nachodzi na jakikolwiek blok shell.
-     * To łapie dokładnie przypadek gracza "zbugowanego w shell".
+     * Sprawdza czy gracz jest w solid bloku który należy do klatki.
+     * 
+     * To jest najprostrze i najpewniejsze rozwiązanie:
+     * - sprawdź bloki na pozycji stóp i głowy gracza
+     * - sprawdź 4 rogi hitboxu gracza (0.3 bloku na każdą stronę)
+     * - jeśli którykolwiek z tych bloków jest solid I jest blokiem klatki → TRUE
+     * 
+     * To łapie dokładnie przypadek:
+     * "gracz stoi w miejscu gdzie shell się buduje i jest w nim uwięziony"
      */
-    private boolean isPlayerInsideShellBlock(Player player) {
-        if (player == null || player.getWorld() == null) return false;
+    private boolean isPlayerStuckInCageBlock(Player player, HydroKlatkaManager manager) {
+        if (player == null) return false;
 
-        BoundingBox playerBox = player.getBoundingBox();
         Location loc = player.getLocation();
+        if (loc == null || loc.getWorld() == null) return false;
 
-        int minX = (int) Math.floor(playerBox.getMinX());
-        int maxX = (int) Math.floor(playerBox.getMaxX());
-        int minY = (int) Math.floor(playerBox.getMinY());
-        int maxY = (int) Math.floor(playerBox.getMaxY());
-        int minZ = (int) Math.floor(playerBox.getMinZ());
-        int maxZ = (int) Math.floor(playerBox.getMaxZ());
+        // Sprawdź bloki na pozycji gracza:
+        // - stopy
+        // - głowa
+        // - środek
+        // - 4 rogi hitboxu na poziomie stóp
+        // - 4 rogi hitboxu na poziomie głowy
 
-        // Mały margines bezpieczeństwa wokół hitboxu
-        for (int x = minX - 1; x <= maxX + 1; x++) {
-            for (int y = minY - 1; y <= maxY + 1; y++) {
-                for (int z = minZ - 1; z <= maxZ + 1; z++) {
-                    Block block = loc.getWorld().getBlockAt(x, y, z);
+        double[][] offsets = {
+                {0, 0, 0},           // stopy
+                {0, 1, 0},           // głowa
+                {0, 0.9, 0},         // środek
+                // rogi stóp (hitbox gracza = 0.6 szerokości → 0.3 na każdą stronę)
+                {0.3, 0, 0.3},
+                {0.3, 0, -0.3},
+                {-0.3, 0, 0.3},
+                {-0.3, 0, -0.3},
+                // rogi głowy
+                {0.3, 1.8, 0.3},
+                {0.3, 1.8, -0.3},
+                {-0.3, 1.8, 0.3},
+                {-0.3, 1.8, -0.3},
+        };
 
-                    if (block.getType() != org.bukkit.Material.BLUE_GLAZED_TERRACOTTA) {
-                        continue;
-                    }
+        for (double[] offset : offsets) {
+            Location checkLoc = loc.clone().add(offset[0], offset[1], offset[2]);
+            Block block = checkLoc.getBlock();
 
-                    BoundingBox blockBox = block.getBoundingBox();
-                    if (playerBox.overlaps(blockBox)) {
-                        return true;
-                    }
-                }
+            // Sprawdź czy to solid block
+            if (!block.getType().isSolid()) continue;
+
+            // Sprawdź czy to blok klatki
+            if (manager.isKlatkaBlock(block.getLocation())) {
+                return true;
             }
         }
 
@@ -169,12 +181,12 @@ public class HydroKlatkaMovementListener implements Listener {
     }
 
     /**
-     * Szuka bezpiecznej pozycji możliwie blisko środka klatki.
-     * Najpierw exact center, potem coraz dalej.
+     * Szuka bezpiecznej pozycji blisko środka klatki.
      */
     private Location findSafeCenterLocation(Location center, ActiveHydroKlatka klatka, float yaw, float pitch) {
         if (center == null || center.getWorld() == null) return center;
 
+        // Sprawdź exact center
         Location exact = center.clone();
         exact.setYaw(yaw);
         exact.setPitch(pitch);
@@ -183,26 +195,27 @@ public class HydroKlatkaMovementListener implements Listener {
             return exact;
         }
 
-        int maxSearchRadius = Math.max(2, klatka.getRadius() - 1);
+        // Szukaj najbliżej środka
+        int maxSearchRadius = Math.max(3, klatka.getRadius() - 2);
 
-        for (int r = 0; r <= maxSearchRadius; r++) {
-            for (int y = -maxSearchRadius; y <= maxSearchRadius; y++) {
-                for (int x = -r; x <= r; x++) {
-                    for (int z = -r; z <= r; z++) {
-                        // tylko obwód "pierścienia", żeby brać najbliższe pozycje najpierw
-                        if (Math.abs(x) != r && Math.abs(z) != r && r != 0) continue;
+        for (int r = 1; r <= maxSearchRadius; r++) {
+            for (int dy = -maxSearchRadius; dy <= maxSearchRadius; dy++) {
+                for (int dx = -r; dx <= r; dx++) {
+                    for (int dz = -r; dz <= r; dz++) {
+                        // Tylko obwód pierścienia
+                        if (Math.abs(dx) != r && Math.abs(dz) != r) continue;
 
                         Location candidate = new Location(
                                 center.getWorld(),
-                                center.getBlockX() + x + 0.5,
-                                center.getBlockY() + y,
-                                center.getBlockZ() + z + 0.5,
+                                center.getBlockX() + dx + 0.5,
+                                center.getBlockY() + dy,
+                                center.getBlockZ() + dz + 0.5,
                                 yaw,
                                 pitch
                         );
 
-                        // kandydat musi być nadal sensownie wewnątrz klatki
-                        if (candidate.distance(center) >= klatka.getRadius() - 1.0) continue;
+                        // Musi być wewnątrz klatki
+                        if (candidate.distance(center) >= klatka.getRadius() - 1.5) continue;
 
                         if (isSafeForPlayer(candidate)) {
                             return candidate;
@@ -212,16 +225,14 @@ public class HydroKlatkaMovementListener implements Listener {
             }
         }
 
-        // Fallback - exact center
+        // Fallback - exact center (lepsze niż nic)
         return exact;
     }
 
     private boolean isSafeForPlayer(Location loc) {
         if (loc == null || loc.getWorld() == null) return false;
-
         Block feet = loc.getBlock();
         Block head = loc.clone().add(0, 1, 0).getBlock();
-
         return !feet.getType().isSolid() && !head.getType().isSolid();
     }
 
@@ -292,13 +303,6 @@ public class HydroKlatkaMovementListener implements Listener {
 
     // ==================== MOVE EVENT ====================
 
-    /**
-     * Główna blokada ruchu:
-     * nowa bariera = radius - 0.6
-     *
-     * Teleport awaryjny łapie dopiero task na radius - 0.5
-     * lub gdy gracz realnie siedzi w shell bloku.
-     */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
