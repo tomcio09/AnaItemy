@@ -7,6 +7,7 @@ import net.kyori.adventure.title.Title;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -16,6 +17,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
@@ -35,18 +37,10 @@ public class HydroKlatkaMovementListener implements Listener {
     private final AnaItemy plugin;
     private static final long FEEDBACK_COOLDOWN_MS = 500L;
 
-    /**
-     * Bariera blokująca ruch jest przesunięta o 0.1 bliżej środka
-     * względem starej pozycji.
-     *
-     * Stara pozycja = radius - 0.5
-     * Nowa pozycja  = radius - 0.6
-     */
+    // Bariera blokowania ruchu - przesunięta o 0.1 bardziej do środka
     private static final double MOVEMENT_BARRIER_OFFSET = 0.6;
 
-    /**
-     * Awaryjny teleport na środek jest na starej pozycji bariery.
-     */
+    // Awaryjny teleport - na starej pozycji bariery
     private static final double EMERGENCY_TELEPORT_OFFSET = 0.5;
 
     private final Map<UUID, Long> lastFeedback = new ConcurrentHashMap<>();
@@ -61,18 +55,6 @@ public class HydroKlatkaMovementListener implements Listener {
 
     // ==================== GŁÓWNY TASK ====================
 
-    /**
-     * Logika:
-     *
-     * 1. Bariera blokowania ruchu = radius - 0.6
-     * 2. Awaryjny teleport na środek = radius - 0.5
-     *
-     * Czyli:
-     * - jeśli działa blokowanie ruchu, to działa tylko ono
-     * - jeśli gracz jakimś bugiem przejdzie dalej, łapie go teleport
-     *
-     * To rozdziela oba systemy i nie pozwala im na siebie nachodzić.
-     */
     private void startBarrierTask() {
         barrierTask = new BukkitRunnable() {
             @Override
@@ -100,25 +82,35 @@ public class HydroKlatkaMovementListener implements Listener {
                             continue;
                         }
 
+                        // ====================
+                        // 1. GRACZ REALNIE W BLOKU SHELL
+                        // ====================
+                        // Najważniejszy fix:
+                        // jeśli hitbox gracza nachodzi na shell block,
+                        // teleportujemy na środek niezależnie od dystansu środka gracza.
+                        if (isPlayerInsideShellBlock(player)) {
+                            teleportToCenter(player, loc, center, klatka);
+                            sendBarrierFeedback(player);
+                            continue;
+                        }
+
                         double dist = loc.distance(center);
 
                         // ====================
-                        // AWARYJNY TELEPORT NA ŚRODEK
+                        // 2. AWARYJNY TELEPORT NA ŚRODEK
                         // ====================
                         // To jest stara pozycja bariery.
-                        // Jeśli gracz tutaj dotrze, to znaczy że zbugował się przez blokadę ruchu.
+                        // Jeśli gracz tutaj dotrze, to push/cancel wcześniej nie zadziałał.
                         if (dist >= emergencyTeleportRadius) {
-                            teleportToCenter(player, loc, center);
+                            teleportToCenter(player, loc, center, klatka);
                             sendBarrierFeedback(player);
                             continue;
                         }
 
                         // ====================
-                        // PODCZAS ANIMACJI - SOFT PUSHBACK
+                        // 3. PODCZAS ANIMACJI - PUSHBACK
                         // ====================
-                        // W trakcie budowy bloki jeszcze nie istnieją,
-                        // więc gdy gracz dobije do nowej bariery ruchu,
-                        // cofamy go lekko do środka.
+                        // Tylko podczas animacji, bo po animacji fizyczne bloki istnieją.
                         if (!animationComplete && dist >= movementBarrierRadius) {
                             pushInsideBarrier(player, loc, center, movementBarrierRadius);
                             sendBarrierFeedback(player);
@@ -129,17 +121,58 @@ public class HydroKlatkaMovementListener implements Listener {
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
+    // ==================== DETEKCJA GRACZA W BLOKU SHELL ====================
+
+    /**
+     * Sprawdza czy bounding box gracza nachodzi na jakikolwiek blok shell.
+     * To łapie dokładnie przypadek gracza "zbugowanego w shell".
+     */
+    private boolean isPlayerInsideShellBlock(Player player) {
+        if (player == null || player.getWorld() == null) return false;
+
+        BoundingBox playerBox = player.getBoundingBox();
+        Location loc = player.getLocation();
+
+        int minX = (int) Math.floor(playerBox.getMinX());
+        int maxX = (int) Math.floor(playerBox.getMaxX());
+        int minY = (int) Math.floor(playerBox.getMinY());
+        int maxY = (int) Math.floor(playerBox.getMaxY());
+        int minZ = (int) Math.floor(playerBox.getMinZ());
+        int maxZ = (int) Math.floor(playerBox.getMaxZ());
+
+        // Mały margines bezpieczeństwa wokół hitboxu
+        for (int x = minX - 1; x <= maxX + 1; x++) {
+            for (int y = minY - 1; y <= maxY + 1; y++) {
+                for (int z = minZ - 1; z <= maxZ + 1; z++) {
+                    Block block = loc.getWorld().getBlockAt(x, y, z);
+
+                    if (block.getType() != org.bukkit.Material.BLUE_GLAZED_TERRACOTTA) {
+                        continue;
+                    }
+
+                    BoundingBox blockBox = block.getBoundingBox();
+                    if (playerBox.overlaps(blockBox)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
     // ==================== TELEPORT NA ŚRODEK ====================
 
-    private void teleportToCenter(Player player, Location playerLoc, Location center) {
-        Location destination = findSafeCenterLocation(center, playerLoc.getYaw(), playerLoc.getPitch());
+    private void teleportToCenter(Player player, Location playerLoc, Location center, ActiveHydroKlatka klatka) {
+        Location destination = findSafeCenterLocation(center, klatka, playerLoc.getYaw(), playerLoc.getPitch());
         doInternalTeleport(player, destination);
     }
 
     /**
      * Szuka bezpiecznej pozycji możliwie blisko środka klatki.
+     * Najpierw exact center, potem coraz dalej.
      */
-    private Location findSafeCenterLocation(Location center, float yaw, float pitch) {
+    private Location findSafeCenterLocation(Location center, ActiveHydroKlatka klatka, float yaw, float pitch) {
         if (center == null || center.getWorld() == null) return center;
 
         Location exact = center.clone();
@@ -150,20 +183,26 @@ public class HydroKlatkaMovementListener implements Listener {
             return exact;
         }
 
-        int[] yOffsets = {0, 1, -1, 2, -2, 3, -3};
+        int maxSearchRadius = Math.max(2, klatka.getRadius() - 1);
 
-        for (int radius = 0; radius <= 2; radius++) {
-            for (int yOff : yOffsets) {
-                for (int x = -radius; x <= radius; x++) {
-                    for (int z = -radius; z <= radius; z++) {
+        for (int r = 0; r <= maxSearchRadius; r++) {
+            for (int y = -maxSearchRadius; y <= maxSearchRadius; y++) {
+                for (int x = -r; x <= r; x++) {
+                    for (int z = -r; z <= r; z++) {
+                        // tylko obwód "pierścienia", żeby brać najbliższe pozycje najpierw
+                        if (Math.abs(x) != r && Math.abs(z) != r && r != 0) continue;
+
                         Location candidate = new Location(
                                 center.getWorld(),
                                 center.getBlockX() + x + 0.5,
-                                center.getBlockY() + yOff,
+                                center.getBlockY() + y,
                                 center.getBlockZ() + z + 0.5,
                                 yaw,
                                 pitch
                         );
+
+                        // kandydat musi być nadal sensownie wewnątrz klatki
+                        if (candidate.distance(center) >= klatka.getRadius() - 1.0) continue;
 
                         if (isSafeForPlayer(candidate)) {
                             return candidate;
@@ -173,20 +212,21 @@ public class HydroKlatkaMovementListener implements Listener {
             }
         }
 
+        // Fallback - exact center
         return exact;
     }
 
     private boolean isSafeForPlayer(Location loc) {
         if (loc == null || loc.getWorld() == null) return false;
-        return !loc.getBlock().getType().isSolid()
-                && !loc.clone().add(0, 1, 0).getBlock().getType().isSolid();
+
+        Block feet = loc.getBlock();
+        Block head = loc.clone().add(0, 1, 0).getBlock();
+
+        return !feet.getType().isSolid() && !head.getType().isSolid();
     }
 
     // ==================== PUSHBACK PODCZAS ANIMACJI ====================
 
-    /**
-     * Ustawia gracza trochę wewnątrz nowej bariery ruchu.
-     */
     private void pushInsideBarrier(Player player, Location playerLoc, Location center, double movementBarrierRadius) {
         Vector fromCenter = playerLoc.toVector().subtract(center.toVector());
         if (fromCenter.lengthSquared() < 0.001) return;
@@ -256,7 +296,8 @@ public class HydroKlatkaMovementListener implements Listener {
      * Główna blokada ruchu:
      * nowa bariera = radius - 0.6
      *
-     * Teleport awaryjny łapie dopiero task na radius - 0.5.
+     * Teleport awaryjny łapie dopiero task na radius - 0.5
+     * lub gdy gracz realnie siedzi w shell bloku.
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
