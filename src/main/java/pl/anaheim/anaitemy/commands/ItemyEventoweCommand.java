@@ -20,6 +20,7 @@ import pl.anaheim.anaitemy.managers.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
@@ -42,7 +43,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
     );
 
     // ✅ Czas dodatkowego cooldownu po resecie (sekundy)
-    private static final int POST_RESET_COOLDOWN = 5;
+    private static final int POST_RESET_COOLDOWN = 1;
 
     public ItemyEventoweCommand(AnaItemy plugin) { this.plugin = plugin; }
 
@@ -261,81 +262,156 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * ✅ POPRAWKA: Reset cooldownów z opóźnieniem.
-     * Efekty aktywne dokończą się normalnie, potem +5s cooldownu.
+     * ✅ Sprawdza czy gracz ma w ekwipunku item pasujący do predykatu.
+     * Sprawdza inventory + armor slots + offhand.
+     */
+    private boolean hasItemInInventory(Player player, Predicate<ItemStack> checker) {
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && !item.getType().isAir() && checker.test(item)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * ✅ POPRAWKA: Reset cooldownów - tylko dla itemów które gracz posiada.
+     * Cooldown po resecie = 1s.
      */
     private void handleCooldownReset(CommandSender sender, String targetName) {
         Player target = Bukkit.getPlayer(targetName);
         if (target == null) { sender.sendMessage(color("&cGracz &f" + targetName + " &cnie jest online!")); return; }
 
-        // ✅ Ustaw cooldown na POST_RESET_COOLDOWN (5s) zamiast zerować
-        long resetCooldownMs = POST_RESET_COOLDOWN * 1000L;
-        int resetCooldownTicks = POST_RESET_COOLDOWN * 20;
+        int resetCount = 0;
 
         // HydroKlatka
-        plugin.getHydroKlatkaManager().setExternalCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, HydroKlatka::isHydroKlatka)) {
+            plugin.getHydroKlatkaManager().setExternalCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
-        // Różdżka - fangs
-        plugin.getRozdzkailuzjonistyManager().setFangsPostResetCooldown(target, POST_RESET_COOLDOWN);
-        // Różdżka - vanish
-        plugin.getRozdzkailuzjonistyManager().setVanishPostResetCooldown(target, POST_RESET_COOLDOWN);
+        // Różdżka - fangs + vanish
+        if (hasItemInInventory(target, RozdzkailuzjonistyItem::isRozdzkaIluzjonisty)) {
+            plugin.getRozdzkailuzjonistyManager().setFangsPostResetCooldown(target, POST_RESET_COOLDOWN);
+            plugin.getRozdzkailuzjonistyManager().setVanishPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Wędka nielota
-        plugin.getWedkaNielotaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, WedkaNielotaItem::isWedkaNielota)) {
+            plugin.getWedkaNielotaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Blok widmo
-        plugin.getBlokWidmoManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, BlokWidmoItem::isBlokWidmo)) {
+            plugin.getBlokWidmoManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Siekiera grincha
-        plugin.getSiekieraGrinchaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, SiekieraGrinchaItem::isSiekieraGrincha)) {
+            plugin.getSiekieraGrinchaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Hydro trójząb
-        plugin.getHydroTrojzabManager().setPostResetCooldowns(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, HydroTrojzabItem::isHydroTrojzab)) {
+            plugin.getHydroTrojzabManager().setPostResetCooldowns(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Cudowna latarnia
-        plugin.getCudownaLatarniaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, CudownaLatarniaItem::isCudownaLatarnia)) {
+            plugin.getCudownaLatarniaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Róg jednorożca
-        plugin.getRogJednorozcaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, RogJednorozcaItem::isRogJednorozca)) {
+            plugin.getRogJednorozcaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Boski topór
-        plugin.getBoskiToporManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, BoskiToporItem::isBoskiTopor)) {
+            plugin.getBoskiToporManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Super marchewka
-        plugin.getSuperMarchewkaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, SuperMarchewkaItem::isSuperMarchewka)) {
+            plugin.getSuperMarchewkaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Łopata grincha
-        plugin.getLopataGrinchaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, LopataGrinchaItem::isLopataGrincha)) {
+            plugin.getLopataGrinchaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Króliczy miecz
-        plugin.getKroliczyMieczManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, KroliczyMieczItem::isKroliczyMiecz)) {
+            plugin.getKroliczyMieczManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Smoczy miecz
-        plugin.getSmoczyMieczManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, SmoczyMieczItem::isSmoczyMiecz)) {
+            plugin.getSmoczyMieczManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
-        // Oślepienie (kosa + łuk)
-        plugin.getOslepienieManager().setPostResetCooldowns(target, POST_RESET_COOLDOWN);
+        // Oślepienie (kosa + łuk kupidyna)
+        boolean hasKosa = hasItemInInventory(target, KosaItem::isKosa);
+        boolean hasLukKupidyna = hasItemInInventory(target, LukKupidynaItem::isLukKupidyna);
+        if (hasKosa || hasLukKupidyna) {
+            plugin.getOslepienieManager().setPostResetCooldowns(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Marchewkowy miecz
-        plugin.getMarchewkowyMieczManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, MarchewkowyMieczItem::isMarchewkowyMiecz)) {
+            plugin.getMarchewkowyMieczManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Marchewkowa kusza
-        plugin.getMarchewkowaKuszaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, MarchewkowaKuszaItem::isMarchewkowaKusza)) {
+            plugin.getMarchewkowaKuszaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Wędka surferka
-        plugin.getWedkaSurferkaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, WedkaSurferkaItem::isWedkaSurferka)) {
+            plugin.getWedkaSurferkaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Zatruty ołówek
-        plugin.getZatrutyOlowekManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, ZatrutyOlowekItem::isZatrutyOlowek)) {
+            plugin.getZatrutyOlowekManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Kukurydza
-        plugin.getKukurydzaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, KukurydzaItem::isKukurydza)) {
+            plugin.getKukurydzaManager().setPostResetCooldown(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
         // Olaf
-        plugin.getOlafManager().setPostResetCooldowns(target, POST_RESET_COOLDOWN);
+        if (hasItemInInventory(target, OlafItem::isOlaf)) {
+            plugin.getOlafManager().setPostResetCooldowns(target, POST_RESET_COOLDOWN);
+            resetCount++;
+        }
 
-        sender.sendMessage(color("&aCooldowny gracza &f" + target.getName() + " &azostana zresetowane po zakonczeniu aktywnych efektow &7(+" + POST_RESET_COOLDOWN + "s)&a!"));
-        target.sendMessage(color("&aTwoje cooldowny zostana zresetowane po zakonczeniu efektow &7(+" + POST_RESET_COOLDOWN + "s)&a!"));
+        if (resetCount == 0) {
+            sender.sendMessage(color("&cGracz &f" + target.getName() + " &cnie posiada zadnych itemow eventowych z cooldownami!"));
+            return;
+        }
+
+        sender.sendMessage(color("&aCooldowny gracza &f" + target.getName() + " &azresetowane dla &f" + resetCount + " &aitemow &7(+" + POST_RESET_COOLDOWN + "s)&a!"));
+        target.sendMessage(color("&aTwoje cooldowny zostaly zresetowane dla &f" + resetCount + " &aitemow &7(+" + POST_RESET_COOLDOWN + "s)&a!"));
     }
 
     private void handleKlatwaCommand(CommandSender sender, String action, String targetName) {
@@ -384,7 +460,7 @@ public class ItemyEventoweCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(color("&7/itemyeventowe reload &8- &freladuje konfiguracje"));
         sender.sendMessage(color("&7/itemyeventowe give <id> <nick> <ilosc> &8- &fdaje item"));
         sender.sendMessage(color("&7/itemyeventowe kills <liczba> &8- &fustawia kille Excalibura"));
-        sender.sendMessage(color("&7/itemyeventowe cooldown reset <nick> &8- &fresetuje cooldowny (+5s)"));
+        sender.sendMessage(color("&7/itemyeventowe cooldown reset <nick> &8- &fresetuje cooldowny (+1s)"));
         sender.sendMessage(color("&7/itemyeventowe klatwa naloz <nick> &8- &fnaklada klatwe"));
         sender.sendMessage(color("&7/itemyeventowe klatwa zdejmij <nick> &8- &fzdejmuje klatwe"));
         sender.sendMessage(color("&7/itemyeventowe widmo naloz <nick> &8- &fnaklada efekt widmo"));
