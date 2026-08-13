@@ -17,6 +17,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import pl.anaheim.anaitemy.AnaItemy;
@@ -62,13 +63,11 @@ public class KrewWampiraListener implements Listener {
 
         event.setCancelled(true);
 
-        // ✅ 1.21.4 - nowa nazwa atrybutu
         AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr != null) player.setHealth(maxHealthAttr.getValue());
 
         if (plugin.getBlokWidmoManager().isAffected(player)) {
             plugin.getBlokWidmoManager().forceRemoveEffect(player);
-            // ✅ 1.21.4 - nowa nazwa atrybutu
             maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
             if (maxHealthAttr != null) player.setHealth(maxHealthAttr.getValue());
         }
@@ -96,19 +95,19 @@ public class KrewWampiraListener implements Listener {
         boolean cursorBlood = KrewWampiraItem.isKrewWampira(cursor);
         boolean currentBlood = KrewWampiraItem.isKrewWampira(current);
 
-        // ✅ NUMBER KEY (1-9) — zamiana całych stacków (działa dla dowolnych przypisań klawiszy)
+        boolean cursorEmpty = cursor == null || cursor.getType().isAir();
+        boolean currentEmpty = current == null || current.getType().isAir();
+
+        // ==================== NUMBER KEY (1-9) ====================
         if (event.getClick() == ClickType.NUMBER_KEY) {
             int hotbarSlot = event.getHotbarButton();
             if (hotbarSlot == -1) return;
-            
+
             ItemStack hotbarItem = player.getInventory().getItem(hotbarSlot);
             boolean hotbarBlood = KrewWampiraItem.isKrewWampira(hotbarItem);
-            
-            // Jeśli którykolwiek item to krew wampira, obsługujemy manualnie
+
             if (hotbarBlood || currentBlood) {
                 event.setCancelled(true);
-                
-                // Zamiana całych stacków
                 if (event.getClickedInventory() != null) {
                     event.getClickedInventory().setItem(event.getSlot(), hotbarItem);
                 }
@@ -117,16 +116,13 @@ public class KrewWampiraListener implements Listener {
             return;
         }
 
-        // ✅ SWAP OFFHAND (klawisz F) — zamiana z offhand
+        // ==================== SWAP OFFHAND (F) ====================
         if (event.getClick() == ClickType.SWAP_OFFHAND) {
             ItemStack offhandItem = player.getInventory().getItemInOffHand();
             boolean offhandBlood = KrewWampiraItem.isKrewWampira(offhandItem);
-            
-            // Jeśli którykolwiek item to krew wampira, obsługujemy manualnie
+
             if (offhandBlood || currentBlood) {
                 event.setCancelled(true);
-                
-                // Zamiana całych stacków
                 if (event.getClickedInventory() != null) {
                     event.getClickedInventory().setItem(event.getSlot(), offhandItem);
                 }
@@ -135,81 +131,12 @@ public class KrewWampiraListener implements Listener {
             return;
         }
 
+        // Jeśli żaden z itemów nie jest krwią - nie ingeruj
         if (!cursorBlood && !currentBlood) return;
 
-        // ✅ LPM: krew na krew = połącz
-        if (cursorBlood && currentBlood && event.getClick() == ClickType.LEFT) {
-            event.setCancelled(true);
-            int total = cursor.getAmount() + current.getAmount();
-            if (total <= KrewWampiraItem.MAX_STACK) {
-                current.setAmount(total);
-                event.getView().setCursor(null);
-            } else {
-                current.setAmount(KrewWampiraItem.MAX_STACK);
-                cursor.setAmount(total - KrewWampiraItem.MAX_STACK);
-            }
-            return;
-        }
-
-        // ✅ PPM: krew na krew = dodaj 1
-        if (cursorBlood && currentBlood && event.getClick() == ClickType.RIGHT) {
-            event.setCancelled(true);
-            if (current.getAmount() < KrewWampiraItem.MAX_STACK) {
-                current.setAmount(current.getAmount() + 1);
-                if (cursor.getAmount() > 1) cursor.setAmount(cursor.getAmount() - 1);
-                else event.getView().setCursor(null);
-            }
-            return;
-        }
-
-        // ✅ LPM: krew na pusty = odłóż wszystko (vanilla obsłuży)
-        if (cursorBlood && (current == null || current.getType().isAir()) && event.getClick() == ClickType.LEFT) {
-            return;
-        }
-
-        // ✅ PPM: krew na pusty = odłóż połowę
-        if (cursorBlood && (current == null || current.getType().isAir()) && event.getClick() == ClickType.RIGHT) {
-            event.setCancelled(true);
-            int cursorAmount = cursor.getAmount();
-            if (cursorAmount <= 1) {
-                if (event.getClickedInventory() != null) {
-                    event.getClickedInventory().setItem(event.getSlot(), KrewWampiraItem.create(1));
-                }
-                event.getView().setCursor(null);
-            } else {
-                int toPlace = cursorAmount / 2;
-                int remaining = cursorAmount - toPlace;
-                if (event.getClickedInventory() != null) {
-                    event.getClickedInventory().setItem(event.getSlot(), KrewWampiraItem.create(toPlace));
-                }
-                cursor.setAmount(remaining);
-            }
-            return;
-        }
-
-        // ✅ LPM: pusty cursor na krew = podnieś (vanilla obsłuży)
-        if (!cursorBlood && currentBlood && (cursor == null || cursor.getType().isAir()) && event.getClick() == ClickType.LEFT) {
-            return;
-        }
-
-        // ✅ PPM: pusty cursor na krew = podnieś połowę
-        if (!cursorBlood && currentBlood && (cursor == null || cursor.getType().isAir()) && event.getClick() == ClickType.RIGHT) {
-            if (current.getAmount() > 1) {
-                event.setCancelled(true);
-                int half = (int) Math.ceil(current.getAmount() / 2.0);
-                int remaining = current.getAmount() - half;
-
-                ItemStack picked = KrewWampiraItem.create(half);
-                event.getView().setCursor(picked);
-
-                if (remaining > 0) current.setAmount(remaining);
-                else event.setCurrentItem(null);
-            }
-            return;
-        }
-
-        // ✅ Shift click
-        if ((event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT) && currentBlood) {
+        // ==================== SHIFT CLICK ====================
+        if (event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT) {
+            if (!currentBlood) return;
             event.setCancelled(true);
             int amountToMove = current.getAmount();
 
@@ -217,6 +144,7 @@ public class KrewWampiraListener implements Listener {
                     ? event.getView().getTopInventory()
                     : player.getInventory();
 
+            // Najpierw stackuj do istniejących
             for (int i = 0; i < targetInv.getSize() && amountToMove > 0; i++) {
                 ItemStack slot = targetInv.getItem(i);
                 if (!KrewWampiraItem.isKrewWampira(slot)) continue;
@@ -227,6 +155,7 @@ public class KrewWampiraListener implements Listener {
                 amountToMove -= toAdd;
             }
 
+            // Potem na puste sloty
             while (amountToMove > 0) {
                 int firstEmpty = targetInv.firstEmpty();
                 if (firstEmpty == -1) break;
@@ -240,7 +169,7 @@ public class KrewWampiraListener implements Listener {
             return;
         }
 
-        // ✅ Double click
+        // ==================== DOUBLE CLICK ====================
         if (event.getClick() == ClickType.DOUBLE_CLICK && cursorBlood) {
             event.setCancelled(true);
             int cursorAmount = cursor.getAmount();
@@ -278,6 +207,112 @@ public class KrewWampiraListener implements Listener {
             cursor.setAmount(cursorAmount);
             return;
         }
+
+        // ==================== LPM: krew na krew = połącz staki ====================
+        if (event.getClick() == ClickType.LEFT && cursorBlood && currentBlood) {
+            event.setCancelled(true);
+            int total = cursor.getAmount() + current.getAmount();
+            if (total <= KrewWampiraItem.MAX_STACK) {
+                current.setAmount(total);
+                event.getView().setCursor(null);
+            } else {
+                current.setAmount(KrewWampiraItem.MAX_STACK);
+                cursor.setAmount(total - KrewWampiraItem.MAX_STACK);
+            }
+            return;
+        }
+
+        // ==================== PPM: krew na krew = dodaj 1 ====================
+        if (event.getClick() == ClickType.RIGHT && cursorBlood && currentBlood) {
+            event.setCancelled(true);
+            if (current.getAmount() < KrewWampiraItem.MAX_STACK) {
+                current.setAmount(current.getAmount() + 1);
+                if (cursor.getAmount() > 1) cursor.setAmount(cursor.getAmount() - 1);
+                else event.getView().setCursor(null);
+            }
+            return;
+        }
+
+        // ==================== LPM: krew na pusty slot = odłóż wszystko ====================
+        if (event.getClick() == ClickType.LEFT && cursorBlood && currentEmpty) {
+            event.setCancelled(true);
+            if (event.getClickedInventory() != null) {
+                event.getClickedInventory().setItem(event.getSlot(), cursor.clone());
+            }
+            event.getView().setCursor(null);
+            return;
+        }
+
+        // ==================== LPM: krew na inny item = zamień ====================
+        if (event.getClick() == ClickType.LEFT && cursorBlood && !currentEmpty && !currentBlood) {
+            event.setCancelled(true);
+            ItemStack oldCurrent = current.clone();
+            if (event.getClickedInventory() != null) {
+                event.getClickedInventory().setItem(event.getSlot(), cursor.clone());
+            }
+            event.getView().setCursor(oldCurrent);
+            return;
+        }
+
+        // ==================== PPM: krew na pusty slot = odłóż 1 ====================
+        if (event.getClick() == ClickType.RIGHT && cursorBlood && currentEmpty) {
+            event.setCancelled(true);
+            if (event.getClickedInventory() != null) {
+                event.getClickedInventory().setItem(event.getSlot(), KrewWampiraItem.create(1));
+            }
+            if (cursor.getAmount() > 1) {
+                cursor.setAmount(cursor.getAmount() - 1);
+            } else {
+                event.getView().setCursor(null);
+            }
+            return;
+        }
+
+        // ==================== PPM: krew na inny item = zamień ====================
+        if (event.getClick() == ClickType.RIGHT && cursorBlood && !currentEmpty && !currentBlood) {
+            event.setCancelled(true);
+            ItemStack oldCurrent = current.clone();
+            if (event.getClickedInventory() != null) {
+                event.getClickedInventory().setItem(event.getSlot(), cursor.clone());
+            }
+            event.getView().setCursor(oldCurrent);
+            return;
+        }
+
+        // ==================== LPM: pusty cursor na krew = podnieś wszystko ====================
+        if (event.getClick() == ClickType.LEFT && cursorEmpty && currentBlood) {
+            event.setCancelled(true);
+            event.getView().setCursor(current.clone());
+            event.setCurrentItem(null);
+            return;
+        }
+
+        // ==================== PPM: pusty cursor na krew = podnieś połowę ====================
+        if (event.getClick() == ClickType.RIGHT && cursorEmpty && currentBlood) {
+            event.setCancelled(true);
+            int totalAmount = current.getAmount();
+            if (totalAmount <= 1) {
+                event.getView().setCursor(current.clone());
+                event.setCurrentItem(null);
+            } else {
+                int half = (int) Math.ceil(totalAmount / 2.0);
+                int remaining = totalAmount - half;
+                event.getView().setCursor(KrewWampiraItem.create(half));
+                current.setAmount(remaining);
+            }
+            return;
+        }
+
+        // ==================== LPM: inny item na krew = zamień ====================
+        if (event.getClick() == ClickType.LEFT && !cursorBlood && !cursorEmpty && currentBlood) {
+            event.setCancelled(true);
+            ItemStack oldCurrent = current.clone();
+            if (event.getClickedInventory() != null) {
+                event.getClickedInventory().setItem(event.getSlot(), cursor.clone());
+            }
+            event.getView().setCursor(oldCurrent);
+            return;
+        }
     }
 
     // ==================== DRAG ====================
@@ -293,72 +328,61 @@ public class KrewWampiraListener implements Listener {
         event.setCancelled(true);
 
         final int totalAmount = oldCursor.getAmount();
-        final Set<Integer> rawSlots = new HashSet<>(event.getRawSlots());
+        final Set<Integer> rawSlots = new LinkedHashSet<>(event.getRawSlots());
         final DragType dragType = event.getType();
-        final int topSize = event.getView().getTopInventory().getSize();
-        
+
         if (rawSlots.isEmpty()) {
             player.setItemOnCursor(KrewWampiraItem.create(totalAmount));
             return;
         }
 
-        // Wykonaj w następnym ticku aby inventory było gotowe
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (!player.isOnline()) return;
-            
+
+            InventoryView view = player.getOpenInventory();
             int distributed = 0;
-            Inventory topInv = player.getOpenInventory().getTopInventory();
-            Inventory bottomInv = player.getInventory();
-            
+
             if (dragType == DragType.EVEN) {
-                // ✅ LPM drag - dzieli równo NA ZAZNACZONE sloty
+                // ==================== LPM DRAG - dzieli równo ====================
                 List<Integer> validSlots = new ArrayList<>();
-                
-                // Znajdź zaznaczone sloty które mogą przyjąć krew
+
                 for (int rawSlot : rawSlots) {
-                    ItemStack existing;
-                    if (rawSlot < topSize) {
-                        existing = topInv.getItem(rawSlot);
-                    } else {
-                        existing = bottomInv.getItem(rawSlot - topSize);
-                    }
-                    
+                    Inventory inv = view.getInventory(rawSlot);
+                    if (inv == null) continue;
+                    int converted = view.convertSlot(rawSlot);
+
+                    ItemStack existing = inv.getItem(converted);
+
                     if (existing == null || existing.getType().isAir()) {
                         validSlots.add(rawSlot);
-                    } else if (KrewWampiraItem.isKrewWampira(existing) && existing.getAmount() < KrewWampiraItem.MAX_STACK) {
+                    } else if (KrewWampiraItem.isKrewWampira(existing)
+                            && existing.getAmount() < KrewWampiraItem.MAX_STACK) {
                         validSlots.add(rawSlot);
                     }
                 }
-                
+
                 if (validSlots.isEmpty()) {
                     player.setItemOnCursor(KrewWampiraItem.create(totalAmount));
                     return;
                 }
-                
-                // Dziel równo z uwzględnieniem reszty
+
                 int perSlot = totalAmount / validSlots.size();
                 int remainder = totalAmount % validSlots.size();
-                
+
                 for (int i = 0; i < validSlots.size(); i++) {
                     int rawSlot = validSlots.get(i);
                     int toGive = perSlot + (i < remainder ? 1 : 0);
-                    
                     if (toGive <= 0) continue;
-                    
-                    ItemStack existing;
-                    if (rawSlot < topSize) {
-                        existing = topInv.getItem(rawSlot);
-                    } else {
-                        existing = bottomInv.getItem(rawSlot - topSize);
-                    }
-                    
+
+                    Inventory inv = view.getInventory(rawSlot);
+                    if (inv == null) continue;
+                    int converted = view.convertSlot(rawSlot);
+
+                    ItemStack existing = inv.getItem(converted);
+
                     if (existing == null || existing.getType().isAir()) {
                         int finalAmount = Math.min(toGive, KrewWampiraItem.MAX_STACK);
-                        if (rawSlot < topSize) {
-                            topInv.setItem(rawSlot, KrewWampiraItem.create(finalAmount));
-                        } else {
-                            bottomInv.setItem(rawSlot - topSize, KrewWampiraItem.create(finalAmount));
-                        }
+                        inv.setItem(converted, KrewWampiraItem.create(finalAmount));
                         distributed += finalAmount;
                     } else if (KrewWampiraItem.isKrewWampira(existing)) {
                         int canAdd = KrewWampiraItem.MAX_STACK - existing.getAmount();
@@ -369,33 +393,29 @@ public class KrewWampiraListener implements Listener {
                         }
                     }
                 }
-                
+
             } else {
-                // ✅ PPM drag - po 1 NA ZAZNACZONE sloty
+                // ==================== PPM DRAG - po 1 ====================
                 for (int rawSlot : rawSlots) {
                     if (distributed >= totalAmount) break;
-                    
-                    ItemStack existing;
-                    if (rawSlot < topSize) {
-                        existing = topInv.getItem(rawSlot);
-                    } else {
-                        existing = bottomInv.getItem(rawSlot - topSize);
-                    }
-                    
+
+                    Inventory inv = view.getInventory(rawSlot);
+                    if (inv == null) continue;
+                    int converted = view.convertSlot(rawSlot);
+
+                    ItemStack existing = inv.getItem(converted);
+
                     if (existing == null || existing.getType().isAir()) {
-                        if (rawSlot < topSize) {
-                            topInv.setItem(rawSlot, KrewWampiraItem.create(1));
-                        } else {
-                            bottomInv.setItem(rawSlot - topSize, KrewWampiraItem.create(1));
-                        }
+                        inv.setItem(converted, KrewWampiraItem.create(1));
                         distributed++;
-                    } else if (KrewWampiraItem.isKrewWampira(existing) && existing.getAmount() < KrewWampiraItem.MAX_STACK) {
+                    } else if (KrewWampiraItem.isKrewWampira(existing)
+                            && existing.getAmount() < KrewWampiraItem.MAX_STACK) {
                         existing.setAmount(existing.getAmount() + 1);
                         distributed++;
                     }
                 }
             }
-            
+
             int leftover = totalAmount - distributed;
             if (leftover > 0) {
                 player.setItemOnCursor(KrewWampiraItem.create(leftover));
