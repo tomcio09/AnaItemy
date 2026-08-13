@@ -45,6 +45,8 @@ public class HydroKlatkaMovementListener implements Listener {
     /**
      * Liczba KOLEJNYCH ticków przez które gracz musi być za MOVE_BARRIER
      * LUB w solid bloku klatki, żeby dostać teleport awaryjny.
+     *
+     * Dotyczy TYLKO graczy którzy NIE lecą elytrą.
      */
     private static final int TELEPORT_DEBOUNCE_TICKS = 3;
 
@@ -64,14 +66,21 @@ public class HydroKlatkaMovementListener implements Listener {
     /**
      * Logika:
      *
-     * Teleport awaryjny działa TYLKO po zakończeniu animacji budowania.
-     * Podczas animacji gracz może być w solid bloku (shell się buduje na nim)
-     * - to normalne, nie teleportujemy.
+     * Teleport awaryjny działa TYLKO:
+     * 1. Po zakończeniu animacji budowania
+     * 2. Gdy gracz NIE jest w locie elytrą
      *
-     * Po zakończeniu animacji:
-     * A) Gracz za MOVE_BARRIER (dist >= radius - 0.8)
-     * B) Gracz w SOLID bloku klatki (zbugowany w shell)
-     * → po TELEPORT_DEBOUNCE_TICKS tickach → teleport na środek
+     * Gracz lecący elytrą:
+     *   → Polegamy WYŁĄCZNIE na PlayerMoveEvent (bariera ruchu)
+     *   → Task RESETUJE licznik (nie teleportuje)
+     *   → Gdy gracz uderzy w shell i wejdzie w blok - nadal leci (isGliding=true)
+     *   → Dopiero gdy przestanie lecieć (wyląduje, straci elytrę) 
+     *     i nadal jest w solid bloku klatki → task zacznie liczyć → teleport
+     *
+     * Gracz NIE lecący elytrą:
+     *   A) Za MOVE_BARRIER (dist >= radius - 0.8)
+     *   B) W SOLID bloku klatki (zbugowany w shell)
+     *   → po TELEPORT_DEBOUNCE_TICKS tickach → teleport na środek
      */
     private void startBarrierTask() {
         barrierTask = new BukkitRunnable() {
@@ -108,11 +117,20 @@ public class HydroKlatkaMovementListener implements Listener {
                             continue;
                         }
 
+                        // ✅ Gracz leci elytrą → TYLKO bariera ruchu (PlayerMoveEvent)
+                        // Nie teleportuj - gracz odbijający się od shell jest w locie
+                        // i naturalnie się wyciągnie z bloku
+                        if (player.isGliding()) {
+                            outsideBarrierTicks.put(uuid, 0);
+                            continue;
+                        }
+
                         double dist = loc.distance(center);
                         boolean beyondMoveBarrier = dist >= moveBarrier;
                         boolean inSolidBlock = isPlayerInSolidBlock(player);
                         boolean isKlatkaBlock = manager.isKlatkaBlock(loc.getBlock().getLocation());
 
+                        // Gracz NIE leci → sprawdź czy potrzebuje teleportu
                         boolean needsTeleport = beyondMoveBarrier || (inSolidBlock && isKlatkaBlock);
 
                         if (needsTeleport) {
