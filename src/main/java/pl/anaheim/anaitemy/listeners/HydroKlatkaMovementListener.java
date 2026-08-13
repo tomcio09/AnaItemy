@@ -17,7 +17,6 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
@@ -30,7 +29,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class HydroKlatkaMovementListener implements Listener {
 
@@ -38,21 +36,40 @@ public class HydroKlatkaMovementListener implements Listener {
     private static final long FEEDBACK_COOLDOWN_MS = 500L;
 
     /**
-     * Próg bariery: radius - BARRIER_OFFSET
-     * Im większy offset, tym bariera jest bliżej środka.
-     * 0.8 = bariera niewidzialna jest 0.8 bloków od shell (bliżej środka).
+     * BARIERA RUCHU (PlayerMoveEvent):
+     * radius - MOVE_BARRIER_OFFSET
+     *
+     * Blokuje ruch gracza zanim dotrze do bloku shell.
+     * Niewidzialna ściana wewnątrz klatki.
      */
-    private static final double BARRIER_OFFSET = 0.8;
+    private static final double MOVE_BARRIER_OFFSET = 0.8;
 
     /**
-     * Liczba KOLEJNYCH ticków przez które gracz musi być za barierą,
+     * BARIERA TELEPORTACJI (task co tick):
+     * radius + TELEPORT_BARRIER_OFFSET
+     *
+     * Teleportuje gracza NA ŚRODEK tylko gdy jest
+     * PO ZEWNĘTRZNEJ STRONIE bloku shell.
+     *
+     * Gracz zbugowany w bloku shell (między MOVE_BARRIER a TELEPORT_BARRIER):
+     *   → PlayerMoveEvent blokuje dalszy ruch ✓
+     *   → Task NIE teleportuje (jest między barierami) ✓
+     *
+     * Gracz który przeszedł przez shell (za nim):
+     *   → dist > radius + TELEPORT_BARRIER_OFFSET
+     *   → Task teleportuje po TELEPORT_DEBOUNCE_TICKS tickach ✓
+     *
+     * Elytrysta odbijający od shell:
+     *   → Przez 1-2 ticki może być za TELEPORT_BARRIER
+     *   → Debounce 3 ticki zapobiega fałszywemu teleportowi ✓
+     */
+    private static final double TELEPORT_BARRIER_OFFSET = 0.1;
+
+    /**
+     * Liczba KOLEJNYCH ticków przez które gracz musi być za TELEPORT_BARRIER,
      * żeby dostać teleport awaryjny.
      *
-     * Elytriści uderzający w shell są za barierą przez 1-2 ticki (bounce),
-     * więc debounce = 3 ticki eliminuje fałszywe teleporty.
-     *
-     * Gracz który rzeczywiście uciekł (bug/hack) będzie za barierą
-     * przez wiele ticków → po 3 tickach dostanie teleport.
+     * Chroni elytrzystów przed fałszywym teleportem.
      */
     private static final int TELEPORT_DEBOUNCE_TICKS = 3;
 
@@ -60,8 +77,8 @@ public class HydroKlatkaMovementListener implements Listener {
     private final Set<UUID> internalTeleports = ConcurrentHashMap.newKeySet();
 
     /**
-     * Licznik kolejnych ticków poza barierą dla każdego gracza.
-     * Klucz: UUID gracza, Wartość: liczba kolejnych ticków poza barierą.
+     * Licznik kolejnych ticków poza TELEPORT_BARRIER dla każdego gracza.
+     * Reset do 0 gdy gracz wróci wewnątrz TELEPORT_BARRIER.
      */
     private final Map<UUID, Integer> outsideBarrierTicks = new ConcurrentHashMap<>();
 
@@ -75,22 +92,20 @@ public class HydroKlatkaMovementListener implements Listener {
     // ==================== GŁÓWNY TASK ====================
 
     /**
-     * Logika debounce:
+     * Schemat działania:
      *
-     * Co tick sprawdzamy każdego trapped gracza.
-     * Jeśli jest za barierą → inkrementujemy licznik.
-     * Jeśli jest wewnątrz → resetujemy licznik do 0.
+     * [środek klatki] ----MOVE_BARRIER---- [shell] ----TELEPORT_BARRIER---- [zewnętrze]
+     *                  radius - 0.8         radius          radius + 0.1
      *
-     * Teleport następuje dopiero gdy licznik >= TELEPORT_DEBOUNCE_TICKS.
+     * Gracz zbugowany w shell (dist między radius-0.8 a radius+0.1):
+     *   → PlayerMoveEvent: blokuje (dist >= radius-0.8) ✓
+     *   → Task: NIE teleportuje (dist < radius+0.1) ✓
      *
-     * Elytrysta uderzający w shell:
-     *   tick 1: za barierą (licznik=1)
-     *   tick 2: znów w środku po odbiciu (licznik=0) → NO teleport ✓
+     * Gracz za shellem (dist > radius+0.1):
+     *   → Task: teleportuje po 3 tickach ✓
      *
-     * Gracz który rzeczywiście uciekł:
-     *   tick 1: za barierą (licznik=1)
-     *   tick 2: za barierą (licznik=2)
-     *   tick 3: za barierą (licznik=3) → TELEPORT ✓
+     * Elytrysta odbijający od shell (dist chwilowo > radius+0.1 przez 1-2 ticki):
+     *   → Task: NIE teleportuje (debounce 3 ticki) ✓
      */
     private void startBarrierTask() {
         barrierTask = new BukkitRunnable() {
@@ -102,13 +117,12 @@ public class HydroKlatkaMovementListener implements Listener {
                     Location center = klatka.getCenter();
                     if (center == null || center.getWorld() == null) continue;
 
-                    // Bariera: radius - BARRIER_OFFSET
-                    double barrierRadius = klatka.getRadius() - BARRIER_OFFSET;
+                    // Bariera teleportacji: PO ZEWNĘTRZNEJ stronie shell
+                    double teleportBarrier = klatka.getRadius() + TELEPORT_BARRIER_OFFSET;
 
                     for (UUID uuid : new ArrayList<>(klatka.getTrappedPlayers())) {
                         Player player = plugin.getServer().getPlayer(uuid);
                         if (player == null || !player.isOnline()) {
-                            // Gracz offline - resetuj licznik
                             outsideBarrierTicks.remove(uuid);
                             continue;
                         }
@@ -119,7 +133,7 @@ public class HydroKlatkaMovementListener implements Listener {
                             continue;
                         }
 
-                        // Inny świat -> usuń z klatki, resetuj licznik
+                        // Inny świat → usuń z klatki
                         if (!loc.getWorld().equals(center.getWorld())) {
                             outsideBarrierTicks.remove(uuid);
                             manager.removePlayerFromKlatka(player);
@@ -128,20 +142,21 @@ public class HydroKlatkaMovementListener implements Listener {
 
                         double dist = loc.distance(center);
 
-                        if (dist >= barrierRadius) {
-                            // Gracz jest za barierą lub na niej → inkrementuj licznik
+                        if (dist >= teleportBarrier) {
+                            // Gracz jest ZA shellem (po zewnętrznej stronie)
                             int ticks = outsideBarrierTicks.getOrDefault(uuid, 0) + 1;
                             outsideBarrierTicks.put(uuid, ticks);
 
                             if (ticks >= TELEPORT_DEBOUNCE_TICKS) {
-                                // Gracz jest za barierą przez wystarczająco długo → teleport
-                                outsideBarrierTicks.put(uuid, 0); // reset po teleporcie
+                                // Gracz jest za barierą teleportacji przez wystarczająco długo
+                                outsideBarrierTicks.put(uuid, 0);
                                 teleportToCenter(player, loc, center, klatka);
                                 sendBarrierFeedback(player);
                             }
-                            // Jeśli ticks < TELEPORT_DEBOUNCE_TICKS: czekamy (może to elytra bounce)
+                            // ticks < TELEPORT_DEBOUNCE_TICKS: czekamy (może elytra bounce)
                         } else {
-                            // Gracz jest wewnątrz bariery → resetuj licznik
+                            // Gracz jest wewnątrz TELEPORT_BARRIER (w środku lub w bloku shell)
+                            // → resetuj licznik, nie teleportuj
                             outsideBarrierTicks.put(uuid, 0);
                         }
                     }
@@ -163,7 +178,6 @@ public class HydroKlatkaMovementListener implements Listener {
     private Location findSafeCenterLocation(Location center, ActiveHydroKlatka klatka, float yaw, float pitch) {
         if (center == null || center.getWorld() == null) return center;
 
-        // Sprawdź exact center
         Location exact = center.clone();
         exact.setYaw(yaw);
         exact.setPitch(pitch);
@@ -172,14 +186,12 @@ public class HydroKlatkaMovementListener implements Listener {
             return exact;
         }
 
-        // Szukaj w spirali od środka
         int maxSearchRadius = Math.max(3, klatka.getRadius() - 2);
 
         for (int r = 1; r <= maxSearchRadius; r++) {
             for (int dy = -3; dy <= 3; dy++) {
                 for (int dx = -r; dx <= r; dx++) {
                     for (int dz = -r; dz <= r; dz++) {
-                        // Tylko obwód pierścienia (najbliższe pozycje)
                         if (r > 0 && Math.abs(dx) != r && Math.abs(dz) != r) continue;
 
                         Location candidate = new Location(
@@ -191,7 +203,6 @@ public class HydroKlatkaMovementListener implements Listener {
                                 pitch
                         );
 
-                        // Musi być sensownie wewnątrz klatki
                         if (candidate.distance(center) >= klatka.getRadius() - 1.5) continue;
 
                         if (isSafeForPlayer(candidate)) {
@@ -202,7 +213,6 @@ public class HydroKlatkaMovementListener implements Listener {
             }
         }
 
-        // Fallback - exact center (lepsze niż nic)
         return exact;
     }
 
@@ -265,12 +275,13 @@ public class HydroKlatkaMovementListener implements Listener {
     // ==================== MOVE EVENT ====================
 
     /**
-     * Blokuje ruch przekraczający barierę.
-     * Ten event anuluje ruch NATYCHMIAST (bez debounce),
-     * bo tu nie ma problemu z fałszywymi teleportami - anulowanie ruchu jest bezpieczne.
+     * Blokuje ruch natychmiast gdy gracz osiągnie MOVE_BARRIER (radius - 0.8).
      *
-     * Task z debounce służy jako backup dla przypadków których event nie łapie
-     * (np. teleport, lag, plugin bypass).
+     * Działa dla wszystkich graczy trapped, bez debounce -
+     * anulowanie ruchu jest bezpieczne i nie powoduje artefaktów.
+     *
+     * Gracz zbugowany w shell: jest między MOVE_BARRIER a shellem,
+     * PlayerMoveEvent blokuje dalszy ruch → gracz nie wydostaje się dalej.
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
@@ -281,7 +292,7 @@ public class HydroKlatkaMovementListener implements Listener {
         Location to = event.getTo();
         if (to == null || from == null) return;
 
-        // Ignoruj obrót głową (bez zmiany pozycji bloku)
+        // Ignoruj obrót głową
         if (from.getBlockX() == to.getBlockX()
                 && from.getBlockY() == to.getBlockY()
                 && from.getBlockZ() == to.getBlockZ()) {
@@ -303,9 +314,9 @@ public class HydroKlatkaMovementListener implements Listener {
         if (center == null || center.getWorld() == null) return;
         if (to.getWorld() == null || !to.getWorld().equals(center.getWorld())) return;
 
-        double barrierRadius = klatka.getRadius() - BARRIER_OFFSET;
+        double moveBarrier = klatka.getRadius() - MOVE_BARRIER_OFFSET;
 
-        if (to.distance(center) >= barrierRadius) {
+        if (to.distance(center) >= moveBarrier) {
             event.setCancelled(true);
             sendBarrierFeedback(player);
         }
@@ -337,11 +348,12 @@ public class HydroKlatkaMovementListener implements Listener {
         Location center = klatka.getCenter();
         if (center == null || center.getWorld() == null) return;
 
-        double barrierRadius = klatka.getRadius() - BARRIER_OFFSET;
+        // Teleport event używa MOVE_BARRIER (wewnętrznej bariery)
+        double moveBarrier = klatka.getRadius() - MOVE_BARRIER_OFFSET;
 
         if (to.getWorld() == null
                 || !to.getWorld().equals(center.getWorld())
-                || to.distance(center) >= barrierRadius) {
+                || to.distance(center) >= moveBarrier) {
             event.setCancelled(true);
             manager.sendMessage(player,
                     plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
