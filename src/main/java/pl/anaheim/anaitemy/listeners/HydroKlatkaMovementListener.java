@@ -5,7 +5,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.block.Block;
@@ -46,8 +45,6 @@ public class HydroKlatkaMovementListener implements Listener {
     /**
      * Liczba KOLEJNYCH ticków przez które gracz musi być za MOVE_BARRIER
      * LUB w solid bloku klatki, żeby dostać teleport awaryjny.
-     *
-     * Zabezpieczenie przed fałszywym teleportem elytrzystów.
      */
     private static final int TELEPORT_DEBOUNCE_TICKS = 3;
 
@@ -67,13 +64,14 @@ public class HydroKlatkaMovementListener implements Listener {
     /**
      * Logika:
      *
-     * Gracz potrzebuje teleportu awaryjnego gdy:
-     * A) Jest za MOVE_BARRIER (dist >= radius - 0.8) - przeszedł przez barierę
-     * B) Jest w SOLID bloku (zbugowany w shell podczas tworzenia)
+     * Teleport awaryjny działa TYLKO po zakończeniu animacji budowania.
+     * Podczas animacji gracz może być w solid bloku (shell się buduje na nim)
+     * - to normalne, nie teleportujemy.
      *
-     * Oba przypadki inkrementują licznik. Po TELEPORT_DEBOUNCE_TICKS → teleport.
-     *
-     * Gracz wewnątrz bariery i NIE w solid bloku → reset licznika.
+     * Po zakończeniu animacji:
+     * A) Gracz za MOVE_BARRIER (dist >= radius - 0.8)
+     * B) Gracz w SOLID bloku klatki (zbugowany w shell)
+     * → po TELEPORT_DEBOUNCE_TICKS tickach → teleport na środek
      */
     private void startBarrierTask() {
         barrierTask = new BukkitRunnable() {
@@ -82,6 +80,9 @@ public class HydroKlatkaMovementListener implements Listener {
                 HydroKlatkaManager manager = plugin.getHydroKlatkaManager();
 
                 for (ActiveHydroKlatka klatka : manager.getActiveKlatki()) {
+                    // Nie teleportuj podczas animacji budowania
+                    if (!klatka.isAnimationComplete()) continue;
+
                     Location center = klatka.getCenter();
                     if (center == null || center.getWorld() == null) continue;
 
@@ -112,9 +113,6 @@ public class HydroKlatkaMovementListener implements Listener {
                         boolean inSolidBlock = isPlayerInSolidBlock(player);
                         boolean isKlatkaBlock = manager.isKlatkaBlock(loc.getBlock().getLocation());
 
-                        // Gracz potrzebuje teleportu gdy:
-                        // 1. Jest za move barrier (przeszedł niewidzialną ścianę)
-                        // 2. Jest w solid bloku KLATKI (zbugowany w shell/mapped block)
                         boolean needsTeleport = beyondMoveBarrier || (inSolidBlock && isKlatkaBlock);
 
                         if (needsTeleport) {
@@ -127,7 +125,6 @@ public class HydroKlatkaMovementListener implements Listener {
                                 sendBarrierFeedback(player);
                             }
                         } else {
-                            // Gracz jest bezpiecznie wewnątrz → reset
                             outsideBarrierTicks.put(uuid, 0);
                         }
                     }
@@ -138,10 +135,6 @@ public class HydroKlatkaMovementListener implements Listener {
 
     // ==================== SPRAWDZENIE SOLID BLOKU ====================
 
-    /**
-     * Sprawdza czy gracz stoi w solid bloku (nogi LUB głowa).
-     * Łapie gracza zbugowanego w shell podczas tworzenia klatki.
-     */
     private boolean isPlayerInSolidBlock(Player player) {
         if (player == null) return false;
         Location loc = player.getLocation();
@@ -155,11 +148,6 @@ public class HydroKlatkaMovementListener implements Listener {
 
     // ==================== TELEPORT NA ŚRODEK ====================
 
-    /**
-     * Wykonuje teleport gracza na bezpieczne miejsce blisko środka klatki.
-     * Teleport jest SYNCHRONICZNY (w tym samym ticku) żeby uniknąć
-     * blokowania przez PlayerMoveEvent/PlayerTeleportEvent.
-     */
     private void performTeleportToCenter(Player player, Location center, ActiveHydroKlatka klatka) {
         if (player == null || center == null || klatka == null) return;
 
@@ -169,13 +157,10 @@ public class HydroKlatkaMovementListener implements Listener {
         Location destination = findSafeCenterLocation(center, klatka, playerLoc.getYaw(), playerLoc.getPitch());
         if (destination == null) return;
 
-        // Oznacz jako nasz teleport PRZED teleportacją
         internalTeleports.add(player.getUniqueId());
 
-        // Teleport synchroniczny - w tym samym ticku co task
         player.teleport(destination);
 
-        // Usuń flagę po kilku tickach
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -184,13 +169,9 @@ public class HydroKlatkaMovementListener implements Listener {
         }.runTaskLater(plugin, 5L);
     }
 
-    /**
-     * Szuka bezpiecznej pozycji blisko środka klatki.
-     */
     private Location findSafeCenterLocation(Location center, ActiveHydroKlatka klatka, float yaw, float pitch) {
         if (center == null || center.getWorld() == null) return center;
 
-        // Sprawdź exact center
         Location exact = center.clone();
         exact.setYaw(yaw);
         exact.setPitch(pitch);
@@ -199,7 +180,6 @@ public class HydroKlatkaMovementListener implements Listener {
             return exact;
         }
 
-        // Szukaj w spirali od środka
         int maxSearchRadius = Math.max(3, klatka.getRadius() - 2);
 
         for (int r = 1; r <= maxSearchRadius; r++) {
@@ -227,7 +207,6 @@ public class HydroKlatkaMovementListener implements Listener {
             }
         }
 
-        // Fallback - exact center
         return exact;
     }
 
@@ -277,7 +256,6 @@ public class HydroKlatkaMovementListener implements Listener {
         Location to = event.getTo();
         if (to == null || from == null) return;
 
-        // Ignoruj obrót głową
         if (from.getBlockX() == to.getBlockX()
                 && from.getBlockY() == to.getBlockY()
                 && from.getBlockZ() == to.getBlockZ()) {
