@@ -310,7 +310,7 @@ public class HydroTrojzabManager {
     public void sendShotCooldownSubtitle(Player player) {
         long remaining = getShotCooldownRemaining(player);
         String subtitle = plugin.getItemsConfig().getHydroTrojzabShotCooldownSubtitle()
-                .replace("{seconds_left}", remaining + "s");
+                .replace("{seconds_left}", String.valueOf(remaining));
 
         player.showTitle(Title.title(
                 Component.empty(),
@@ -326,7 +326,7 @@ public class HydroTrojzabManager {
     public void sendLaunchCooldownSubtitle(Player player) {
         long remaining = getLaunchCooldownRemaining(player);
         String subtitle = plugin.getItemsConfig().getHydroTrojzabLaunchCooldownSubtitle()
-                .replace("{seconds_left}", remaining + "s");
+                .replace("{seconds_left}", String.valueOf(remaining));
 
         player.showTitle(Title.title(
                 Component.empty(),
