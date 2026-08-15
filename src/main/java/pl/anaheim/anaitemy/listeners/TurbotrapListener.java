@@ -16,12 +16,27 @@ import pl.anaheim.anaitemy.items.TurbotrapItem;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.models.ActiveHydroKlatka;
 
+import java.util.List;
+
 public class TurbotrapListener implements Listener {
 
     private final AnaItemy plugin;
 
     public TurbotrapListener(AnaItemy plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * ✅ Sprawdza czy lokacja jest w zablokowanym wymiarze
+     */
+    private boolean isInBlockedWorld(Location location) {
+        if (location == null || location.getWorld() == null) return false;
+        String worldName = location.getWorld().getName();
+        List<String> blockedWorlds = plugin.getItemsConfig().getTurbotrapBlockedWorlds();
+        for (String blocked : blockedWorlds) {
+            if (blocked.equalsIgnoreCase(worldName)) return true;
+        }
+        return false;
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -32,7 +47,7 @@ public class TurbotrapListener implements Listener {
         ItemStack mainHand = shooter.getInventory().getItemInMainHand();
         if (!TurbotrapItem.isTurbotrap(mainHand)) return;
 
-        // ✅ Zablokuj użycie turbotrapa w klatce
+        // ✅ Zablokuj w klatce
         HydroKlatkaManager klatkaManager = plugin.getHydroKlatkaManager();
         if (klatkaManager.getKlatkaForPlayer(shooter) != null) {
             event.setCancelled(true);
@@ -40,6 +55,12 @@ public class TurbotrapListener implements Listener {
                     plugin.getItemsConfig().getHydroKlatkaMessageCannotUseInCage());
             shooter.playSound(shooter.getLocation(), Sound.BLOCK_GLASS_BREAK,
                     SoundCategory.PLAYERS, 1.0f, 0.8f);
+            return;
+        }
+
+        // ✅ Zablokuj w world_the_end
+        if (isInBlockedWorld(shooter.getLocation())) {
+            event.setCancelled(true);
             return;
         }
 
@@ -63,15 +84,20 @@ public class TurbotrapListener implements Listener {
         if (!plugin.getTurbotrapManager().isTurbotrapEgg(egg)) return;
 
         Location hitLocation = egg.getLocation();
+
+        // ✅ Zablokuj w world_the_end przy trafieniu
+        if (isInBlockedWorld(hitLocation)) {
+            egg.remove();
+            return;
+        }
+
         HydroKlatkaManager klatkaManager = plugin.getHydroKlatkaManager();
 
-        // ✅ Sprawdź czy jajko uderza w blok klatki
         if (klatkaManager.isKlatkaBlock(hitLocation.getBlock().getLocation())) {
             egg.remove();
             return;
         }
 
-        // ✅ Sprawdź czy jajko uderza wewnątrz aktywnej klatki
         for (ActiveHydroKlatka klatka : klatkaManager.getActiveKlatki()) {
             if (klatka.isInsideCage(hitLocation)) {
                 egg.remove();
@@ -79,8 +105,6 @@ public class TurbotrapListener implements Listener {
             }
         }
 
-        // ✅ Sprawdź czy schemat zachodzi na klatkę
-        // Jeśli tak — nie wklejaj w ogóle
         if (plugin.getTurbotrapManager().wouldOverlapCage(hitLocation)) {
             egg.remove();
             return;
