@@ -138,33 +138,37 @@ public class KrewWampiraListener implements Listener {
         if (event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT) {
             if (!currentBlood) return;
             event.setCancelled(true);
+            
+            // ✅ FIX: Przenosimy wszystko atomicznie bez "efektu odkładania po 1"
             int amountToMove = current.getAmount();
-
             Inventory targetInv = (event.getClickedInventory() == player.getInventory())
                     ? event.getView().getTopInventory()
                     : player.getInventory();
-
-            // Najpierw stackuj do istniejących
-            for (int i = 0; i < targetInv.getSize() && amountToMove > 0; i++) {
+        
+            int remaining = amountToMove;
+        
+            // Najpierw stackuj do istniejących - ale atomicznie (setAmount zamiast += 1)
+            for (int i = 0; i < targetInv.getSize() && remaining > 0; i++) {
                 ItemStack slot = targetInv.getItem(i);
                 if (!KrewWampiraItem.isKrewWampira(slot)) continue;
                 if (slot.getAmount() >= KrewWampiraItem.MAX_STACK) continue;
                 int canAdd = KrewWampiraItem.MAX_STACK - slot.getAmount();
-                int toAdd = Math.min(canAdd, amountToMove);
+                int toAdd = Math.min(canAdd, remaining);
                 slot.setAmount(slot.getAmount() + toAdd);
-                amountToMove -= toAdd;
+                remaining -= toAdd;
             }
-
-            // Potem na puste sloty
-            while (amountToMove > 0) {
+        
+            // Potem na puste sloty - wrzucamy całą porcję od razu
+            while (remaining > 0) {
                 int firstEmpty = targetInv.firstEmpty();
                 if (firstEmpty == -1) break;
-                int give = Math.min(KrewWampiraItem.MAX_STACK, amountToMove);
+                int give = Math.min(KrewWampiraItem.MAX_STACK, remaining);
+                // ✅ Ustawiamy cały stack od razu, nie jeden po jednym
                 targetInv.setItem(firstEmpty, KrewWampiraItem.create(give));
-                amountToMove -= give;
+                remaining -= give;
             }
-
-            if (amountToMove > 0) current.setAmount(amountToMove);
+        
+            if (remaining > 0) current.setAmount(remaining);
             else event.setCurrentItem(null);
             return;
         }
