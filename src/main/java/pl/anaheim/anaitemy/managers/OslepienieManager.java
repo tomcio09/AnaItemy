@@ -19,7 +19,6 @@ public class OslepienieManager {
 
     private final AnaItemy plugin;
 
-    // Osobne cooldowny dla kosy i łuku kupidyna
     private final Map<UUID, Long> kosaCooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lukCooldowns = new ConcurrentHashMap<>();
 
@@ -35,8 +34,6 @@ public class OslepienieManager {
             }
         }.runTaskTimer(plugin, 200L, 200L);
     }
-
-    // ==================== KOSA COOLDOWN ====================
 
     public boolean isKosaOnCooldown(Player player) {
         Long end = kosaCooldowns.get(player.getUniqueId());
@@ -60,13 +57,12 @@ public class OslepienieManager {
         kosaCooldowns.remove(player.getUniqueId());
         player.setCooldown(Material.NETHERITE_HOE, 0);
     }
+
     public void setPostResetCooldowns(Player player, int seconds) {
         long end = System.currentTimeMillis() + (seconds * 1000L);
         kosaCooldowns.put(player.getUniqueId(), end);
         lukCooldowns.put(player.getUniqueId(), end);
     }
-
-    // ==================== ŁUK KUPIDYNA COOLDOWN ====================
 
     public boolean isLukOnCooldown(Player player) {
         Long end = lukCooldowns.get(player.getUniqueId());
@@ -89,30 +85,20 @@ public class OslepienieManager {
         lukCooldowns.remove(player.getUniqueId());
     }
 
-    // ==================== OŚLEPIENIE ====================
-
-    /**
-     * ✅ Nakłada oślepienie na gracza.
-     * Używane zarówno przez kosę jak i łuk kupidyna.
-     */
     public boolean applyBlindness(Player attacker, Player victim, boolean isKosa) {
         ItemsConfig config = plugin.getItemsConfig();
 
-        // Region check
         if (isInBlockedRegion(attacker.getLocation()) || isInBlockedRegion(victim.getLocation())) {
             return false;
         }
 
-        // ✅ Nałóż blindness
         int blindnessDuration = config.getOslepienieDuration();
         victim.addPotionEffect(new PotionEffect(
                 PotionEffectType.BLINDNESS, blindnessDuration * 20, 0, false, false, true));
 
-        // ✅ Dźwięk
         victim.playSound(victim.getLocation(), Sound.ENTITY_WITHER_AMBIENT,
                 SoundCategory.PLAYERS, 0.5f, 0.5f);
 
-        // ✅ Subtitle dla ofiary
         String victimSubtitle = config.getOslepienieVictimSubtitle();
         victim.showTitle(Title.title(
                 Component.empty(),
@@ -124,7 +110,6 @@ public class OslepienieManager {
                 )
         ));
 
-        // ✅ Subtitle dla atakującego
         String attackerSubtitle = config.getOslepienieAttackerSubtitle()
                 .replace("{nick_victim}", victim.getName());
         attacker.showTitle(Title.title(
@@ -137,17 +122,15 @@ public class OslepienieManager {
                 )
         ));
 
-        // ✅ Particle
-        victim.getWorld().spawnParticle(Particle.SMOKE_LARGE,
+        // ✅ 1.21.4 - LARGE_SMOKE zamiast SMOKE_LARGE
+        victim.getWorld().spawnParticle(Particle.LARGE_SMOKE,
                 victim.getLocation().add(0, 1, 0), 20, 0.3, 0.5, 0.3, 0.05);
 
-        // ✅ Combat tag
         if (plugin.getCombatIntegrationManager().isEnabled()) {
             plugin.getCombatIntegrationManager().tagPlayer(victim, attacker);
             plugin.getCombatIntegrationManager().tagPlayer(attacker, victim);
         }
 
-        // ✅ Cooldown
         if (isKosa) {
             setKosaCooldown(attacker);
         } else {
@@ -157,16 +140,12 @@ public class OslepienieManager {
         return true;
     }
 
-    // ==================== REGION ====================
-
     private boolean isInBlockedRegion(Location location) {
         return plugin.getWorldGuardManager().isInNamedRegion(
                 location,
                 plugin.getItemsConfig().getOslepienieBlockedRegions()
         );
     }
-
-    // ==================== CLEANUP ====================
 
     public void cleanup() {
         kosaCooldowns.clear();
