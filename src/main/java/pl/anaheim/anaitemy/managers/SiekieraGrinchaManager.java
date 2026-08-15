@@ -11,6 +11,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
+import pl.anaheim.anaitemy.utils.ArmorReductionHelper;
 
 import java.time.Duration;
 import java.util.Map;
@@ -25,7 +26,6 @@ public class SiekieraGrinchaManager {
     public SiekieraGrinchaManager(AnaItemy plugin) {
         this.plugin = plugin;
 
-        // Cleanup task
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -52,8 +52,6 @@ public class SiekieraGrinchaManager {
         ItemsConfig config = plugin.getItemsConfig();
         long cooldownSeconds = config.getSiekieraGrinchaCooldown();
         cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (cooldownSeconds * 1000));
-
-        // ✅ Szare tło na slocie
         player.setCooldown(Material.GOLDEN_AXE, (int) (cooldownSeconds * 20));
     }
 
@@ -61,20 +59,16 @@ public class SiekieraGrinchaManager {
         cooldowns.remove(player.getUniqueId());
         player.setCooldown(Material.GOLDEN_AXE, 0);
     }
+
     public void setPostResetCooldown(Player player, int seconds) {
         cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
     }
 
     // ==================== ATAK ====================
 
-    /**
-     * ✅ Główna logika ataku siekierą Grincha.
-     * Zwraca true jeśli atak się powiódł.
-     */
     public boolean attack(Player attacker, Player victim) {
         ItemsConfig config = plugin.getItemsConfig();
 
-        // ✅ Sprawdź cooldown
         if (isOnCooldown(attacker)) {
             long remaining = getCooldownRemaining(attacker);
 
@@ -93,12 +87,10 @@ public class SiekieraGrinchaManager {
             return false;
         }
 
-        // ✅ Sprawdź region
         if (isInBlockedRegion(attacker.getLocation()) || isInBlockedRegion(victim.getLocation())) {
             return false;
         }
 
-        // ✅ Sprawdź ochronę (system 4s protection)
         if (plugin.getItemProtectionManager().isProtected(victim, "siekiera-grincha")) {
             int secondsLeft = plugin.getItemProtectionManager()
                     .getRemainingSeconds(victim, "siekiera-grincha");
@@ -108,18 +100,21 @@ public class SiekieraGrinchaManager {
             return false;
         }
 
-        // ✅ Oblicz 30% AKTUALNEGO zdrowia (bez absorpcji)
-        double currentHealth = victim.getHealth(); // Aktualne HP (bez absorpcji)
+        // ✅ Oblicz 30% AKTUALNEGO zdrowia
+        double currentHealth = victim.getHealth();
         double damagePercent = config.getSiekieraGrinchaDamagePercent();
         double damage = currentHealth * (damagePercent / 100.0);
 
         // ✅ Minimum 1 HP damage
         damage = Math.max(1.0, damage);
 
+        // ✅ Zastosuj redukcję zbroi eventówek
+        damage = ArmorReductionHelper.applyArmorReduction(damage, victim);
+
         // ✅ Nie zabijaj - zostaw minimum 1 HP
         double newHealth = Math.max(1.0, currentHealth - damage);
 
-        // ✅ 1. Piorun wizualny (nie niszczy bloków, nie zadaje damage)
+        // ✅ 1. Piorun wizualny
         victim.getWorld().strikeLightningEffect(victim.getLocation());
 
         // ✅ 2. Dźwięk pioruna
