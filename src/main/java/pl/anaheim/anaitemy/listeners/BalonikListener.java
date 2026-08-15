@@ -46,12 +46,10 @@ public class BalonikListener implements Listener {
 
         event.setCancelled(true);
 
-        // ✅ 4s protection - gracz nie może być spamowany balonikami
         if (plugin.getItemProtectionManager().isProtected(player, "balonik")) {
             return;
         }
 
-        // ✅ Nałóż ochronę
         plugin.getItemProtectionManager().applyProtection(player, "balonik");
 
         if (item.getAmount() > 1) {
