@@ -49,7 +49,8 @@ public class BalonikItem {
         meta.lore(loreComponents);
 
         meta.setCustomModelData(811);
-        meta.addEnchant(Enchantment.DURABILITY, 10, true);
+        // ✅ 1.21.4 - UNBREAKING zamiast DURABILITY
+        meta.addEnchant(Enchantment.UNBREAKING, 10, true);
         meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
 
         PlayerProfile profile = Bukkit.createProfile(PROFILE_UUID, "Balonik");
