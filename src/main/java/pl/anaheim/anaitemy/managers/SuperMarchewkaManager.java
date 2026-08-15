@@ -73,6 +73,7 @@ public class SuperMarchewkaManager {
         cooldowns.remove(player.getUniqueId());
         player.setCooldown(Material.GOLDEN_CARROT, 0);
     }
+
     public void setPostResetCooldown(Player player, int seconds) {
         cooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
     }
@@ -89,9 +90,12 @@ public class SuperMarchewkaManager {
         int effectDuration = config.getSuperMarchewkaEffectDuration();
         int effectTicks = effectDuration * 20;
 
+        // ✅ Pobierz mnożnik skali z configu (domyślnie 0.5 = ADD_SCALAR → 1.5x rozmiar)
+        double scaleModifier = config.getSuperMarchewkaScaleMultiplier();
+
         if (inHydroKlatka) {
+            // ✅ W klatce: zmniejsz o 50%
             applyScale(player, -0.5);
-            // ✅ 1.21.4 - nowe nazwy PotionEffectType
             player.addPotionEffect(new PotionEffect(
                     PotionEffectType.RESISTANCE, effectTicks, 2, false, true, true));
 
@@ -105,8 +109,8 @@ public class SuperMarchewkaManager {
                     Title.Times.times(Duration.ofMillis(250), Duration.ofMillis(3000), Duration.ofMillis(500))
             ));
         } else {
-            applyScale(player, 1.0);
-            // ✅ 1.21.4 - nowe nazwy PotionEffectType
+            // ✅ Normalnie: powiększ o scaleModifier (0.5 = 1.5x rozmiar)
+            applyScale(player, scaleModifier);
             player.addPotionEffect(new PotionEffect(
                     PotionEffectType.RESISTANCE, effectTicks, 2, false, true, true));
             player.addPotionEffect(new PotionEffect(
@@ -142,7 +146,6 @@ public class SuperMarchewkaManager {
     }
 
     private void applyScale(Player player, double scaleModifier) {
-        // ✅ 1.21.4 - nowa nazwa atrybutu
         AttributeInstance scaleAttr = player.getAttribute(Attribute.SCALE);
         if (scaleAttr == null) return;
 
@@ -160,7 +163,6 @@ public class SuperMarchewkaManager {
     }
 
     private void applyCritBoost(Player player) {
-        // ✅ 1.21.4 - nowa nazwa atrybutu
         AttributeInstance attackDamage = player.getAttribute(Attribute.ATTACK_DAMAGE);
         if (attackDamage == null) return;
 
@@ -181,14 +183,12 @@ public class SuperMarchewkaManager {
         ActiveEffect effect = activeEffects.remove(player.getUniqueId());
         if (effect == null) return;
 
-        // ✅ 1.21.4 - nowe nazwy atrybutów
         AttributeInstance scaleAttr = player.getAttribute(Attribute.SCALE);
         if (scaleAttr != null) removeScaleModifier(scaleAttr);
 
         AttributeInstance attackDamage = player.getAttribute(Attribute.ATTACK_DAMAGE);
         if (attackDamage != null) removeCritModifier(attackDamage);
 
-        // ✅ 1.21.4 - nowe nazwy PotionEffectType
         player.removePotionEffect(PotionEffectType.RESISTANCE);
         player.removePotionEffect(PotionEffectType.SLOWNESS);
 
@@ -224,7 +224,6 @@ public class SuperMarchewkaManager {
     public void cleanupPlayer(Player player) {
         if (activeEffects.containsKey(player.getUniqueId())) removeEffect(player);
 
-        // ✅ 1.21.4 - nowe nazwy atrybutów
         AttributeInstance scaleAttr = player.getAttribute(Attribute.SCALE);
         if (scaleAttr != null) removeScaleModifier(scaleAttr);
 
