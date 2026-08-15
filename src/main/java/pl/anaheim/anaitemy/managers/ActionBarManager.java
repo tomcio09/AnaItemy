@@ -1,4 +1,3 @@
-// src/main/java/pl/anaheim/anaitemy/managers/ActionBarManager.java
 package pl.anaheim.anaitemy.managers;
 
 import net.kyori.adventure.text.Component;
@@ -44,14 +43,11 @@ public class ActionBarManager {
 
                     boolean playerInCombat = combat.isInCombat(player);
 
-                    // ✅ Jeśli jest antilogout / combat, NIE pokazujemy żadnych naszych action barów.
-                    // Dzięki temu widać tylko antilogout.
                     if (playerInCombat) {
                         inCombat.add(playerId);
                         continue;
                     }
 
-                    // Gracz wyszedł z combatu
                     if (inCombat.contains(playerId)) {
                         inCombat.remove(playerId);
                     }
@@ -70,6 +66,7 @@ public class ActionBarManager {
                         if (barText == null || barText.isEmpty()) continue;
 
                         if (!first) {
+                            // ✅ Separator z kolorowym pionkiem
                             combined.append(" &8| ");
                         }
                         combined.append(barText);
@@ -90,7 +87,9 @@ public class ActionBarManager {
 
         return switch (source.toLowerCase(Locale.ROOT)) {
             case "elytra" -> 0;
-            case "hydroklatka" -> 1;
+            // ✅ Trójząb między elytrą a klatką
+            case "hydrotrojzab" -> 1;
+            case "hydroklatka" -> 2;
             default -> 100;
         };
     }
