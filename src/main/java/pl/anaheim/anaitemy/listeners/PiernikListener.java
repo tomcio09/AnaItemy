@@ -21,10 +21,6 @@ public class PiernikListener implements Listener {
 
     public PiernikListener(AnaItemy plugin) { this.plugin = plugin; }
 
-    /**
-     * ✅ Gdy gracz klika PPM trzymając piernika i ma pełny głód —
-     * obniż głód o 1 punkt żeby klient pozwolił zacząć jedzenie.
-     */
     @EventHandler(priority = EventPriority.LOW)
     public void onInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_AIR
@@ -40,9 +36,6 @@ public class PiernikListener implements Listener {
         }
     }
 
-    /**
-     * ✅ Po zjedzeniu — daj efekt i przywróć pełny głód.
-     */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onConsume(PlayerItemConsumeEvent event) {
         Player player = event.getPlayer();
@@ -54,10 +47,10 @@ public class PiernikListener implements Listener {
             int duration = plugin.getItemsConfig().getPiernikHasteDuration() * 20;
             int level = plugin.getItemsConfig().getPiernikHasteLevel() - 1;
 
+            // ✅ 1.21.4 - HASTE zamiast FAST_DIGGING
             player.addPotionEffect(new PotionEffect(
-                    PotionEffectType.FAST_DIGGING, duration, level, false, true, true));
+                    PotionEffectType.HASTE, duration, level, false, true, true));
 
-            // ✅ Przywróć pełny głód
             player.setFoodLevel(20);
             player.setSaturation(20.0f);
         }, 1L);
