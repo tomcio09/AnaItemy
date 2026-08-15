@@ -20,6 +20,8 @@ import pl.anaheim.anaitemy.items.BombardaMaximaItem;
 import pl.anaheim.anaitemy.managers.HydroKlatkaManager;
 import pl.anaheim.anaitemy.models.ActiveHydroKlatka;
 
+import java.util.List;
+
 public class BombardaMaximaListener implements Listener {
 
     private static final String META_BOMBARDA = "anaitemy_bombarda";
@@ -40,7 +42,7 @@ public class BombardaMaximaListener implements Listener {
 
         event.setCancelled(true);
 
-        // ✅ Zablokuj użycie bombardy w klatce
+        // ✅ Zablokuj w klatce
         HydroKlatkaManager klatkaManager = plugin.getHydroKlatkaManager();
         if (klatkaManager.getKlatkaForPlayer(player) != null) {
             klatkaManager.sendMessage(player,
@@ -50,6 +52,10 @@ public class BombardaMaximaListener implements Listener {
             return;
         }
 
+        // ✅ Zablokuj w world_the_end
+        if (isInBlockedWorld(player.getLocation())) return;
+
+        // ✅ Zablokuj w regionach z items.yml
         if (plugin.getWorldGuardManager().isInNamedRegion(player.getLocation(),
                 plugin.getItemsConfig().getBombardaBlockedRegions())) return;
 
@@ -68,28 +74,36 @@ public class BombardaMaximaListener implements Listener {
     }
 
     /**
-     * ✅ Sprawdza czy lokalizacja jest chroniona przez jakąkolwiek klatkę
-     * Działa zarówno podczas animacji jak i po niej
+     * ✅ Sprawdza czy lokacja jest w zablokowanym wymiarze lub chroniona przez klatkę
      */
     private boolean isProtectedByCage(Location blockLoc, HydroKlatkaManager klatkaManager) {
-        // Sprawdź czy to zapisany blok klatki (po zbudowaniu)
         if (klatkaManager.isKlatkaBlock(blockLoc)) {
             return true;
         }
 
-        // Sprawdź każdą aktywną klatkę
         for (ActiveHydroKlatka klatka : klatkaManager.getActiveKlatki()) {
-            // Sprawdź czy blok jest wewnątrz sfery klatki
             if (klatka.isInsideCage(blockLoc)) {
                 return true;
             }
 
-            // Sprawdź czy to zaplanowana pozycja shella (podczas animacji)
             if (!klatka.isAnimationComplete() && klatka.isPlannedShellLocation(blockLoc)) {
                 return true;
             }
         }
 
+        return false;
+    }
+
+    /**
+     * ✅ Sprawdza czy lokacja jest w zablokowanym wymiarze
+     */
+    private boolean isInBlockedWorld(Location location) {
+        if (location == null || location.getWorld() == null) return false;
+        String worldName = location.getWorld().getName();
+        List<String> blockedWorlds = plugin.getItemsConfig().getBombardaBlockedWorlds();
+        for (String blocked : blockedWorlds) {
+            if (blocked.equalsIgnoreCase(worldName)) return true;
+        }
         return false;
     }
 
@@ -104,6 +118,13 @@ public class BombardaMaximaListener implements Listener {
         World world = impact.getWorld();
         int radius = plugin.getItemsConfig().getBombardaRadius();
 
+        // ✅ Zablokuj w world_the_end przy trafieniu
+        if (isInBlockedWorld(impact)) {
+            fireball.remove();
+            return;
+        }
+
+        // ✅ Zablokuj w regionach przy trafieniu
         if (plugin.getWorldGuardManager().isInNamedRegion(impact,
                 plugin.getItemsConfig().getBombardaBlockedRegions())) {
             fireball.remove();
@@ -122,7 +143,6 @@ public class BombardaMaximaListener implements Listener {
                     if (block.getType() == Material.BEDROCK) continue;
                     if (block.getType().isAir()) continue;
 
-                    // ✅ NIE niszcz NICZEGO co jest chronione przez klatkę
                     if (isProtectedByCage(blockLoc, klatkaManager)) continue;
 
                     block.setType(Material.AIR, false);
