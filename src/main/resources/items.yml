@@ -1,4 +1,3 @@
-
 # ==========================================
 #         TOTEM UŁASKAWIENIA
 # ==========================================
@@ -433,14 +432,14 @@ hydro-trojzab:
     unbreaking: 10
 
   shot:
-    cooldown: 60
+    cooldown: 30
     damage: 10.0
     radius: 4.0
     knockback-horizontal: 1.2
     knockback-upward: 0.35
 
   launch:
-    cooldown: 15
+    cooldown: 20
     power: 3.2
 
   blocked-regions:
@@ -449,8 +448,11 @@ hydro-trojzab:
     - netherspawn
 
   messages:
-    shot-cooldown-subtitle: '&7Cios pirunem możesz użyć za: &b{seconds_left}s&7!'
-    launch-cooldown-subtitle: '&7Wystrzelenia możesz użyć za: &b{seconds_left}&7!'
+    shot-cooldown-subtitle: '&cPioruny możesz przywołać za &4{seconds_left}&c!'
+    launch-cooldown-subtitle: '&cNastępny raz możesz za &4{seconds_left}&c!'
+
+  actionbar:
+    launch-cooldown-format: '&fWyskok z &3Trójzębu Posejdona &fza: &b{time}'
 
   respects-protection: true
   notify-attacker: false
@@ -620,7 +622,10 @@ super-marchewka:
   gui-slot: 13
 
   # Czas trwania efektu (sekundy)
-  effect-duration: 10
+  effect-duration: 15
+
+  # Mnożnik skali (1.5 = 150% normalnego rozmiaru)
+  scale-multiplier: 0.5
 
   # Cooldown (sekundy)
   cooldown: 60
@@ -633,9 +638,9 @@ super-marchewka:
   messages:
     cooldown-subtitle: '&6Marchewkę &7możesz użyć za: &6{seconds_left}'
     super-title: '&6&lSuper Marchewka'
-    super-subtitle: '&7Zwiększony x2 na &610 sekund&7!'
+    super-subtitle: '&7Zwiększony x1.5 na &615 sekund&7!'
     mini-title: '&b&lMini Marchewka'
-    mini-subtitle: '&aZmniejszony o 50% na 10 sekund!'
+    mini-subtitle: '&aZmniejszony o 50% na 15 sekund!'
 
   respects-protection: false
   notify-attacker: false
@@ -1051,6 +1056,8 @@ turbotrap:
     - endpvp
     - spawnpvp
     - netherspawnpvp
+  blocked-worlds:
+    - world_the_end
   respects-protection: true
   notify-attacker: true
   protection-messages:
@@ -1212,6 +1219,8 @@ bombarda-maxima:
     - endpvp
     - spawnpvp
     - netherspawnpvp
+  blocked-worlds:
+    - world_the_end
   respects-protection: false
   notify-attacker: false
 
@@ -1223,6 +1232,8 @@ dynamit:
   name: '&4&lDynamit'
   custom-model-data: 523
   gui-slot: 15
+  messages:
+    success-subtitle: '&cPomyślnie zniszczyłeś bedrock!'
   respects-protection: false
   notify-attacker: false
 # ==========================================
