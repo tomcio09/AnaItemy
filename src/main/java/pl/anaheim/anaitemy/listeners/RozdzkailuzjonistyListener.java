@@ -1,6 +1,8 @@
 package pl.anaheim.anaitemy.listeners;
 
 import org.bukkit.Location;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.EvokerFangs;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -16,6 +18,7 @@ import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.items.RozdzkailuzjonistyItem;
 import pl.anaheim.anaitemy.managers.RozdzkailuzjonistyManager;
+import pl.anaheim.anaitemy.utils.ArmorReductionHelper;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -24,8 +27,6 @@ import java.util.UUID;
 public class RozdzkailuzjonistyListener implements Listener {
 
     private final AnaItemy plugin;
-
-    // ✅ Gracze którzy już dostali damage od danej fali szczęk
     private final Set<String> damagedByWave = new HashSet<>();
 
     public RozdzkailuzjonistyListener(AnaItemy plugin) {
@@ -76,7 +77,6 @@ public class RozdzkailuzjonistyListener implements Listener {
 
         UUID ownerUUID = manager.getFangOwner(fang);
 
-        // ✅ Właściciel nie dostaje damage
         if (ownerUUID != null && ownerUUID.equals(victim.getUniqueId())) {
             event.setCancelled(true);
             return;
@@ -84,7 +84,6 @@ public class RozdzkailuzjonistyListener implements Listener {
 
         Player attacker = ownerUUID != null ? plugin.getServer().getPlayer(ownerUUID) : null;
 
-        // ✅ Sprawdź ochronę
         if (attacker != null) {
             if (plugin.getItemProtectionManager().isProtected(victim, "rozdzka-iluzjonisty")) {
                 event.setCancelled(true);
@@ -99,18 +98,18 @@ public class RozdzkailuzjonistyListener implements Listener {
             }
         }
 
-        // ✅ Anuluj vanilla damage
         event.setCancelled(true);
 
         ItemsConfig config = plugin.getItemsConfig();
-        double damage = config.getRozdzkailuzjonistyFangsDamage();
+        double baseDamage = config.getRozdzkailuzjonistyFangsDamage();
 
-        // ✅ Zadaj damage ofierze
+        // ✅ Zastosuj redukcję zbroi eventówek
+        double damage = ArmorReductionHelper.applyArmorReduction(baseDamage, victim);
+
         applyDamage(victim, damage);
         plugin.getItemProtectionManager().applyProtection(victim, "rozdzka-iluzjonisty");
         manager.markFangDamaged(fang, victim.getUniqueId());
 
-        // ✅ Sprawdź graczy nad szczękami (1-3 bloki wyżej) — ręczny damage bez wizualu
         Location fangLoc = fang.getLocation();
         checkPlayersAbove(fangLoc, fang, ownerUUID, attacker, damage, manager);
 
@@ -118,28 +117,17 @@ public class RozdzkailuzjonistyListener implements Listener {
         manager.cleanupFang(fang);
     }
 
-    /**
-     * ✅ Sprawdza graczy nad szczękami i zadaje im damage ręcznie.
-     * Nie spawnuje dodatkowych szczęk — tylko niewidoczny damage.
-     */
     private void checkPlayersAbove(Location fangLoc, EvokerFangs fang,
                                     UUID ownerUUID, Player attacker,
                                     double damage, RozdzkailuzjonistyManager manager) {
 
         for (Player nearby : fangLoc.getWorld().getNearbyPlayers(fangLoc, 1.5, 3.0, 1.5)) {
-            // Pomiń gracza który już dostał damage od tej szczęki
             if (manager.hasFangDamaged(fang, nearby.getUniqueId())) continue;
-
-            // Pomiń właściciela
             if (ownerUUID != null && nearby.getUniqueId().equals(ownerUUID)) continue;
-
-            // Pomiń graczy na ziemi (ci już dostali damage normalnie)
             if (nearby.getLocation().getY() - fangLoc.getY() < 0.5) continue;
 
-            // Sprawdź region
             if (!manager.canFangDamageInRegion(nearby.getLocation())) continue;
 
-            // Sprawdź ochronę
             if (plugin.getItemProtectionManager().isProtected(nearby, "rozdzka-iluzjonisty")) {
                 if (attacker != null) {
                     int sl = plugin.getItemProtectionManager()
@@ -151,17 +139,45 @@ public class RozdzkailuzjonistyListener implements Listener {
                 continue;
             }
 
-            // ✅ Zadaj damage ręcznie (niewidocznie — bez dodatkowych szczęk)
-            applyDamage(nearby, damage);
+            // ✅ Zastosuj redukcję zbroi eventówek dla gracza powyżej
+            double nearbyDamage = ArmorReductionHelper.applyArmorReduction(damage, nearby);
+            applyDamage(nearby, nearbyDamage);
             plugin.getItemProtectionManager().applyProtection(nearby, "rozdzka-iluzjonisty");
             manager.markFangDamaged(fang, nearby.getUniqueId());
         }
     }
 
+    /**
+     * ✅ Zadaje damage najpierw zabierając absorpcję (złote serca),
+     * a dopiero potem zwykłe HP.
+     */
     private void applyDamage(Player victim, double damage) {
-        double newHealth = victim.getHealth() - damage;
-        if (newHealth <= 0) victim.setHealth(0.0);
-        else victim.setHealth(newHealth);
+        if (damage <= 0) return;
+
+        // ✅ Sprawdź absorpcję (złote serca z enchanted golden apple etc.)
+        AttributeInstance absorptionAttr = victim.getAttribute(Attribute.MAX_ABSORPTION);
+        double absorption = victim.getAbsorptionAmount();
+
+        if (absorption > 0) {
+            if (damage <= absorption) {
+                // ✅ Cały damage idzie z absorpcji
+                victim.setAbsorptionAmount(absorption - damage);
+                return;
+            } else {
+                // ✅ Część z absorpcji, reszta z HP
+                double remainingDamage = damage - absorption;
+                victim.setAbsorptionAmount(0.0);
+
+                double newHealth = victim.getHealth() - remainingDamage;
+                if (newHealth <= 0) victim.setHealth(0.0);
+                else victim.setHealth(newHealth);
+            }
+        } else {
+            // ✅ Brak absorpcji - cały damage z HP
+            double newHealth = victim.getHealth() - damage;
+            if (newHealth <= 0) victim.setHealth(0.0);
+            else victim.setHealth(newHealth);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH)
