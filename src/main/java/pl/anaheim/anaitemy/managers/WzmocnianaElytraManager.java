@@ -13,6 +13,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.items.WzmocnianaElytra;
+import pl.anaheim.anaitemy.utils.ArmorReductionHelper;
 
 import java.time.Duration;
 import java.util.Locale;
@@ -35,7 +36,7 @@ public class WzmocnianaElytraManager {
     private static final double TOTAL_BLOCKS_FOR_100_PERCENT = 500.0;
     private static final int MAX_CHARGE = 100;
     private static final int DAMAGE_RADIUS = 5;
-    private static final int DAMAGE = 20;
+    private static final int BASE_DAMAGE = 20;
     private static final int SHIFT_CLICKS_NEEDED = 1;
     private static final int UPDATE_INTERVAL = 10;
 
@@ -153,7 +154,6 @@ public class WzmocnianaElytraManager {
                 }
 
                 double charge = WzmocnianaElytra.getCharge(chestplate);
-                // ✅ Locale.US wymusza kropkę zamiast przecinka
                 String chargeStr = String.format(Locale.US, "%.2f", charge);
 
                 String elytraBar = "&bWzmocniana elytra &fzaladowana w &3" + chargeStr + "%";
@@ -201,7 +201,6 @@ public class WzmocnianaElytraManager {
 
         Location center = landingLocation.clone();
 
-        // ✅ Sprawdz czy gracz jest na zablokowanym regionie
         List<String> blockedRegions = plugin.getItemsConfig().getWzmocnianaElytraBlockedRegions();
         if (plugin.getWorldGuardManager().isInBlockedRegion(center, blockedRegions)) {
             WzmocnianaElytra.resetCharge(chestplate);
@@ -210,8 +209,6 @@ public class WzmocnianaElytraManager {
             previousLocations.remove(player.getUniqueId());
             return;
         }
-
-        // ... reszta metody bez zmian ...
 
         // ✅ 1. TAG COMBATU - strzelec
         if (plugin.getCombatIntegrationManager().isEnabled()) {
@@ -238,18 +235,19 @@ public class WzmocnianaElytraManager {
         // ✅ 5. CZĄSTECZKI
         center.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, center, 50, 1, 1, 1, 0.5);
 
-        // ✅ 6. DAMAGE - Totem obsługiwany globalnie w PlayerDeathEvent
+        // ✅ 6. DAMAGE z redukcją eventówek
         for (Player nearPlayer : center.getWorld().getNearbyPlayers(center, DAMAGE_RADIUS)) {
             if (nearPlayer == null || !nearPlayer.isOnline()) continue;
             if (nearPlayer.equals(player)) continue;
 
-            // ✅ SPRAWDŹ OCHRONĘ PRZED ELYTRĄ
             if (plugin.getItemProtectionManager().isProtected(nearPlayer, "wzmocniana-elytra")) {
-                // Nie pokazujemy wiadomości atakującemu (notify-attacker: false)
                 continue;
             }
 
-            double newHealth = nearPlayer.getHealth() - DAMAGE;
+            // ✅ Zastosuj redukcję zbroi eventówek
+            double actualDamage = ArmorReductionHelper.applyArmorReduction(BASE_DAMAGE, nearPlayer);
+
+            double newHealth = nearPlayer.getHealth() - actualDamage;
 
             if (newHealth <= 0) {
                 nearPlayer.setHealth(0.0);
@@ -257,7 +255,6 @@ public class WzmocnianaElytraManager {
                 nearPlayer.setHealth(newHealth);
             }
 
-            // ✅ NAŁÓŻ OCHRONĘ PO ZADANIU DAMAGE
             plugin.getItemProtectionManager().applyProtection(nearPlayer, "wzmocniana-elytra");
         }
 
