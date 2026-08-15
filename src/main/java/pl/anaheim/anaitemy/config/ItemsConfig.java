@@ -18,7 +18,6 @@ public class ItemsConfig {
     private FileConfiguration config;
     private File configFile;
 
-    // ✅ NOWE: Cache dla mapowania bloków HydroKlatka
     private Map<Material, Material> hydroKlatkaBlockMapping = null;
 
     public ItemsConfig(AnaItemy plugin) {
@@ -32,24 +31,19 @@ public class ItemsConfig {
         config = YamlConfiguration.loadConfiguration(configFile);
     }
 
-    public void reloadConfig() { 
-        loadConfig(); 
-        // ✅ Resetuj cache przy przeładowaniu
+    public void reloadConfig() {
+        loadConfig();
         resetHydroKlatkaBlockMapping();
     }
-    
+
     public FileConfiguration getConfig() { return config; }
 
-    // ==================== ✅ HYDRO KLATKA BLOCK MAPPING ====================
+    // ==================== HYDRO KLATKA BLOCK MAPPING ====================
 
-    /**
-     * Zwraca mapowanie bloków dla HydroKlatka z items.yml.
-     * Klucz = material oryginalny, wartość = material docelowy w klatce.
-     */
     public Map<Material, Material> getHydroKlatkaBlockMapping() {
         if (hydroKlatkaBlockMapping == null) {
             hydroKlatkaBlockMapping = new HashMap<>();
-            
+
             ConfigurationSection section = config.getConfigurationSection("hydro-klatka.block-mapping");
             if (section != null) {
                 for (String fromKey : section.getKeys(false)) {
@@ -60,25 +54,21 @@ public class ItemsConfig {
                             Material toMaterial = Material.valueOf(toValue.toUpperCase());
                             hydroKlatkaBlockMapping.put(fromMaterial, toMaterial);
                         } catch (IllegalArgumentException e) {
-                            plugin.getLogger().warning("Nieprawidłowe mapowanie bloku w hydro-klatka.block-mapping: " 
+                            plugin.getLogger().warning("Nieprawidłowe mapowanie bloku: "
                                     + fromKey + " -> " + toValue);
                         }
                     }
                 }
             }
-            
-            // Jeśli brak konfiguracji, użyj domyślnych wartości
+
             if (hydroKlatkaBlockMapping.isEmpty()) {
                 setDefaultBlockMapping();
             }
         }
-        
+
         return hydroKlatkaBlockMapping;
     }
 
-    /**
-     * Ustawia domyślne mapowanie bloków jeśli brak w konfiguracji.
-     */
     private void setDefaultBlockMapping() {
         hydroKlatkaBlockMapping.put(Material.DIRT, Material.LIGHT_BLUE_CONCRETE);
         hydroKlatkaBlockMapping.put(Material.GRASS_BLOCK, Material.LIGHT_BLUE_CONCRETE);
@@ -117,16 +107,11 @@ public class ItemsConfig {
         hydroKlatkaBlockMapping.put(Material.MOSSY_STONE_BRICKS, Material.PRISMARINE_BRICKS);
         hydroKlatkaBlockMapping.put(Material.CRACKED_STONE_BRICKS, Material.PRISMARINE_BRICKS);
         hydroKlatkaBlockMapping.put(Material.CHISELED_STONE_BRICKS, Material.PRISMARINE_BRICKS);
-        
-        // Ważne bloki które powinny pozostać bez zmian
         hydroKlatkaBlockMapping.put(Material.BEDROCK, Material.BEDROCK);
         hydroKlatkaBlockMapping.put(Material.BEACON, Material.BEACON);
         hydroKlatkaBlockMapping.put(Material.OBSIDIAN, Material.OBSIDIAN);
     }
 
-    /**
-     * Resetuje cache mapowania bloków - użyj po przeładowaniu konfiguracji.
-     */
     public void resetHydroKlatkaBlockMapping() {
         hydroKlatkaBlockMapping = null;
     }
@@ -299,16 +284,17 @@ public class ItemsConfig {
     public String getSiekieraGrinchaCooldownSubtitle() { return config.getString("siekiera-grincha.messages.cooldown-subtitle", "&2Siekiere Grincha &7mozesz uzyc dopiero za &a{seconds_left}"); }
 
     // ==================== HYDRO TROJZAB ====================
-    public long getHydroTrojzabShotCooldown() { return config.getLong("hydro-trojzab.shot.cooldown", 60); }
-    public long getHydroTrojzabLaunchCooldown() { return config.getLong("hydro-trojzab.launch.cooldown", 15); }
+    public long getHydroTrojzabShotCooldown() { return config.getLong("hydro-trojzab.shot.cooldown", 30); }
+    public long getHydroTrojzabLaunchCooldown() { return config.getLong("hydro-trojzab.launch.cooldown", 20); }
     public double getHydroTrojzabImpactDamage() { return config.getDouble("hydro-trojzab.shot.damage", 10.0); }
     public double getHydroTrojzabImpactRadius() { return config.getDouble("hydro-trojzab.shot.radius", 4.0); }
     public double getHydroTrojzabKnockbackHorizontal() { return config.getDouble("hydro-trojzab.shot.knockback-horizontal", 1.2); }
     public double getHydroTrojzabKnockbackUpward() { return config.getDouble("hydro-trojzab.shot.knockback-upward", 0.35); }
     public double getHydroTrojzabLaunchPower() { return config.getDouble("hydro-trojzab.launch.power", 3.2); }
     public List<String> getHydroTrojzabBlockedRegions() { return config.getStringList("hydro-trojzab.blocked-regions"); }
-    public String getHydroTrojzabShotCooldownSubtitle() { return config.getString("hydro-trojzab.messages.shot-cooldown-subtitle", "&7Cios piorunem mozesz uzyc za: &b{seconds_left}&7!"); }
-    public String getHydroTrojzabLaunchCooldownSubtitle() { return config.getString("hydro-trojzab.messages.launch-cooldown-subtitle", "&7Wystrzelenia mozesz uzyc za: &b{seconds_left}&7!"); }
+    public String getHydroTrojzabShotCooldownSubtitle() { return config.getString("hydro-trojzab.messages.shot-cooldown-subtitle", "&cPioruny mozesz przywolac za &4{seconds_left}&c!"); }
+    public String getHydroTrojzabLaunchCooldownSubtitle() { return config.getString("hydro-trojzab.messages.launch-cooldown-subtitle", "&cNastepny raz mozesz za &4{seconds_left}&c!"); }
+    public String getHydroTrojzabLaunchActionBarFormat() { return config.getString("hydro-trojzab.actionbar.launch-cooldown-format", "&fWyskok z &3Trojzebu Posejdona &fza: &b{time}"); }
 
     // ==================== CUDOWNA LATARNIA ====================
     public int getCudownaLatarniaDuration() { return config.getInt("cudowna-latarnia.duration", 30); }
@@ -347,13 +333,14 @@ public class ItemsConfig {
 
     // ==================== SUPER MARCHEWKA ====================
     public long getSuperMarchewkaCooldown() { return config.getLong("super-marchewka.cooldown", 60); }
-    public int getSuperMarchewkaEffectDuration() { return config.getInt("super-marchewka.effect-duration", 10); }
+    public int getSuperMarchewkaEffectDuration() { return config.getInt("super-marchewka.effect-duration", 15); }
+    public double getSuperMarchewkaScaleMultiplier() { return config.getDouble("super-marchewka.scale-multiplier", 0.5); }
     public List<String> getSuperMarchewkaBlockedRegions() { return config.getStringList("super-marchewka.blocked-regions"); }
     public String getSuperMarchewkaCooldownSubtitle() { return config.getString("super-marchewka.messages.cooldown-subtitle", "&6Marchewke &7mozesz uzyc za: &6{seconds_left}"); }
     public String getSuperMarchewkaSuperTitle() { return config.getString("super-marchewka.messages.super-title", "&6&lSuper Marchewka"); }
-    public String getSuperMarchewkaSuperSubtitle() { return config.getString("super-marchewka.messages.super-subtitle", "&7Zwiekszony x2 na &610 sekund&7!"); }
+    public String getSuperMarchewkaSuperSubtitle() { return config.getString("super-marchewka.messages.super-subtitle", "&7Zwiekszony x1.5 na &615 sekund&7!"); }
     public String getSuperMarchewkaMiniTitle() { return config.getString("super-marchewka.messages.mini-title", "&b&lMini Marchewka"); }
-    public String getSuperMarchewkaMiniSubtitle() { return config.getString("super-marchewka.messages.mini-subtitle", "&aZmniejszony o 50% na 10 sekund!"); }
+    public String getSuperMarchewkaMiniSubtitle() { return config.getString("super-marchewka.messages.mini-subtitle", "&aZmniejszony o 50% na 15 sekund!"); }
 
     // ==================== LOPATA GRINCHA ====================
     public long getLopataGrinchaCooldown() { return config.getLong("lopata-grincha.cooldown", 30); }
@@ -454,9 +441,11 @@ public class ItemsConfig {
     // ==================== BOMBARDA MAXIMA ====================
     public int getBombardaRadius() { return config.getInt("bombarda-maxima.radius", 4); }
     public List<String> getBombardaBlockedRegions() { return config.getStringList("bombarda-maxima.blocked-regions"); }
+    public List<String> getBombardaBlockedWorlds() { return config.getStringList("bombarda-maxima.blocked-worlds"); }
 
     // ==================== TURBOTRAP ====================
     public List<String> getTurbotrapBlockedRegions() { return config.getStringList("turbotrap.blocked-regions"); }
+    public List<String> getTurbotrapBlockedWorlds() { return config.getStringList("turbotrap.blocked-worlds"); }
 
     // ==================== LIZAK ====================
     public double getLizakScaleMultiplier() { return config.getDouble("lizak.scale-multiplier", 0.9); }
@@ -475,5 +464,10 @@ public class ItemsConfig {
     // ==================== WZMOCNIANA ELYTRA ====================
     public List<String> getWzmocnianaElytraBlockedRegions() {
         return config.getStringList("wzmocniana-elytra.blocked-regions");
+    }
+
+    // ==================== DYNAMIT ====================
+    public String getDynamitSuccessSubtitle() {
+        return config.getString("dynamit.messages.success-subtitle", "&cPomyślnie zniszczyłeś bedrock!");
     }
 }
