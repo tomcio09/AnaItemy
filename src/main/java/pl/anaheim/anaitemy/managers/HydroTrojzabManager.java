@@ -19,6 +19,7 @@ import org.bukkit.util.Vector;
 import pl.anaheim.anaitemy.AnaItemy;
 import pl.anaheim.anaitemy.config.ItemsConfig;
 import pl.anaheim.anaitemy.items.*;
+import pl.anaheim.anaitemy.utils.ArmorReductionHelper;
 
 import java.time.Duration;
 import java.util.*;
@@ -35,6 +36,7 @@ public class HydroTrojzabManager {
     private final Map<UUID, Long> shotCooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, Long> launchCooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, GhostArrowState> ghostArrows = new ConcurrentHashMap<>();
+    private final Map<UUID, BukkitTask> launchActionBarTasks = new ConcurrentHashMap<>();
 
     private BukkitTask cleanupTask;
     private BukkitTask ghostMonitorTask;
@@ -72,13 +74,12 @@ public class HydroTrojzabManager {
 
                     ItemStack mainHand = player.getInventory().getItemInMainHand();
 
-                    // ✅ Tylko usuwaj jeśli gracz NIE trzyma już Hydro Trójzębu
                     if (!HydroTrojzabItem.isHydroTrojzab(mainHand)) {
                         restoreGhostArrow(player);
                     }
                 }
             }
-        }.runTaskTimer(plugin, 1L, 5L); // ✅ Co 5 ticków zamiast co 1
+        }.runTaskTimer(plugin, 1L, 5L);
     }
 
     // ==================== COOLDOWNS ====================
@@ -113,16 +114,58 @@ public class HydroTrojzabManager {
     public void setLaunchCooldown(Player player) {
         long seconds = plugin.getItemsConfig().getHydroTrojzabLaunchCooldown();
         launchCooldowns.put(player.getUniqueId(), System.currentTimeMillis() + (seconds * 1000L));
+        startLaunchActionBarDisplay(player);
     }
 
     public void resetCooldowns(Player player) {
         shotCooldowns.remove(player.getUniqueId());
         launchCooldowns.remove(player.getUniqueId());
+        stopLaunchActionBarDisplay(player);
     }
+
     public void setPostResetCooldowns(Player player, int seconds) {
         long end = System.currentTimeMillis() + (seconds * 1000L);
         shotCooldowns.put(player.getUniqueId(), end);
         launchCooldowns.put(player.getUniqueId(), end);
+        startLaunchActionBarDisplay(player);
+    }
+
+    // ==================== ACTION BAR DLA LAUNCHA ====================
+
+    private void startLaunchActionBarDisplay(Player player) {
+        stopLaunchActionBarDisplay(player);
+
+        BukkitTask task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    cancel();
+                    launchActionBarTasks.remove(player.getUniqueId());
+                    plugin.getActionBarManager().removeActionBar(player, "hydrotrojzab");
+                    return;
+                }
+
+                long rem = getLaunchCooldownRemaining(player);
+                if (rem <= 0) {
+                    cancel();
+                    launchActionBarTasks.remove(player.getUniqueId());
+                    plugin.getActionBarManager().removeActionBar(player, "hydrotrojzab");
+                    return;
+                }
+
+                String format = plugin.getItemsConfig().getHydroTrojzabLaunchActionBarFormat()
+                        .replace("{time}", rem + "s");
+                plugin.getActionBarManager().setActionBar(player, "hydrotrojzab", format);
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
+
+        launchActionBarTasks.put(player.getUniqueId(), task);
+    }
+
+    private void stopLaunchActionBarDisplay(Player player) {
+        BukkitTask task = launchActionBarTasks.remove(player.getUniqueId());
+        if (task != null) task.cancel();
+        plugin.getActionBarManager().removeActionBar(player, "hydrotrojzab");
     }
 
     // ==================== GHOST ARROW ====================
@@ -156,7 +199,8 @@ public class HydroTrojzabManager {
         ItemStack original = inventory.getItem(replaceSlot);
         ItemStack ghostArrow = createGhostArrow();
         inventory.setItem(replaceSlot, ghostArrow);
-        ghostArrows.put(player.getUniqueId(), new GhostArrowState(replaceSlot, original == null ? null : original.clone()));
+        ghostArrows.put(player.getUniqueId(), new GhostArrowState(replaceSlot,
+                original == null ? null : original.clone()));
         player.updateInventory();
         return true;
     }
@@ -266,7 +310,7 @@ public class HydroTrojzabManager {
     public void sendShotCooldownSubtitle(Player player) {
         long remaining = getShotCooldownRemaining(player);
         String subtitle = plugin.getItemsConfig().getHydroTrojzabShotCooldownSubtitle()
-                .replace("{seconds_left}", String.valueOf(remaining));
+                .replace("{seconds_left}", remaining + "s");
 
         player.showTitle(Title.title(
                 Component.empty(),
@@ -307,12 +351,9 @@ public class HydroTrojzabManager {
     // ==================== ABILITY: SHOT ====================
 
     public void fireHydroTrident(Player shooter, float force) {
-        ItemsConfig config = plugin.getItemsConfig();
-
         Location eye = shooter.getEyeLocation();
         Vector direction = eye.getDirection().normalize();
 
-        // ✅ Spawn trident trochę przed graczem
         Location spawnLoc = eye.clone().add(direction.clone().multiply(1.0));
 
         Trident trident = shooter.getWorld().spawn(spawnLoc, Trident.class, t -> {
@@ -324,9 +365,6 @@ public class HydroTrojzabManager {
             t.setMetadata(META_HYDRO_TRIDENT_OWNER,
                     new FixedMetadataValue(plugin, shooter.getUniqueId().toString()));
 
-            // ✅ Velocity identyczny jak strzała z łuku
-            // force = 0.0-1.0 (jak bardzo naciągnięty łuk)
-            // Vanilla strzała z pełnego naciągu leci z prędkością ~3.0
             double speed = force * 3.0;
             t.setVelocity(direction.multiply(speed));
         });
@@ -373,16 +411,14 @@ public class HydroTrojzabManager {
 
         Player shooter = getOwner(trident);
 
-        // ✅ Piorun tylko wizualny
         world.strikeLightningEffect(impact);
         world.playSound(impact, Sound.ENTITY_LIGHTNING_BOLT_THUNDER,
                 SoundCategory.PLAYERS, 2.0f, 1.0f);
         world.spawnParticle(Particle.ELECTRIC_SPARK, impact, 40, 0.8, 1.0, 0.8, 0.3);
-        // ✅ WATER_SPLASH zamiast SPLASH (1.20.1)
         world.spawnParticle(Particle.WATER_SPLASH, impact, 30, 1.2, 0.6, 1.2, 0.05);
 
         double radius = config.getHydroTrojzabImpactRadius();
-        double damage = config.getHydroTrojzabImpactDamage();
+        double baseDamage = config.getHydroTrojzabImpactDamage();
         double kbHorizontal = config.getHydroTrojzabKnockbackHorizontal();
         double kbUp = config.getHydroTrojzabKnockbackUpward();
 
@@ -391,16 +427,17 @@ public class HydroTrojzabManager {
 
             if (isInBlockedRegion(target.getLocation())) continue;
 
-            // 4s protection
             if (plugin.getItemProtectionManager().isProtected(target, "hydro-trojzab")) {
                 continue;
             }
 
-            // Combat tag
             if (shooter != null && plugin.getCombatIntegrationManager().isEnabled()) {
                 plugin.getCombatIntegrationManager().tagPlayer(target, shooter);
                 plugin.getCombatIntegrationManager().tagPlayer(shooter, target);
             }
+
+            // ✅ Zastosuj redukcję zbroi eventówek
+            double damage = ArmorReductionHelper.applyArmorReduction(baseDamage, target);
 
             double currentHealth = target.getHealth();
             double newHealth = currentHealth - damage;
@@ -413,7 +450,6 @@ public class HydroTrojzabManager {
 
             plugin.getItemProtectionManager().applyProtection(target, "hydro-trojzab");
 
-            // Knockback
             Vector knockback = target.getLocation().toVector().subtract(impact.toVector());
             knockback.setY(0);
 
@@ -460,7 +496,6 @@ public class HydroTrojzabManager {
         player.setVelocity(direction);
         player.getWorld().playSound(player.getLocation(),
                 Sound.ITEM_TRIDENT_RIPTIDE_3, SoundCategory.PLAYERS, 1.3f, 1.0f);
-        // ✅ WATER_SPLASH zamiast SPLASH
         player.getWorld().spawnParticle(Particle.WATER_SPLASH,
                 player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.2);
 
@@ -471,6 +506,7 @@ public class HydroTrojzabManager {
 
     public void cleanupPlayer(Player player) {
         restoreGhostArrow(player);
+        stopLaunchActionBarDisplay(player);
     }
 
     public void cleanup() {
@@ -486,9 +522,14 @@ public class HydroTrojzabManager {
             }
         }
 
+        for (BukkitTask task : launchActionBarTasks.values()) {
+            task.cancel();
+        }
+
         shotCooldowns.clear();
         launchCooldowns.clear();
         ghostArrows.clear();
+        launchActionBarTasks.clear();
     }
 
     // ==================== INNER CLASS ====================
