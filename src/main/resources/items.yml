@@ -1211,7 +1211,7 @@ bombarda-maxima:
   name: '&5&lBombarda maxima'
   custom-model-data: 1
   gui-slot: 14
-  radius: 4
+  radius: 2.5
   blocked-regions:
     - spawn
     - endspawn
